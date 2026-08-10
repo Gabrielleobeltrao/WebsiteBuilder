@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+/*
+ * One restrained palette shared by the public shell and the application. Ink is near-black with a
+ * blue cast rather than pure #000, and the accent is a deep teal — neither is a framework default,
+ * which is what keeps the product from reading as a template.
+ */
+@theme {
+  --color-ink-50: #f6f7f9;
+  --color-ink-100: #eceef2;
+  --color-ink-200: #d5d9e2;
+  --color-ink-300: #b0b8c8;
+  --color-ink-400: #7d879d;
+  --color-ink-500: #5a6479;
+  --color-ink-600: #454e60;
+  --color-ink-700: #363d4b;
+  --color-ink-800: #232936;
+  --color-ink-900: #151a24;
+  --color-ink-950: #0c0f16;
+
+  --color-accent-50: #eefbf7;
+  --color-accent-100: #d4f5eb;
+  --color-accent-200: #a9ead8;
+  --color-accent-300: #71d8c0;
+  --color-accent-400: #3bbda3;
+  --color-accent-500: #1c9f88;
+  --color-accent-600: #12806f;
+  --color-accent-700: #11665a;
+  --color-accent-800: #12514a;
+  --color-accent-900: #12443e;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Inter Tight", "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-white text-ink-800 font-sans antialiased;
+  }
+
+  /* Never remove focus indication — replace it with something visible on both backgrounds. */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent-600;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility skip-link {
+  @apply sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md
+    focus:bg-ink-900 focus:px-4 focus:py-2 focus:text-white;
+}

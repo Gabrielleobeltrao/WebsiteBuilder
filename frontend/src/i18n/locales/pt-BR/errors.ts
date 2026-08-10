@@ -1,0 +1,15 @@
+export default {
+  VALIDATION_ERROR: "Algumas informações não estão válidas. Confira os campos destacados.",
+  UNAUTHENTICATED: "Você precisa entrar para continuar.",
+  FORBIDDEN: "Você não tem permissão para fazer isso.",
+  NOT_FOUND: "Não encontramos o que você procurava.",
+  REVISION_CONFLICT: "Isto foi alterado em outro lugar depois que você abriu. Recarregue para ver a versão mais recente.",
+  SLUG_TAKEN: "Este endereço já está em uso. Escolha outro.",
+  PAYLOAD_TOO_LARGE: "Este conteúdo é grande demais para salvar.",
+  RATE_LIMITED: "Tentativas demais. Espere um momento e tente de novo.",
+  UNSUPPORTED_MEDIA_TYPE: "Este tipo de arquivo não é aceito.",
+  UNKNOWN_HOST: "Este endereço não está conectado a um site publicado.",
+  SERVICE_UNAVAILABLE: "O serviço está indisponível no momento. Tente novamente em instantes.",
+  INTERNAL_ERROR: "Algo deu errado do nosso lado. Tente de novo.",
+  NETWORK_ERROR: "Não conseguimos falar com o servidor. Verifique sua conexão e tente novamente.",
+} as const;

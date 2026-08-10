@@ -31,6 +31,34 @@ npm run check:plan-skill   # fixture tests for the extraction script
 npm run check:runbook      # fails when these references drift from package.json
 ```
 
+## Run and verify recipe
+
+Starting the app: `npm install` once, then `npm run dev`. It starts three processes and they stop
+together. Ready when all three answer:
+
+| Process | Check |
+|---|---|
+| API | `curl -sf http://localhost:3000/api/v1/health` |
+| Public renderer | `curl -sf http://localhost:3001/healthz` |
+| Frontend | `curl -sf http://localhost:5173/` |
+
+No environment file is needed for the public shell; the database is reported as `not_configured`
+until `MONGODB_URI` and `MONGODB_DB_NAME` are set.
+
+Verifying a change: `npm run typecheck && npm run test && npm run build`, plus `npm run test:e2e`
+when the change touches routing, the shell, or a user journey.
+
+## Code graph
+
+```bash
+graphify . --code-only --no-viz && graphify cluster-only .   # rebuild
+graphify query "<question>"                                  # scoped subgraph
+graphify update .                                            # incremental refresh
+```
+
+`graphify-out/` is generated and git-ignored. `--code-only` avoids needing an LLM key; without one,
+community names stay as placeholders.
+
 ## Environment
 
 Copy `.env.example` to `.env` and fill it. Startup validates required variables with Zod and fails

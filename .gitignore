@@ -12,8 +12,9 @@ playwright-report/
 test-results/
 blob-report/
 .playwright/
-graphify-out/cost.json
-graphify-out/manifest.json
-graphify-out/.cache/
-graphify-out/raw/
+# The whole graph is generated. graph.json (432 KB) and graph.html (384 KB) are rewritten by every
+# structural change, so committing them would add large diffs that go stale between refreshes —
+# and a stale graph is worse than a targeted source search. Rebuild with
+# `graphify . --code-only --no-viz && graphify cluster-only .`
+graphify-out/
 .claude/settings.local.json

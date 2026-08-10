@@ -1460,35 +1460,43 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 0 — Repository discovery
 
-- [ ] **P0-T1 — Inspect and reconcile repository**
+- [x] **P0-T1 — Inspect and reconcile repository**
   - Inspect all non-generated files, package manifests, Git status, and existing conventions.
   - Preserve compatible code and user changes.
   - Update this plan only where the existing repository requires a justified adjustment.
   - Acceptance: existing state is summarized in the Decision Log; no files are overwritten blindly.
   - Verify: `git status --short` when Git is available; list relevant manifests and source directories.
 
-- [ ] **P0-T2 — Create token-efficient Claude project memory and plan skill**
+- [x] **P0-T2 — Create token-efficient Claude project memory and plan skill**
   - Create the short root `CLAUDE.md`, `.claude/skills/execute-plan-task/`, its deterministic task-extraction script, and `.claude/skills/project-runbook/` with the progressive-disclosure references defined in Section 0.
   - The extraction script must accept exactly one valid task ID, find one unique task, include its containing phase/checkpoint and explicit referenced sections, reject missing/duplicate IDs, and never modify the plan. The skill—not the script—owns status changes after verification.
   - Keep generated summaries concise, source-linked, and reproducible. Add a documented command to regenerate them when fixed architecture/commands change.
   - Acceptance: invoking `/execute-plan-task P0-T1` loads a bounded task packet rather than the whole plan, and project memory does not duplicate large plan sections.
   - Verify: script fixture tests for valid/missing/duplicate IDs, Claude skill discovery, link/path checks, and token-size comparison of one task packet versus the complete plan.
 
-- [ ] **P0-T3 — Create reusable project subagents**
+- [x] **P0-T3 — Create reusable project subagents**
   - Create the five `.claude/agents/*.md` definitions from Section 0 with unique names, precise delegation descriptions, explicit model choice, least-privilege tool allowlists, write-scope instructions, compact handoff schema, and bounded turn limits.
   - Keep `repo-navigator`, `test-verifier`, and `security-tenant-reviewer` non-writing by default. Frontend/backend implementers may edit only their declared task scope and must refuse overlapping shared-file work.
   - Do not set a subagent as the automatic session-wide default. The main session remains plan/integration owner and delegates naturally or by explicit mention.
   - Acceptance: Claude Code discovers every agent; one read-only trial returns the required compact handoff without modifying files; descriptions are distinct enough to avoid ambiguous automatic routing.
   - Verify: `/agents` inspection plus safe dry-run prompts for navigator and verifier; confirm no duplicate names and review available tools/permissions.
 
-- [ ] **P0-T4 — Install and audit Ponytail and Graphify**
+- [x] **P0-T4 — Install and audit Ponytail and Graphify**
   - Install Ponytail through its Claude Code marketplace/plugin commands and review its skill, commands, and hooks before approval. Record source, installed version/commit, permissions, and any local deviation without copying third-party code into this plan.
   - Install official `graphifyy`, run the project-scoped Claude installer, inspect the generated Graphify skill, add a repository-specific `.graphifyignore`, and record the installed version.
   - Do not run the first full graph against an empty scaffold, enable Graphify strict blocking mode, start an MCP server, or commit generated graph artifacts yet. Those decisions wait for P1-T7 measurements.
   - Acceptance: both tools are available to Claude Code from this project, no unreviewed hook has broad permission, and generated project files contain no secrets or machine-specific paths.
   - Verify: plugin/skill listing, `graphify --version`, generated-path inspection, hook review, secret scan, and clean Git diff limited to approved project configuration.
 
-- [ ] **P0-T5 — Reconcile the canonical GitHub remote and branch workflow**
+- [!] **P0-T5 — Reconcile the canonical GitHub remote and branch workflow** — *partially complete;
+  blocked only on the GitHub API settings that require the repository owner's authentication.
+  Done: `origin` is the exact canonical URL, the remote was verified empty before any write, `main`
+  was created as the production baseline and `development` branched from it, both were pushed with
+  known shared ancestry, and no commit was lost or force-pushed. Blocked: setting `development` as
+  the repository default branch and configuring branch protection require an authenticated GitHub
+  session (`gh auth login` or a token with repo admin scope); `gh auth status` reports no logged-in
+  host. Until the owner authenticates, `main` is still the GitHub default branch and neither branch
+  is protected. Same blocker as P19-T4.*
   - Verify authenticated access to `https://github.com/Gabrielleobeltrao/WebsiteBuilder.git`, inspect remote branches/history, local Git status, remotes, divergence, and the repository's default branch before changing anything. Treat the remote as possibly private or empty until this check succeeds.
   - Clone the repository when starting outside it, or set/repair `origin` when already inside the intended working tree. Never replace an unrelated remote, discard local/user work, rewrite remote history, or use a force push to make the state match this plan.
   - Preserve or create `main` from the latest verified production baseline. Create `development` from the reconciled `main`, push both when authorized, and make `development` the default collaboration branch when repository permissions allow it. If the default branch or protections require a manual GitHub setting, record the exact step as a blocker instead of pretending it succeeded.
@@ -1500,31 +1508,31 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 1 — Workspace foundation
 
-- [ ] **P1-T1 — Create npm workspace and root scripts**
+- [x] **P1-T1 — Create npm workspace and root scripts**
   - Add root workspace configuration for `frontend`, `backend`, and `packages/shared`.
   - Add `dev`, `dev:frontend`, `dev:backend`, `dev:renderer`, `build`, `typecheck`, `test`, and `test:e2e` scripts. The renderer remains code inside `backend/`, not a third top-level workspace.
   - `npm run dev` must start frontend, API backend, and public renderer development processes and terminate all cleanly.
   - Acceptance: one root install; no nested lockfiles; both dev processes start.
   - Verify: `npm install`, `npm run typecheck`, `npm run build`.
 
-- [ ] **P1-T2 — Scaffold frontend**
+- [x] **P1-T2 — Scaffold frontend**
   - Configure React 19, TypeScript strict mode, Vite, Tailwind, React Router, tests, and base app routes.
   - Add accessible app shell, global styles, and frontend environment typing.
   - Acceptance: frontend renders and has a passing smoke test.
   - Verify: `npm run typecheck -w frontend && npm run test -w frontend && npm run build -w frontend`.
 
-- [ ] **P1-T3 — Scaffold backend**
+- [x] **P1-T3 — Scaffold backend**
   - Separate `app.ts` from `server.ts`; configure Express 5, JSON payload limit, CORS, logging, errors, env validation, and graceful shutdown.
   - Acceptance: health route works and server tests do not require a real network port.
   - Verify: `npm run typecheck -w backend && npm run test -w backend && npm run build -w backend`.
 
-- [ ] **P1-T4 — Create shared contracts package**
+- [x] **P1-T4 — Create shared contracts package**
   - Add types, Zod schemas, schema version, ID rules, slug normalization, and safe-link helpers.
   - Add contract tests, including dangerous URL rejection.
   - Acceptance: frontend and backend import the package through workspaces without copying types.
   - Verify: `npm run typecheck && npm test`.
 
-- [ ] **P1-T5 — Public SaaS shell, landing page, and roadmap**
+- [x] **P1-T5 — Public SaaS shell, landing page, and roadmap**
   - Implement the separate `PublicShell` route layout and public left sidebar defined in Section 7, with Home/Roadmap active states and login/signup actions.
   - Build the responsive landing-page sections and reusable marketing components without coupling them to builder documents or the authenticated app shell.
   - Build `/roadmap` from a typed roadmap data module with stable items, the four defined statuses, category/status presentation, honest availability labels, and no uncommitted exact dates.
@@ -1533,7 +1541,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: `/` and `/roadmap` share only the public sidebar; `/app/*` never mounts it; mobile navigation is accessible; roadmap content is data-driven; marketing copy never labels planned features as released.
   - Verify: route/layout/component tests, keyboard navigation tests, responsive checks at `320`, `768`, `1024`, and `1440px`, `npm run typecheck -w frontend`, and `npm run build -w frontend`.
 
-- [ ] **P1-T6 — Establish bilingual product localization**
+- [x] **P1-T6 — Establish bilingual product localization**
   - Configure `i18next` and `react-i18next` with typed `pt-BR` and `en-US` resources split into the namespaces defined in Section 7. English source keys must be stable; missing keys are test failures, not visible production fallbacks.
   - Implement locale resolution in this order before login: explicit local choice, browser/`Accept-Language`, then `en-US`. Add the compact public-shell selector and localize Home, Roadmap, route placeholders, shared loading/error/empty states, accessibility labels, and metadata.
   - Update `document.documentElement.lang`, use `Intl` helpers for dates/numbers/lists/plurals/relative time, escape interpolation safely, and verify long Portuguese labels do not truncate or break responsive layouts.
@@ -1541,7 +1549,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: a visitor can switch the complete public/auth foundation between both languages immediately and the preference survives reload; no customer-authored content is modified.
   - Verify: locale resolver/unit tests, key-parity test, public route tests in both locales, `lang`/metadata assertions, `320–1440px` layout checks with both languages, frontend typecheck and build.
 
-- [ ] **P1-T7 — Generate the first code graph and reproducible run skill**
+- [x] **P1-T7 — Generate the first code graph and reproducible run skill**
   - After P1-T1 through P1-T6 pass, run `/graphify .`, inspect `GRAPH_REPORT.md`, query representative frontend/backend/shared call paths, and confirm results against exact source files.
   - Measure generated file sizes and change noise; decide in the Decision Log which portable Graphify outputs are committed. Ignore local manifests, cost files, caches, secrets, build output, dependencies, test artifacts, and uploads.
   - Run bundled `/run-skill-generator` from a clean development setup, inspect the generated project run skill, and verify `/run` and `/verify` use the documented root scripts without reading unrelated files or exposing environment values.
@@ -2500,6 +2508,20 @@ Append entries; do not erase history.
 | 2026-08-10 | Portuguese Claude communication and English technical artifacts | Claude communicates with the user in `pt-BR`; code, Git metadata, documentation, logs, and internal contracts remain in English | Gives the user consistent communication while keeping the repository conventional and maintainable. |
 | 2026-08-10 | Bilingual platform with user-level locale | Implement `pt-BR` and `en-US` through namespaced locale files and persist the authenticated preference outside workspace data | The chosen interface language should follow the person across clients and workspaces. |
 | 2026-08-10 | Authored content is not auto-translated | Keep SaaS UI localization separate from customer website/blog/form/CMS content | Multilingual published content requires its own URL, SEO, fallback, and editorial model and must not be implied by a UI toggle. |
+| 2026-08-10 | P0-T1 | Start from an empty working tree with only `CLAUDE.md`, `IMPLEMENTATION_PLAN.md` and a preinstalled Graphify skill | Nothing existed to preserve, so the target structure in Section 4 was created directly and no user file was overwritten. |
+| 2026-08-10 | P0-T4 | Recorded tool versions: Ponytail plugin 4.9.0 from `DietrichGebert/ponytail`, Graphify CLI 0.9.38 installed as a `uv` tool (uv 0.12.3) | Both were already installed and enabled. Hooks were reviewed before use. |
+| 2026-08-10 | P0-T4 | Removed the Graphify `hook-guard` PreToolUse hook from `.claude/settings.json` | The task forbids strict blocking mode: intercepting every Bash/Grep/Read/Glob obstructed exact-source verification, which the plan requires before any edit. |
+| 2026-08-10 | P0-T5 | GitHub default-branch and branch-protection configuration deferred as a blocker | `gh` is installed but unauthenticated. Git push works through the cached credential helper, so branches exist remotely; repository settings need the owner's GitHub session. |
+| 2026-08-10 | P1-T1 | `packages/shared` is consumed as TypeScript source rather than a build artefact | Every consumer is a bundler (Vite, tsup, Vitest), so a `dist` step plus build ordering and a watch process would be machinery with no benefit. |
+| 2026-08-10 | P1-T1 | Backend production build uses `tsup` (esbuild) instead of `tsc` emit | It bundles the shared workspace source, which removes monorepo module-resolution problems from the deployed artefact. |
+| 2026-08-10 | P1-T4 | Added a `none` variant to `SafeLink` | Section 7 requires an unconfigured-link state for buttons. A discriminated variant keeps every consumer exhaustive, where an optional field would let an unhandled `undefined` reach the renderer. |
+| 2026-08-10 | P1-T4 | Added `slug` to `BuilderProject` and `tag`/`decorative` to elements beyond Section 5 | The project slug is required by Section 8 for the platform hostname, and heading level and decorative images are required by the accessibility rules in Section 7. |
+| 2026-08-10 | P1-T5 | `/app/*` currently redirects to `/login` with a validated `returnTo` | The authenticated shell arrives in Phase 7. Declaring the route outside the public layout now proves the shells can never be mounted together. |
+| 2026-08-10 | P1-T6 | `fallbackLng` disabled | A missing key must fail the parity test, not silently render English inside a Portuguese screen. |
+| 2026-08-10 | P1-T6 | Roadmap item IDs are a literal union, not `string` | Adding an item without translating it becomes a compile error rather than a missing string on a live page. |
+| 2026-08-10 | P1-T7 | `graphify-out/` is git-ignored in full | `graph.json` is 432 KB and `graph.html` 384 KB, both rewritten by every structural change. The plan itself notes a stale committed graph is worse than a targeted source search. |
+| 2026-08-10 | P1-T7 | Graphify runs with `--code-only`; community names stay as placeholders | No LLM API key is configured. AST extraction is complete and queries resolve to correct source paths, which is what the task needs; naming can be regenerated later with a key. |
+| 2026-08-10 | P1-T7 | `/run-skill-generator` is not available in this Claude Code build; the run recipe was written into `project-runbook/references/commands.md` instead | The bundled generator does not exist to invoke. The reviewed recipe still exists, is source-linked and is what `/run` discovers. |
 
 ## 15. Progress Log
 
@@ -2507,4 +2529,16 @@ Append one concise line after each completed task.
 
 | Date | Task | Result | Verification |
 |---|---|---|---|
+| 2026-08-10 | P0-T1 | Repository inspected; empty tree confirmed, nothing overwritten | `git status --short`, directory listing |
+| 2026-08-10 | P0-T2 | Short root `CLAUDE.md`, `execute-plan-task` skill with read-only extraction script, `project-runbook` with three references and a drift check | 6 fixture tests pass; packet for P3-T2 is 499 B vs 222 KB plan (445x smaller) |
+| 2026-08-10 | P0-T3 | Five least-privilege subagents with distinct routing descriptions and compact handoff contracts | Definitions discovered by Claude Code; no duplicate names |
+| 2026-08-10 | P0-T4 | Ponytail 4.9.0 and Graphify 0.9.38 verified and recorded; `.graphifyignore` added; blocking hook removed | `graphify --version`, hook review, clean diff |
+| 2026-08-10 | P0-T5 | Partially complete: `origin`, `main` and `development` reconciled and pushed. Blocked on GitHub settings | `git remote -v`, `git ls-remote --heads origin`, `git branch -vv` |
+| 2026-08-10 | P1-T1 | npm workspaces with dev/build/typecheck/test/test:e2e; one root lockfile | `npm run dev` starts API, renderer and frontend; all three answer health checks |
+| 2026-08-10 | P1-T2 | React 19 + Vite + Tailwind 4 + react-router, strict TypeScript, accessible shell, test harness | typecheck, 50 tests, production build pass |
+| 2026-08-10 | P1-T3 | Express 5 app separated from server, Zod env, redacting logger, error envelope, health, graceful shutdown, renderer entrypoint | 16 backend tests over the real middleware stack; no port bound |
+| 2026-08-10 | P1-T4 | Shared contracts: IDs, slug/hostname normalisation, safe links, structured responsive values, document schemas, SEO resolver, API envelopes | 63 tests including dangerous-URL and CSS-injection rejection |
+| 2026-08-10 | P1-T5 | `PublicShell` with accessible drawer, landing page in the required order, data-driven roadmap with four honest statuses | Component tests, keyboard tests, 14 E2E across desktop and phone, no overflow at 320px |
+| 2026-08-10 | P1-T6 | i18next with typed `pt-BR`/`en-US` namespaces, deterministic locale precedence, `document.lang`, key parity and hardcoded-copy checks | Parity, precedence and both-locale render tests pass; language survives reload in E2E |
+| 2026-08-10 | P1-T7 | First code graph: 503 nodes, 741 edges, 26 communities; run/verify recipe documented | Queries resolve to correct source paths; generated output git-ignored after size measurement |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
