@@ -2001,7 +2001,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: workspace/client/site dashboards show correctly scoped active/upcoming campaigns.
   - Verify: CRUD, relationship, aggregation, and UI tests.
 
-- [ ] **P13-T5 — Workspace team, invitations, and roles**
+- [x] **P13-T5 — Workspace team, invitations, and roles**
   - Use Better Auth Organization membership/invitation capabilities and application permission mapping for owner/admin/designer/editor/viewer.
   - Add member list, invite, revoke/cancel, role change, leave workspace, and protected ownership-transfer/deletion flows.
   - Acceptance: role permissions are enforced on the server and the final owner cannot accidentally remove the only recoverable ownership path.
@@ -2615,4 +2615,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P13-T1 | Workspace dashboard aggregates computed in the database, never by loading builder documents | 10 tests: page totals summed with $size, media storage summed across variants, switching workspace changes every number, nothing counted from another tenant |
 | 2026-08-10 | P13-T7 | Analytics reported as an explicit not-connected state rather than a zero | Asserted that the payload carries no visit field at all, so a fabricated zero cannot be mistaken for measured traffic |
 | 2026-08-10 | P13-T4 | Campaign summaries with client and site scoping, date validation and an active/upcoming view | 10 tests: a campaign cannot end before it starts, a performance field is rejected outright, filters and the dashboard view never cross workspaces |
+| 2026-08-10 | P13-T5 | Workspace members, roles and invitations with last-owner protection and no privilege escalation | 16 tests: the only owner cannot be demoted or removed, an admin cannot promote to owner or invite one, an expired or revoked invitation cannot be accepted, acceptance is once only |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
