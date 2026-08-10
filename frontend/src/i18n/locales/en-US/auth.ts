@@ -1,0 +1,16 @@
+export default {
+  email: "Email",
+  password: "Password",
+  passwordHint: "At least 12 characters.",
+  name: "Your name",
+  submitting: "Please wait…",
+  failed: "That email and password did not match an account.",
+  needAccount: "Need an account? Create one",
+  haveAccount: "Already have an account? Log in",
+  signOut: "Sign out",
+  workspace: "Workspace",
+  settings: "Settings",
+  language: "Language",
+  languageSaved: "Language saved",
+  languageFailed: "We could not save your language. It still changed on this device.",
+} as const;

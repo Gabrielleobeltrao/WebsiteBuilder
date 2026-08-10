@@ -1,0 +1,16 @@
+export default {
+  email: "E-mail",
+  password: "Senha",
+  passwordHint: "No mínimo 12 caracteres.",
+  name: "Seu nome",
+  submitting: "Aguarde…",
+  failed: "Este e-mail e senha não correspondem a nenhuma conta.",
+  needAccount: "Não tem conta? Crie uma",
+  haveAccount: "Já tem conta? Entre",
+  signOut: "Sair",
+  workspace: "Espaço de trabalho",
+  settings: "Configurações",
+  language: "Idioma",
+  languageSaved: "Idioma salvo",
+  languageFailed: "Não conseguimos salvar seu idioma. Ele mudou apenas neste dispositivo.",
+} as const;

@@ -1,10 +1,12 @@
-import { Navigate, Outlet, Route, Routes, useLocation, useParams } from "react-router";
+import { Navigate, Route, Routes, useLocation, useParams } from "react-router";
 
+import { AuthenticatedAppShell } from "@/app/shells/AuthenticatedAppShell";
 import { PublicShell } from "@/app/shells/PublicShell";
+import { AuthPage } from "@/features/auth/AuthPage";
+import { SettingsPage } from "@/features/auth/SettingsPage";
 import { EditorRoute } from "@/features/editor/EditorRoute";
 import { PreviewRoute } from "@/features/preview/PreviewRoute";
 import { SitesPage } from "@/features/projects/SitesPage";
-import { AuthPlaceholderPage } from "@/features/public/AuthPlaceholderPage";
 import { LandingPage } from "@/features/public/LandingPage";
 import { NotFoundPage } from "@/features/public/NotFoundPage";
 import { RoadmapPage } from "@/features/public/RoadmapPage";
@@ -13,22 +15,14 @@ import { safeReturnPath } from "@/lib/return-path";
 /**
  * Route families are `/`, `/roadmap`, `/login`, `/signup`, `/app/*` and `/api/*` on one origin.
  *
- * `/app/*` is declared outside the public layout so the two shells can never be mounted together.
- * The permanent authenticated sidebar arrives in Phase 11; until then the area is a bare outlet.
+ * `PublicShell` and `AuthenticatedAppShell` are sibling layout routes, never nested and never
+ * conditional inside one another, so only one left navigation can be mounted at a time. Preview
+ * mounts neither.
  */
 function RequireAuthenticatedArea() {
   const location = useLocation();
   const returnTo = safeReturnPath(`${location.pathname}${location.search}`);
   return <Navigate to={`/login?returnTo=${encodeURIComponent(returnTo)}`} replace />;
-}
-
-/**
- * Preview resolves its workspace from the same development seed the editor uses. Phase 7 replaces
- * it with the authenticated session's active workspace.
- */
-function PreviewRouteWithWorkspace() {
-  const workspaceId = import.meta.env.VITE_DEV_WORKSPACE ?? "";
-  return <PreviewRoute workspaceId={workspaceId} />;
 }
 
 function SitesRoute() {
@@ -37,26 +31,45 @@ function SitesRoute() {
   return <SitesPage workspaceId={workspaceId ?? ""} />;
 }
 
-export function AppRoutes({ authenticated = false }: { authenticated?: boolean } = {}) {
+function PreviewRouteWithWorkspace({ workspaceId }: { workspaceId: string }) {
+  return <PreviewRoute workspaceId={workspaceId} />;
+}
+
+export function AppRoutes({
+  authenticated = false,
+  previewWorkspaceId = "",
+}: { authenticated?: boolean; previewWorkspaceId?: string } = {}) {
   return (
     <Routes>
-      <Route path="app/:workspaceId" element={authenticated ? <Outlet /> : <RequireAuthenticatedArea />}>
-        <Route index element={<Navigate to="sites" replace />} />
-        <Route path="sites" element={<SitesRoute />} />
-        <Route path="sites/:projectId/builder" element={<EditorRoute />} />
-        <Route path="sites/:projectId/builder/:pageId" element={<EditorRoute />} />
-      </Route>
+      {/* The builder owns the full viewport, so it is declared before the shell's nested routes. */}
+      {authenticated && (
+        <>
+          <Route path="app/:workspaceId/sites/:projectId/builder" element={<EditorRoute />} />
+          <Route path="app/:workspaceId/sites/:projectId/builder/:pageId" element={<EditorRoute />} />
+        </>
+      )}
+
+      {authenticated ? (
+        <Route path="app/:workspaceId" element={<AuthenticatedAppShell />}>
+          <Route index element={<Navigate to="sites" replace />} />
+          <Route path="sites" element={<SitesRoute />} />
+          <Route path="settings" element={<SettingsPage />} />
+        </Route>
+      ) : (
+        <Route path="app/:workspaceId" element={<RequireAuthenticatedArea />} />
+      )}
+
       <Route path="app/*" element={<RequireAuthenticatedArea />} />
 
       {/* Preview mounts neither shell: it is a clean rendering of the saved document. */}
-      <Route path="preview/:projectId/*" element={<PreviewRouteWithWorkspace />} />
-      <Route path="preview/:projectId" element={<PreviewRouteWithWorkspace />} />
+      <Route path="preview/:projectId/*" element={<PreviewRouteWithWorkspace workspaceId={previewWorkspaceId} />} />
+      <Route path="preview/:projectId" element={<PreviewRouteWithWorkspace workspaceId={previewWorkspaceId} />} />
 
       <Route element={<PublicShell authenticated={authenticated} />}>
         <Route index element={<LandingPage />} />
         <Route path="roadmap" element={<RoadmapPage />} />
-        <Route path="login" element={<AuthPlaceholderPage mode="login" />} />
-        <Route path="signup" element={<AuthPlaceholderPage mode="signup" />} />
+        <Route path="login" element={<AuthPage mode="login" />} />
+        <Route path="signup" element={<AuthPage mode="signup" />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

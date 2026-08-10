@@ -1704,32 +1704,32 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 7 — Authentication, workspaces, and tenant authorization
 
-- [ ] **P7-T1 — Configure Better Auth**
+- [x] **P7-T1 — Configure Better Auth**
   - Implement email/password signup, login, logout, session retrieval, MongoDB adapter, Organization plugin, environment secrets, and trusted origins.
   - Add frontend auth client and protected-route handling.
   - Acceptance: a user can register, sign in, refresh the browser, retain the session, and sign out.
   - Verify: auth API/integration tests and frontend route tests.
 
-- [ ] **P7-T2 — Personal workspace bootstrap and switching**
+- [x] **P7-T2 — Personal workspace bootstrap and switching**
   - Create exactly one personal workspace for every new user, make it active, and implement authorized workspace listing/switching.
   - Make bootstrap idempotent so retries cannot create duplicate personal workspaces.
   - Acceptance: a self-service user can begin creating sites immediately without understanding organizations.
   - Verify: signup/bootstrap/retry/switch tests.
 
-- [ ] **P7-T3 — Enforce workspace authorization**
+- [x] **P7-T3 — Enforce workspace authorization**
   - Require authentication for all business routes, resolve membership/role server-side, and scope every repository operation by verified `workspaceId` plus nested resource IDs.
   - Define permission checks for owner, admin, designer, editor, and viewer; do not trust client-supplied roles or active workspace alone.
   - Acceptance: users cannot list, load, preview, edit, upload, or delete resources belonging to workspaces where they lack permission.
   - Verify: multi-workspace, two-user, role, ID-guessing, and nested-resource authorization tests.
 
-- [ ] **P7-T4 — Authenticated workspace experience**
+- [x] **P7-T4 — Authenticated workspace experience**
   - Add signup/login pages, validation, pending/error states, logout, safe redirect-back behavior, and workspace switcher.
   - Connect the public shell's login/signup actions to Better Auth. After login/signup, replace the public shell with the authenticated shell and route to the validated return path or workspace dashboard.
   - When a signed-in user views Home or Roadmap, show `Open dashboard` instead of the primary signup CTA without hiding the public content.
   - Acceptance: unauthenticated users reach auth; authenticated users see only workspaces/sites allowed by membership.
   - Verify: component and E2E auth tests.
 
-- [ ] **P7-T5 — Persist user language preference and localize the authenticated platform**
+- [x] **P7-T5 — Persist user language preference and localize the authenticated platform**
   - Implement the application-owned `userPreferences` repository and authenticated `GET/PUT /api/v1/me/preferences` endpoints with the `SupportedAppLocale` allowlist. The record is keyed by Better Auth user ID and is never workspace-scoped or accepted for another user ID from the request body.
   - Add `Settings -> Language` with `Português (Brasil)` and `English (United States)`. Switching updates the interface immediately and persists to the backend; workspace switching, reload, logout/login, and a second authenticated device must resolve the same saved preference.
   - On authentication, an existing server preference is authoritative. For a first-time user with no preference record, seed the explicit pre-auth local choice when present, otherwise the resolved browser locale, then persist it idempotently. Never overwrite a saved preference merely because browser language changed.
@@ -2568,4 +2568,9 @@ Append one concise line after each completed task.
 | 2026-08-10 | P6-T1 | `/preview/:projectId/*` resolves the homepage, trailing slugs and a project-scoped not-found view | 10 preview tests including an unknown slug and a localized load failure |
 | 2026-08-10 | P6-T2 | Preview mounts the shared renderer only: no editor chrome, hidden content excluded, internal links stay inside the preview | Asserted absence of canvas, panel and Save; every preview request is a GET |
 | 2026-08-10 | P6-T3 | Preview Desktop and Preview Mobile in the builder top bar and inside preview, using one renderer and one document | Both viewports render the same document; the active one is announced through aria-pressed |
+| 2026-08-10 | P7-T1 | Better Auth email/password with the MongoDB adapter, Organization plugin, secure cookies and trusted origins | Auth mounted before the JSON parser so it receives the raw body; 12-character minimum enforced; production refuses to start without a 32-byte secret |
+| 2026-08-10 | P7-T2 | Idempotent personal workspace bootstrap with owner membership and authorized listing | A repeated bootstrap creates no second workspace; listing returns only workspaces the user belongs to |
+| 2026-08-10 | P7-T3 | Server-side authorization: session, then membership read from the database, then the role matrix | 14 adversarial tests: cross-tenant read/write/delete blocked, role applied per workspace, revoked membership immediate, forged workspace id in body ignored |
+| 2026-08-10 | P7-T4 | Real login and signup, `AuthenticatedAppShell` as a sibling layout, workspace switcher, sign out, safe return path | Failed sign-in shows one localized message and never the provider text, so an attempt cannot enumerate accounts |
+| 2026-08-10 | P7-T5 | `GET/PUT /me/preferences` keyed by the session user, `Settings -> Language`, and account-first locale precedence | A saved account preference wins; only an account with none is seeded; a failed save keeps the local change and says so |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
