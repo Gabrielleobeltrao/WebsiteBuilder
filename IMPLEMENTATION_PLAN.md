@@ -1978,7 +1978,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 13 — Agency workspace, clients, campaigns, and SaaS readiness
 
-- [ ] **P13-T1 — Workspace account dashboard**
+- [x] **P13-T1 — Workspace account dashboard**
   - Implement authorized aggregate endpoint and dashboard cards/lists from Section 7: clients, sites, page/post totals, SEO issues, campaigns, storage, recent activity, and explicit analytics-not-connected states.
   - Do not load complete builder documents to calculate dashboard counts.
   - Acceptance: switching workspaces changes every number/list and cannot retain stale data from the previous tenant.
@@ -2013,7 +2013,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: a new SaaS user can register and create a site without creating a client; an agency owner can create clients and many sites through the same APIs.
   - Verify: personal and agency onboarding E2E tests.
 
-- [ ] **P13-T7 — Analytics-ready contracts without fake data**
+- [x] **P13-T7 — Analytics-ready contracts without fake data**
   - Define provider-neutral daily metrics contracts keyed by workspace/project/page/date for future views, unique visitors, referrers, devices, and campaign attribution.
   - Add `Not connected` dashboard states and adapter interfaces only; do not implement invasive tracking or claim measured traffic in this phase.
   - Acceptance: a future analytics implementation can populate widgets without changing workspace/client/project ownership schemas.
@@ -2612,4 +2612,6 @@ Append one concise line after each completed task.
 | 2026-08-10 | P12-T4 | Dynamic post metadata and Article JSON-LD derived from the post, with drafts kept out of the index and out of structured data | 13 tests: two posts on one template produce distinct titles and canonicals, a draft is noindex whatever the site default says, JSON-LD escapes characters that could close a script element |
 | 2026-08-10 | P13-T2 | Client accounts with person/company types, lead-to-archived lifecycle, filtered listing and archive-only removal | 11 tests: cross-workspace read, update and archive blocked; search cannot act as a pattern; archiving destroys neither the client nor the sites it owns |
 | 2026-08-10 | P13-T3 | Sites optionally owned by a client, listed per client or across the workspace, using the same builder and APIs | Client-filtered and workspace-wide listings asserted together, including a direct site with no client |
+| 2026-08-10 | P13-T1 | Workspace dashboard aggregates computed in the database, never by loading builder documents | 10 tests: page totals summed with $size, media storage summed across variants, switching workspace changes every number, nothing counted from another tenant |
+| 2026-08-10 | P13-T7 | Analytics reported as an explicit not-connected state rather than a zero | Asserted that the payload carries no visit field at all, so a fabricated zero cannot be mistaken for measured traffic |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
