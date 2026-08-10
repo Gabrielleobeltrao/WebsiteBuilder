@@ -1913,7 +1913,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: adding a published post automatically appears according to the configured query without editing the index layout.
   - Verify: collection query, card renderer, pagination, responsive, and empty-state tests.
 
-- [ ] **P11-T9 — Template draft/publish lifecycle and impact report**
+- [x] **P11-T9 — Template draft/publish lifecycle and impact report**
   - Keep draft and published template documents/versions separate; preview draft with selectable sample posts.
   - Detect added required fields, removed fields, type changes, orphaned values, and affected published posts before template publication.
   - Block unsafe publication until required values/fallbacks are resolved; retain removed field data for recovery.
@@ -2598,4 +2598,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P11-T1 | Site dashboard with always-present core navigation, usage-driven optional module entries and a persistent status panel | 9 tests: an untouched site shows no optional module, a module appears only when the server says it is in use, archived stays hidden, setup badges surface blockers |
 | 2026-08-10 | P11-T11 | `SiteFeatureState` lifecycle, server-side reconciler and `GET /projects/:projectId/status` consumed by navigation | 30 tests: lifecycle derived not asserted, stale stored projections recomputed, unused modules never block publication, archived data stays reachable |
 | 2026-08-10 | P11-T2 | Navigation menu contract and renderer: id-based internal destinations, one submenu level, configurable collapse width and accessible drawer | 21 tests: a slug change does not break the menu, a broken entry stays visible as plain text, dangerous destinations never produce an href, current page announced, disclosure carries aria-expanded and aria-controls |
+| 2026-08-10 | P11-T9 | Blog template draft/published lifecycle with a field-compatibility impact report that blocks only unsafe publications | 14 tests: editing a draft leaves the live document byte-identical, a newly required field blocks and names the exact posts, an optional field never blocks, a refused publication reaches nothing live |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
