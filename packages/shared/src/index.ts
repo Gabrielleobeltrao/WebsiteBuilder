@@ -15,6 +15,7 @@ export * from "./resolve";
 export * from "./redirects";
 export * from "./responsive";
 export * from "./schema-version";
+export * from "./search";
 export * from "./seo";
 export * from "./seo-blog";
 export * from "./seo-resolve";

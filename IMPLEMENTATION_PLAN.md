@@ -2101,7 +2101,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: old links resolve to the intended current content and invalid rules cannot make the site unreachable.
   - Verify: history, collision, loop/chain, normalization, authorization, and routing tests.
 
-- [ ] **P16-T3 — Internal site search**
+- [x] **P16-T3 — Internal site search**
   - Implement an opt-in bounded text index/query abstraction for public pages, published posts, and published CMS items using MongoDB-supported text search for this phase; keep the interface replaceable without adding Atlas Vector Search.
   - Exclude drafts, disabled/private/noindex content; add a Search input element and bind the editable search-results system template.
   - Acceptance: visitor queries return safe, relevant, paginated internal results with correct empty state and never reveal nonpublic content.
@@ -2625,4 +2625,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P14-T4 | Provider-neutral notification adapter with a development sink, plus safe CSV export | 11 tests: a provider failure never surfaces because the submission is already stored, the sink contacts nothing, headers use current labels while values resolve by field id, a submitted formula is neutralised |
 | 2026-08-10 | P15-T1 | CMS collection and item contracts with immutable field ids, typed validation, project-scoped references and a schema-change impact report | 17 tests: a wrong-typed value is refused rather than coerced, undeclared values are ignored, a reference outside the project is refused, only a newly required field blocks a schema change |
 | 2026-08-10 | P16-T2 | Slug-history redirects with path normalisation, loop and chain detection, reserved paths and chain flattening | 20 tests: anything that could leave the origin is refused, a duplicate source is caught however it was written, a cycle is detected rather than followed, chains are counted the way a visitor experiences them |
+| 2026-08-10 | P16-T3 | Bounded internal search that excludes drafts and noindex content at index time, with accent folding, explainable ranking and pagination | 15 tests: a draft's text is absent from the index rather than filtered from results, a one-character query returns nothing, results expose no internal field |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
