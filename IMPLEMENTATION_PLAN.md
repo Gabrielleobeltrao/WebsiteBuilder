@@ -1870,7 +1870,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: navigating to the builder never replaces or duplicates the permanent left navigation.
   - Verify: route, layout, responsive drawer, focus, and navigation tests.
 
-- [ ] **P11-T2 — Navigation/menu builder element**
+- [x] **P11-T2 — Navigation/menu builder element**
   - Add a navigation element that references page IDs, blog index, or safe external links; support reorder, nested submenu, styles, active state, and mobile hamburger behavior.
   - Internal destinations must survive slug changes because bindings use IDs.
   - Acceptance: a shared header can render one responsive menu across every page and include the optional blog link.
@@ -2597,4 +2597,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P11-T11a | Typed `SiteFeatureState` lifecycle reconciler derived only from saved records and stamped with its source revision | 20 tests: a caller cannot assert a lifecycle, an incomplete used module stays visible, an unused one never blocks publication, archived data stays reachable, staleness detectable |
 | 2026-08-10 | P11-T1 | Site dashboard with always-present core navigation, usage-driven optional module entries and a persistent status panel | 9 tests: an untouched site shows no optional module, a module appears only when the server says it is in use, archived stays hidden, setup badges surface blockers |
 | 2026-08-10 | P11-T11 | `SiteFeatureState` lifecycle, server-side reconciler and `GET /projects/:projectId/status` consumed by navigation | 30 tests: lifecycle derived not asserted, stale stored projections recomputed, unused modules never block publication, archived data stays reachable |
+| 2026-08-10 | P11-T2 | Navigation menu contract and renderer: id-based internal destinations, one submenu level, configurable collapse width and accessible drawer | 21 tests: a slug change does not break the menu, a broken entry stays visible as plain text, dangerous destinations never produce an href, current page announced, disclosure carries aria-expanded and aria-controls |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
