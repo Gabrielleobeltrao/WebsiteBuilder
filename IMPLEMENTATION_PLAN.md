@@ -1847,7 +1847,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: every stored usable image variant is `image/webp`; only validated raster images owned by the current user can be uploaded/read/deleted; corrupted/oversized/decompression-bomb inputs fail safely.
   - Verify: upload security, orientation, transparency, metadata stripping, variant dimensions, no-upscale, atomic failure cleanup, and API tests.
 
-- [ ] **P10-T2 — Media library UI**
+- [x] **P10-T2 — Media library UI**
   - Add upload, list, search, select, preview, reuse, delete, progress, empty, and error states inside the right panel.
   - Show optimized dimensions/file sizes and allow a default alt description. Renderer selects responsive variants with `srcset`/`sizes` and explicit dimensions.
   - Acceptance: uploaded media can be reused in multiple image elements without duplicate upload and public rendering never uses the raw source upload.
@@ -2588,4 +2588,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P9-T9 | Desktop authoring gate and preview-only shell for touch-first and narrow viewports | Gate combines viewport width with pointer precision, mounts no canvas, inspector or autosave, and preserves the unsaved document when a window narrows |
 | 2026-08-10 | P9-T1b | Continuous canvas width control with presets, slider and numeric entry driving the shared resolver | 9 tests: intermediate widths reachable, range clamped, width changes never touch the document, overrides apply only where their breakpoint covers |
 | 2026-08-10 | P10-T1 | Secure upload pipeline: byte sniffing, autorotation before metadata stripping, responsive WebP variants, atomic storage and workspace-scoped streaming | 37 tests: SVG and corrupt files rejected, orientation applied, transparency kept, no upscaling, partial-failure cleanup leaves nothing behind, cross-tenant read/stream/delete blocked |
+| 2026-08-10 | P10-T2 | Reusable media library with upload, search, select, delete, responsive thumbnails and full state coverage | 12 tests: thumbnails request the smallest variant and offer srcset, explicit dimensions prevent layout shift, rejected and oversized uploads explained distinctly, deletion confirmed before any request |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

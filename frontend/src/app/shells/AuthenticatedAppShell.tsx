@@ -79,6 +79,19 @@ export function AuthenticatedAppShell() {
             </li>
             <li>
               <NavLink
+                to={`/app/${workspaceId}/media`}
+                className={({ isActive }) =>
+                  [
+                    "block rounded-md px-3 py-2 text-sm font-medium",
+                    isActive ? "bg-ink-100 text-ink-900" : "text-ink-600 hover:bg-ink-50",
+                  ].join(" ")
+                }
+              >
+                {t("dashboard:media.title")}
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
                 to={`/app/${workspaceId}/settings`}
                 className={({ isActive }) =>
                   [

@@ -5,6 +5,7 @@ import { PublicShell } from "@/app/shells/PublicShell";
 import { AuthPage } from "@/features/auth/AuthPage";
 import { SettingsPage } from "@/features/auth/SettingsPage";
 import { EditorRoute } from "@/features/editor/EditorRoute";
+import { MediaRoute } from "@/features/media/MediaRoute";
 import { PreviewRoute } from "@/features/preview/PreviewRoute";
 import { SitesPage } from "@/features/projects/SitesPage";
 import { LandingPage } from "@/features/public/LandingPage";
@@ -53,6 +54,7 @@ export function AppRoutes({
         <Route path="app/:workspaceId" element={<AuthenticatedAppShell />}>
           <Route index element={<Navigate to="sites" replace />} />
           <Route path="sites" element={<SitesRoute />} />
+          <Route path="media" element={<MediaRoute />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       ) : (

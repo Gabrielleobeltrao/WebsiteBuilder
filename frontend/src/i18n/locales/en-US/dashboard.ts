@@ -31,4 +31,30 @@ export default {
     },
     saving: "Saving…",
   },
+
+  "media": {
+    "title": "Media",
+    "description": "Images available to every site in this workspace.",
+    "upload": "Upload image",
+    "uploading": "Uploading…",
+    "select": "Use this image",
+    "remove": "Delete",
+    "removeTitle": "Delete this image?",
+    "removeWarning": "Any element still using it will show a placeholder. This cannot be undone.",
+    "confirmRemove": "Delete image",
+    "altLabel": "Default description",
+    "dimensions": "{{width}} x {{height}}",
+    "variants_one": "{{count}} size",
+    "variants_other": "{{count}} sizes",
+    "empty": {
+      "title": "No images yet",
+      "description": "Upload one to reuse it across your pages."
+    },
+    "loading": "Loading media…",
+    "error": "We could not load your media",
+    "rejected": "That file is not a supported image. Use JPEG, PNG or WebP.",
+    "tooLarge": "That image is too large. The limit is 12 MB.",
+    "search": "Search by filename",
+    "noMatches": "No images match that search."
+  },
 } as const;

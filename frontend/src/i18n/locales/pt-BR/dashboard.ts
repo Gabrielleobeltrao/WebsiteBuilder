@@ -31,4 +31,30 @@ export default {
     },
     saving: "Salvando…",
   },
+
+  "media": {
+    "title": "Mídia",
+    "description": "Imagens disponíveis para todos os sites deste espaço de trabalho.",
+    "upload": "Enviar imagem",
+    "uploading": "Enviando…",
+    "select": "Usar esta imagem",
+    "remove": "Excluir",
+    "removeTitle": "Excluir esta imagem?",
+    "removeWarning": "Qualquer elemento que ainda a use mostrará um espaço reservado. Não é possível desfazer.",
+    "confirmRemove": "Excluir imagem",
+    "altLabel": "Descrição padrão",
+    "dimensions": "{{width}} x {{height}}",
+    "variants_one": "{{count}} tamanho",
+    "variants_other": "{{count}} tamanhos",
+    "empty": {
+      "title": "Nenhuma imagem ainda",
+      "description": "Envie uma para reutilizar em suas páginas."
+    },
+    "loading": "Carregando mídia…",
+    "error": "Não conseguimos carregar sua mídia",
+    "rejected": "Este arquivo não é uma imagem aceita. Use JPEG, PNG ou WebP.",
+    "tooLarge": "Esta imagem é grande demais. O limite é 12 MB.",
+    "search": "Buscar por nome do arquivo",
+    "noMatches": "Nenhuma imagem corresponde a essa busca."
+  },
 } as const;
