@@ -64,4 +64,10 @@ export default {
       quote: "Quote",
     },
   },
+
+  "preview": {
+    "missingField": "This field no longer exists",
+    "sampleLabel": "Previewing with",
+    "noSample": "No post to preview yet"
+  },
 } as const;

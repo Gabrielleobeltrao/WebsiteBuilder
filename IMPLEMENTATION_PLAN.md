@@ -1920,7 +1920,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: editing a template does not change the live blog until explicit publish, and publishing intentionally updates all existing/future posts.
   - Verify: compatibility, versioning, rollback-safe failure, and impact-report tests.
 
-- [ ] **P11-T10 — Public blog rendering and SEO basics**
+- [x] **P11-T10 — Public blog rendering and SEO basics**
   - Resolve blog index and `${basePath}/:slug` using only published templates/posts, shared header/footer, menu, media, and responsive renderer.
   - Render semantic headings, canonical path data, title/description metadata, publication date, alt text, and article not-found behavior.
   - Acceptance: public article layout changes globally only when the article template is published.
@@ -2600,4 +2600,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P11-T2 | Navigation menu contract and renderer: id-based internal destinations, one submenu level, configurable collapse width and accessible drawer | 21 tests: a slug change does not break the menu, a broken entry stays visible as plain text, dangerous destinations never produce an href, current page announced, disclosure carries aria-expanded and aria-controls |
 | 2026-08-10 | P11-T9 | Blog template draft/published lifecycle with a field-compatibility impact report that blocks only unsafe publications | 14 tests: editing a draft leaves the live document byte-identical, a newly required field blocks and names the exact posts, an optional field never blocks, a refused publication reaches nothing live |
 | 2026-08-10 | P11-T7a | Dynamic binding resolver shared by the article template builder, preview and public rendering | 14 tests: a removed field reports missing rather than rendering blank, a label rename keeps resolving, duplication either reuses a binding or forks a new field, two slots on one field ask the author once |
+| 2026-08-10 | P11-T10 | Public post rendering through the published template, with rich text walked into React elements rather than injected as HTML | 12 tests: markup inside text renders as literal characters, an unknown node emits its children not itself, a removed binding is flagged, empty values leave no gap, one article landmark |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

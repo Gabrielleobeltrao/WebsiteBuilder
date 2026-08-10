@@ -64,4 +64,10 @@ export default {
       quote: "Citação",
     },
   },
+
+  "preview": {
+    "missingField": "Este campo não existe mais",
+    "sampleLabel": "Pré-visualizando com",
+    "noSample": "Nenhum post para pré-visualizar ainda"
+  },
 } as const;
