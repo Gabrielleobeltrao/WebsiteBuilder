@@ -1,9 +1,13 @@
+import { connectDatabase } from "./db/client";
+import { COLLECTIONS } from "./db/indexes";
 import { EnvironmentError, loadEnv } from "./config/env";
 import { createLogger } from "./config/logger";
 import { installGracefulShutdown } from "./lifecycle";
+import { ensurePublishingIndexes, PublishingRepository } from "./modules/publishing/repository";
 import { createRendererApp } from "./renderer/app";
+import { SiteResolver } from "./renderer/resolver";
 
-function start(): void {
+async function start(): Promise<void> {
   let env;
   try {
     env = loadEnv();
@@ -16,7 +20,22 @@ function start(): void {
   }
 
   const logger = createLogger(env).child({ service: "public-renderer" });
-  const app = createRendererApp({ env, logger });
+
+  // Without a database there is nothing to serve, but health must still answer so the platform can
+  // report the process as unhealthy rather than as missing.
+  let resolver: SiteResolver | undefined;
+  if (env.MONGODB_URI && env.MONGODB_DB_NAME) {
+    const database = await connectDatabase(env, logger);
+    await ensurePublishingIndexes(database.db);
+    resolver = new SiteResolver(
+      new PublishingRepository(database.db, database.db.collection(COLLECTIONS.projects)),
+      env.PUBLIC_SITE_CACHE_TTL_SECONDS,
+    );
+  } else {
+    logger.warn("MONGODB_URI is not set; the renderer cannot serve sites");
+  }
+
+  const app = createRendererApp({ env, logger, resolver });
   const server = app.listen(env.PUBLIC_RENDERER_PORT, () => {
     logger.info({ port: env.PUBLIC_RENDERER_PORT, env: env.NODE_ENV }, "public renderer listening");
   });
@@ -24,4 +43,7 @@ function start(): void {
   installGracefulShutdown({ server, logger, timeoutMs: env.SHUTDOWN_TIMEOUT_MS });
 }
 
-start();
+start().catch((error: unknown) => {
+  process.stderr.write(`${String(error)}\n`);
+  process.exit(1);
+});

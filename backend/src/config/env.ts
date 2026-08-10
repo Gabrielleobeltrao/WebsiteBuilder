@@ -17,6 +17,13 @@ const baseSchema = z.object({
   PLATFORM_ROOT_DOMAIN: z.string().min(3).default("localhost"),
   PLATFORM_PUBLIC_ORIGIN: z.string().url().default("http://localhost:5173"),
   PLATFORM_RESERVED_SUBDOMAINS: z.string().default(""),
+  /** How long a proxy may serve a published page before revalidating. */
+  PUBLIC_SITE_CACHE_TTL_SECONDS: z.coerce.number().int().nonnegative().max(86_400).default(60),
+  /**
+   * Proxy ranges whose forwarded headers may be believed. Empty means none: on a host-routed
+   * multi-tenant renderer, believing X-Forwarded-Host from an untrusted hop hands out any tenant.
+   */
+  TRUSTED_PROXY_CIDRS: z.string().default(""),
   /** Bytes accepted for a builder document save. Larger documents are rejected with 413. */
   JSON_BODY_LIMIT: z.string().default("8mb"),
   PUBLIC_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
@@ -33,6 +40,7 @@ export type Env = z.infer<typeof baseSchema> & {
   isProduction: boolean;
   isTest: boolean;
   reservedSubdomains: string[];
+  trustedProxyCidrs: string[];
 };
 
 export class EnvironmentError extends Error {
@@ -66,6 +74,9 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     isTest: env.NODE_ENV === "test",
     reservedSubdomains: env.PLATFORM_RESERVED_SUBDOMAINS.split(",")
       .map((value) => value.trim().toLowerCase())
+      .filter((value) => value.length > 0),
+    trustedProxyCidrs: env.TRUSTED_PROXY_CIDRS.split(",")
+      .map((value) => value.trim())
       .filter((value) => value.length > 0),
   };
 }

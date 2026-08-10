@@ -3,6 +3,8 @@
   "compilerOptions": {
     "lib": ["ES2023"],
     "types": ["node"],
+    // The public renderer server-renders the same React components the editor uses.
+    "jsx": "react-jsx",
     "noEmit": true
   },
   "include": ["src", "tests"]

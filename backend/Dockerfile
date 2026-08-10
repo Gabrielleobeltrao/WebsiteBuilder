@@ -12,12 +12,14 @@ COPY packages/shared/package.json packages/shared/
 COPY backend/package.json backend/
 COPY frontend/package.json frontend/
 
-# The frontend workspace is not needed to build the API, but npm resolves the whole workspace tree
-# from the root lockfile, so its manifest must be present.
-RUN npm ci --workspace @websitebuilder/backend --workspace @websitebuilder/shared --include-workspace-root
+# The renderer server-renders the frontend's renderer components, so that workspace is installed
+# and its source is copied in — the bundler reads them directly rather than a built artefact.
+RUN npm ci --workspace @websitebuilder/backend --workspace @websitebuilder/shared \
+  --workspace @websitebuilder/frontend --include-workspace-root
 
 COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
+COPY frontend/src/components/renderer frontend/src/components/renderer
 COPY backend backend
 
 RUN npm run build --workspace @websitebuilder/backend
@@ -30,7 +32,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Only production dependencies reach the runtime image. tsup bundled the workspace source, so
-# @websitebuilder/shared is already inlined and is not installed here.
+# @websitebuilder/shared and the renderer components are already inlined; react and react-dom stay
+# external and are installed here. The frontend workspace is a build-time dependency only, so the
+# editor's dependency tree never reaches production.
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/
 COPY backend/package.json backend/

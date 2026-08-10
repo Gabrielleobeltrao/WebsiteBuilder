@@ -2168,7 +2168,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: publish/republish/rollback are atomic, authorized, auditable, idempotent on retry, and never expose half-built output.
   - Verify: transaction/compare-and-swap strategy, duplicate request, cache invalidation, retention, UI, and E2E tests.
 
-- [ ] **P18-T4 — Multi-tenant public renderer and server HTML**
+- [x] **P18-T4 — Multi-tenant public renderer and server HTML**
   - Add/deploy the stateless renderer service that resolves only normalized active host mappings and immutable active snapshots; implement path/redirect/404 resolution, route-specific server HTML/SEO, canonical primary-host behavior, cache, health, structured safe logs, and neutral unknown-host response.
   - Trust forwarded host/protocol only from configured Coolify/Cloudflare proxies. Do not allow query/header project IDs to override hostname mapping.
   - Acceptance: many platform/customer hostnames share one renderer process without content leakage; unknown/pending hosts never render another site; public HTML includes the correct content and metadata before client JavaScript.
@@ -2635,4 +2635,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P18-T1 | Publication and domain contracts plus immutable-version repository: publish is insert then verify then compare-and-swap one pointer, rollback moves that pointer | 41 tests: a snapshot compiled from a stale revision is never activated, an earlier version stays byte-identical after later publishes, retention never deletes the version being served, one hostname cannot be handed to a second project |
 | 2026-08-10 | P18-T2 | Deterministic snapshot compiler: route manifest, flattened redirects, search index, media references and preflight, all from one revision | 26 tests: the same revision yields the same content hash while a revision bump alone does not change it, drafts have no route at all, a route collision blocks, a blocked build returns no snapshot to publish |
 | 2026-08-10 | Security | Per-route permissions: a router declares its weakest permission and every writing route demands its own | Found while wiring publishing — `media:read` had been enough to upload and delete media, and `project:read` enough to create, rename and delete projects. A viewer now gets 403 on each, asserted in workspace-authorization |
+| 2026-08-10 | P18-T4 | Multi-tenant public renderer: hostname-only tenant resolution, per-host snapshot cache, route/redirect/404 resolution and server HTML from the same renderer the editor uses | 11 tests with two tenants sharing one process: a query parameter, a custom header and an untrusted X-Forwarded-Host all fail to reach the other tenant; an unknown host and a non-live host answer identically; metadata is present with no script tag in the response |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

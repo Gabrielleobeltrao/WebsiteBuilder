@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./renderer": "./src/components/renderer/index.ts"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
