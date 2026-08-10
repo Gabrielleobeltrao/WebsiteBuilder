@@ -179,23 +179,18 @@ describe("manual save", () => {
   });
 
   it("stays dirty when the document changed while the save was in flight", async () => {
-    let resolveSave: ((response: Response) => void) | null = null;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(
-        () =>
-          new Promise<Response>((resolve) => {
-            resolveSave = resolve;
-          }),
-      ),
-    );
+    let resolveSave!: (response: Response) => void;
+    const pendingSave = new Promise<Response>((resolve) => {
+      resolveSave = resolve;
+    });
+    vi.stubGlobal("fetch", vi.fn(() => pendingSave));
 
     useEditorStore.getState().loadFromProject(project());
     useEditorStore.getState().addPage("About");
     const saving = useEditorStore.getState().save();
 
     useEditorStore.getState().addPage("Contact");
-    resolveSave?.(savedResponse(4));
+    resolveSave(savedResponse(4));
     await saving;
 
     expect(useEditorStore.getState().persistence.status).toBe("dirty");
