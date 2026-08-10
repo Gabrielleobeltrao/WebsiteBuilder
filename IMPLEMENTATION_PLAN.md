@@ -1876,13 +1876,13 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: a shared header can render one responsive menu across every page and include the optional blog link.
   - Verify: menu binding, slug-change, responsive, keyboard, and renderer tests.
 
-- [ ] **P11-T3 — Blog activation and settings**
+- [x] **P11-T3 — Blog activation and settings**
   - Add the disabled-blog onboarding state in the left sidebar and safe starter templates/settings on activation.
   - Support base path, default author, posts per page, and deactivate-without-delete behavior.
   - Acceptance: enabling blog does not publish content; disabling it hides public routes while retaining data.
   - Verify: settings API/UI and lifecycle tests.
 
-- [ ] **P11-T4 — Blog post repository and API**
+- [x] **P11-T4 — Blog post repository and API**
   - Implement separate posts/categories/templates collections, workspace/project ownership, unique slugs, filtering, pagination, draft/publish/unpublish/delete, and public published-only reads.
   - Validate Tiptap JSON and custom field values against the current template field definitions.
   - Acceptance: draft posts never resolve publicly; cross-workspace and cross-project access is blocked.
@@ -2590,4 +2590,6 @@ Append one concise line after each completed task.
 | 2026-08-10 | P10-T1 | Secure upload pipeline: byte sniffing, autorotation before metadata stripping, responsive WebP variants, atomic storage and workspace-scoped streaming | 37 tests: SVG and corrupt files rejected, orientation applied, transparency kept, no upscaling, partial-failure cleanup leaves nothing behind, cross-tenant read/stream/delete blocked |
 | 2026-08-10 | P10-T2 | Reusable media library with upload, search, select, delete, responsive thumbnails and full state coverage | 12 tests: thumbnails request the smallest variant and offer srcset, explicit dimensions prevent layout shift, rejected and oversized uploads explained distinctly, deletion confirmed before any request |
 | 2026-08-10 | P10-T3 | Shared header and footer as references resolved at render time by both the canvas and preview | 13 tests: one shared record across pages, an edit reaches every page, a page can hide it locally, a dangling reference resolves to nothing, deletion cleans up every reference |
+| 2026-08-10 | P11-T3 | Blog settings per project with disabled default, validated base path and non-destructive deactivation | Disabling hides public routes while every post survives; settings never leak across workspaces |
+| 2026-08-10 | P11-T4 | Blog post repository and API with allowlisted Tiptap validation, unique per-project slugs and published-only public reads | 56 tests: raw HTML and unknown node types rejected, drafts never resolve publicly, ownership fields stripped from public responses, cross-tenant and cross-project access blocked |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

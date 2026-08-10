@@ -10,6 +10,8 @@ import { createWorkspaceResolver } from "./middleware/session";
 import { createAuth } from "./modules/auth/auth";
 import { PreferencesRepository } from "./modules/preferences/repository";
 import { createPreferencesRouter } from "./modules/preferences/routes";
+import { BlogRepository, ensureBlogIndexes } from "./modules/blog/repository";
+import { createBlogRouter, createPublicBlogRouter } from "./modules/blog/routes";
 import { MediaRepository } from "./modules/media/repository";
 import { createMediaRouter } from "./modules/media/routes";
 import { createGridFsStorage } from "./modules/media/storage";
@@ -34,6 +36,8 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
   const projects = new ProjectRepository(database.db);
   const preferences = new PreferencesRepository(database.db);
   const media = new MediaRepository(database.db, createGridFsStorage(database.db));
+  const blog = new BlogRepository(database.db);
+  await ensureBlogIndexes(database.db);
 
   // Better Auth owns its own routes and needs the raw body, so it is mounted before the JSON
   // parser rather than behind it.
@@ -44,6 +48,14 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
   routers.push(
     { path: "/me/preferences", router: createPreferencesRouter({ auth, preferences }) },
     { path: "/workspaces", router: createWorkspacesRouter({ auth, workspaces }) },
+    { path: "/public/projects/:projectId/blog", router: createPublicBlogRouter({ repository: blog }) },
+    {
+      path: "/workspaces/:workspaceId/projects/:projectId/blog",
+      router: createBlogRouter({
+        repository: blog,
+        resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
+      }),
+    },
     {
       path: "/workspaces/:workspaceId/media",
       router: createMediaRouter({
