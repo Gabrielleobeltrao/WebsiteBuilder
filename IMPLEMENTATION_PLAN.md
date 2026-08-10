@@ -1835,7 +1835,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 10 — Media library and shared site sections
 
-- [ ] **P10-T1 — Secure image upload storage**
+- [x] **P10-T1 — Secure image upload storage**
   - Implement an image-storage interface backed initially by MongoDB GridFS, authenticated ownership, magic-byte MIME sniffing, file-size/pixel/dimension limits, safe filenames, streaming, content hashing, and deletion rules.
   - Route every accepted upload through one backend image-processing service/helper using Sharp; frontend MIME/extension claims are never trusted.
   - Decode, apply EXIF orientation, strip metadata/EXIF, preserve transparency where present, and normalize output to WebP.
@@ -2529,6 +2529,7 @@ Append entries; do not erase history.
 | 2026-08-10 | P2-T4 | The authenticated area opens only when `VITE_DEV_WORKSPACE` names the seeded workspace | Before Phase 7 there is no session. An explicit developer opt-in keeps the app from ever pretending someone is signed in, and the backend refuses to serve business routes with the seeded resolver in production. |
 | 2026-08-10 | P9-T1 | `BreakpointOverride` carries `layout` and `geometry` as named parts instead of `Partial<ResponsiveElementLayout & Geometry>` | The intersection in Section 5 cannot be satisfied: both sides declare `width` and `height`, so it demands a value that is simultaneously a structured length and a number. Naming the parts keeps the same expressive power with a type that can hold a value. |
 | 2026-08-10 | P9-T1 | `ResolvedLayout` keeps layout and geometry separate rather than merging them | Flattening let the numeric geometry width overwrite the structured responsive width, silently destroying the value. Caught by a test before any consumer depended on it. |
+| 2026-08-10 | P10-T1 | Uploads arrive as a raw body with the filename in a header, not multipart | One file is sent at a time and the frontend controls both ends, so skipping multipart removes a parser and temporary-file handling from a path that accepts untrusted bytes. The declared content type still decides nothing: the pipeline sniffs the actual bytes. |
 
 ## 15. Progress Log
 
@@ -2586,4 +2587,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P9-T3 | Free-layout constraints resolved at arbitrary widths without mutating stored geometry | Left, right, centre, stretch and scale asserted across the sweep; aspect ratio honoured; stored geometry unchanged at every width |
 | 2026-08-10 | P9-T9 | Desktop authoring gate and preview-only shell for touch-first and narrow viewports | Gate combines viewport width with pointer precision, mounts no canvas, inspector or autosave, and preserves the unsaved document when a window narrows |
 | 2026-08-10 | P9-T1b | Continuous canvas width control with presets, slider and numeric entry driving the shared resolver | 9 tests: intermediate widths reachable, range clamped, width changes never touch the document, overrides apply only where their breakpoint covers |
+| 2026-08-10 | P10-T1 | Secure upload pipeline: byte sniffing, autorotation before metadata stripping, responsive WebP variants, atomic storage and workspace-scoped streaming | 37 tests: SVG and corrupt files rejected, orientation applied, transparency kept, no upscaling, partial-failure cleanup leaves nothing behind, cross-tenant read/stream/delete blocked |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
