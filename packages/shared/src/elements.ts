@@ -31,7 +31,15 @@ const baseElementShape = {
   geometry: geometrySchema,
   responsiveLayout: responsiveElementLayoutSchema,
   breakpointOverrides: z
-    .record(z.string(), responsiveElementLayoutSchema.partial().and(geometrySchema.partial()))
+    .record(
+      z.string(),
+      z
+        .object({
+          layout: responsiveElementLayoutSchema.partial().optional(),
+          geometry: geometrySchema.partial().optional(),
+        })
+        .strict(),
+    )
     .optional(),
   zIndex: z.number().int(),
   locked: z.boolean(),
@@ -43,7 +51,7 @@ export type BaseElement = {
   name: string;
   geometry: Geometry;
   responsiveLayout: ResponsiveElementLayout;
-  breakpointOverrides?: Record<string, Partial<ResponsiveElementLayout> & Partial<Geometry>>;
+  breakpointOverrides?: Record<string, { layout?: Partial<ResponsiveElementLayout>; geometry?: Partial<Geometry> }>;
   zIndex: number;
   locked: boolean;
   hidden: boolean;

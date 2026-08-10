@@ -1779,20 +1779,20 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 9 — Complete fluid responsiveness
 
-- [ ] **P9-T1 — Device canvas controls and inheritance engine**
+- [x] **P9-T1 — Device canvas controls and inheritance engine**
   - Inside the desktop-class editor, add the primary Desktop/Mobile preview actions plus desktop/tablet/mobile working presets, custom breakpoint CRUD, continuous draggable width, numeric width input, and centralized deterministic inheritance/resolution.
   - Reject overlapping/duplicate ambiguous breakpoint definitions and preserve schema migrations.
   - Show base/inherited/overridden state and allow reset-to-inherited.
   - Acceptance: switching or resizing never mutates another breakpoint accidentally; every width resolves one unambiguous rule set.
   - Verify: inheritance, custom-breakpoint, boundary, migration, and store tests.
 
-- [ ] **P9-T2 — Typed responsive values and sizing inspector**
+- [x] **P9-T2 — Typed responsive values and sizing inspector**
   - Implement validated structured values for safe units, intrinsic keywords, min/max, aspect ratio, fixed/fill/hug, and clamp; never accept arbitrary CSS expressions.
   - Add clear inspector controls, unit conversion rules, inherited indicators, and invalid-combination prevention.
   - Acceptance: values serialize safely and editor/preview/public renderer produce identical allowlisted CSS.
   - Verify: Zod, serialization, unit, clamp, reset, and injection tests.
 
-- [ ] **P9-T3 — Free-layout constraints and fluid geometry**
+- [x] **P9-T3 — Free-layout constraints and fluid geometry**
   - Implement left/right/center/stretch/scale and top/bottom/center/stretch/scale constraints, percentage/fluid sizes, min/max, aspect lock, visibility, and breakpoint overrides.
   - Add deterministic geometry calculation at arbitrary widths without changing stored base layout during preview.
   - Acceptance: free elements remain intentionally positioned from `320–1920px`; mobile adjustments preserve desktop/base geometry.
@@ -2527,6 +2527,8 @@ Append entries; do not erase history.
 | 2026-08-10 | P2-T3 | A malformed project ID answers `404`, not `400` | Distinguishing "badly shaped" from "does not exist" tells an ID prober which shapes are real. |
 | 2026-08-10 | P2-T3 | The document endpoint refuses a changed project slug | The slug is public routing identity; changing it needs its own authorised operation with redirect and impact handling (Phase 18), not a side effect of an autosave. |
 | 2026-08-10 | P2-T4 | The authenticated area opens only when `VITE_DEV_WORKSPACE` names the seeded workspace | Before Phase 7 there is no session. An explicit developer opt-in keeps the app from ever pretending someone is signed in, and the backend refuses to serve business routes with the seeded resolver in production. |
+| 2026-08-10 | P9-T1 | `BreakpointOverride` carries `layout` and `geometry` as named parts instead of `Partial<ResponsiveElementLayout & Geometry>` | The intersection in Section 5 cannot be satisfied: both sides declare `width` and `height`, so it demands a value that is simultaneously a structured length and a number. Naming the parts keeps the same expressive power with a type that can hold a value. |
+| 2026-08-10 | P9-T1 | `ResolvedLayout` keeps layout and geometry separate rather than merging them | Flattening let the numeric geometry width overwrite the structured responsive width, silently destroying the value. Caught by a test before any consumer depended on it. |
 
 ## 15. Progress Log
 
@@ -2579,4 +2581,7 @@ Append one concise line after each completed task.
 | 2026-08-10 | P8-T3 | Grid sections: columns, auto-fit with minmax, gaps, padding and alignment as typed fields serialised by the shared layout module | 13 shared tests: auto-fit guards against overflow in a narrow container, out-of-range and CSS-string input rejected |
 | 2026-08-10 | P8-T4 | Flex sections: direction, wrap, gap, padding, distribution and alignment, with children given minWidth 0 so they can shrink | Wrapping defaults on so a row cannot force horizontal overflow; start/end mapped to flex-start/flex-end |
 | 2026-08-10 | P8-T5 | Container nesting depth limit and warned, undoable, deterministic section conversion | Conversion warns with the affected element count, keeps every element, and preserves geometry through a round trip |
+| 2026-08-10 | P9-T1 | One shared resolver for breakpoint inheritance, with base/inherited/override origin reporting | 24 tests: narrowest rule wins, unset keys inherit rather than reset, result independent of stored array order, inputs never mutated |
+| 2026-08-10 | P9-T2 | Typed responsive values serialised through one allowlisted path, with structured grid/flex layouts | Arbitrary CSS strings and out-of-range values rejected at the schema; serialisation emits only validated units |
+| 2026-08-10 | P9-T3 | Free-layout constraints resolved at arbitrary widths without mutating stored geometry | Left, right, centre, stretch and scale asserted across the sweep; aspect ratio honoured; stored geometry unchanged at every width |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

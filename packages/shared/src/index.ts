@@ -4,6 +4,7 @@ export * from "./ids";
 export * from "./layout";
 export * from "./links";
 export * from "./project";
+export * from "./resolve";
 export * from "./responsive";
 export * from "./schema-version";
 export * from "./seo";
