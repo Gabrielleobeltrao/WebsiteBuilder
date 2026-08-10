@@ -127,7 +127,9 @@ describe("right panel state machine", () => {
     render();
 
     await user.click(screen.getByRole("region", { name: "Section" }));
-    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
+    expect(
+      screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent?.replace(/[−+]/g, "").trim()),
+    ).toEqual([
       "Content",
       "Style",
       "Layout",

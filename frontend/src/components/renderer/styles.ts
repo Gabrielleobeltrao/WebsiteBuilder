@@ -1,4 +1,8 @@
 import {
+  readFlexLayout,
+  readGridLayout,
+  serializeFlexLayout,
+  serializeGridLayout,
   serializeLength,
   type BuilderElement,
   type BuilderSection,
@@ -86,8 +90,16 @@ export function sectionStyle(section: BuilderSection, breakpointId = "desktop"):
     ...(height ? { minHeight: serializeLength(height) } : {}),
   };
 
-  if (section.layoutMode === "grid") return { ...base, display: "grid" };
-  if (section.layoutMode === "flex") return { ...base, display: "flex" };
+  // Stored layout is untrusted input like any other document value: it is parsed, and anything
+  // that fails validation falls back to the defaults rather than reaching the style object.
+  const stored = section.layoutByBreakpoint[breakpointId];
+
+  if (section.layoutMode === "grid") {
+    return { ...base, ...(serializeGridLayout(readGridLayout(stored)) as CSSProperties) };
+  }
+  if (section.layoutMode === "flex") {
+    return { ...base, ...(serializeFlexLayout(readFlexLayout(stored)) as CSSProperties) };
+  }
   return base;
 }
 

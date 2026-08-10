@@ -108,6 +108,10 @@ export function NumberField({
 }) {
   const store = useEditorStore();
   const id = useId();
+  // While the field has focus it holds its own text, so the user can clear it and retype. Without
+  // this, refusing to commit an empty string leaves the old number stuck in a controlled input and
+  // the next keystroke appends to it.
+  const [draft, setDraft] = useState<string | null>(null);
 
   return (
     <div>
@@ -117,16 +121,26 @@ export function NumberField({
       <input
         id={id}
         type="number"
-        value={value}
+        value={draft ?? String(value)}
         min={min}
         max={max}
         step={step}
-        onFocus={() => store.beginTransaction(transactionKey)}
-        onBlur={() => store.endTransaction()}
+        onFocus={() => {
+          store.beginTransaction(transactionKey);
+          setDraft(String(value));
+        }}
+        onBlur={() => {
+          setDraft(null);
+          store.endTransaction();
+        }}
         onChange={(event) => {
-          const next = Number.parseFloat(event.target.value);
-          // A partially typed value must not write NaN into the document.
-          if (Number.isFinite(next)) onChange(next);
+          setDraft(event.target.value);
+          const parsed = Number.parseFloat(event.target.value);
+          // A partially typed value must not write NaN into the document, and a value outside the
+          // control's own range must not either: storing one means the renderer silently falls back
+          // to defaults, which looks to the user like the edit was ignored.
+          if (!Number.isFinite(parsed)) return;
+          onChange(Math.min(max ?? Number.POSITIVE_INFINITY, Math.max(min ?? Number.NEGATIVE_INFINITY, parsed)));
         }}
         className="mt-1 w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm text-ink-900"
       />

@@ -184,6 +184,57 @@ export default {
     "front": "Bring to front",
     "back": "Send to back"
   },
+
+  "section": {
+    "layoutMode": "Layout mode",
+    "mode": {
+      "free": "Free",
+      "grid": "Grid",
+      "flex": "Flex"
+    },
+    "columns": "Columns",
+    "autoFit": "Adapt columns automatically",
+    "minColumnWidth": "Minimum column width",
+    "rowGap": "Row gap",
+    "columnGap": "Column gap",
+    "gap": "Gap",
+    "paddingX": "Horizontal padding",
+    "paddingY": "Vertical padding",
+    "direction": "Direction",
+    "wrap": "Wrapping",
+    "justifyContent": "Distribution",
+    "alignItems": "Alignment",
+    "directions": {
+      "row": "Row",
+      "row-reverse": "Row reversed",
+      "column": "Column",
+      "column-reverse": "Column reversed"
+    },
+    "wraps": {
+      "nowrap": "Single line",
+      "wrap": "Wrap",
+      "wrap-reverse": "Wrap reversed"
+    },
+    "justify": {
+      "start": "Start",
+      "center": "Centre",
+      "end": "End",
+      "space-between": "Space between",
+      "space-around": "Space around",
+      "space-evenly": "Space evenly"
+    },
+    "align": {
+      "start": "Start",
+      "center": "Centre",
+      "end": "End",
+      "stretch": "Stretch"
+    },
+    "responsiveHint": "Breakpoint overrides for this section arrive with the responsive controls.",
+    "convertTitle": "Change this section's layout?",
+    "convertLosesPositions": "This section has {{count}} element(s) placed freely. They keep their size and content, and are laid out in their current visual order. You can undo this.",
+    "convertKeepsContent": "This section has {{count}} element(s). Nothing is removed, and you can undo this.",
+    "convertConfirm": "Change layout"
+  },
   loading: "Loading the site…",
   loadError: "We could not open this site",
 } as const;

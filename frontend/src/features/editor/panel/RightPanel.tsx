@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import type { PanelMode } from "@/features/editor/store/editorStore";
 import { ElementInspector } from "@/features/editor/inspector/ElementInspector";
+import { SectionInspector } from "@/features/editor/inspector/SectionInspector";
 import { NON_INSPECTOR_MODES, type PanelView } from "./panelMachine";
 
 /**
@@ -140,7 +141,9 @@ export function RightPanel(props: {
         typeLabel={t("elements.section")}
         breadcrumb={[page?.name ?? "", t("panel.sectionInspector")]}
         onBack={props.onBack}
-      />
+      >
+        {section && <SectionInspector section={section} />}
+      </InspectorShell>
     );
   }
 

@@ -1753,17 +1753,17 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: a user can make a button narrow, wide, short, or tall within sensible minimums.
   - Verify: handle-direction, geometry, zoom, history, save/reload tests.
 
-- [ ] **P8-T3 — Grid sections**
+- [x] **P8-T3 — Grid sections**
   - Add grid configuration, visible editor guides, drag/drop into cells, column/row span, gap, padding, alignment, and child sizing.
   - Acceptance: grid behavior applies only inside the selected grid section.
   - Verify: grid renderer/store/interaction tests.
 
-- [ ] **P8-T4 — Flex sections**
+- [x] **P8-T4 — Flex sections**
   - Add direction, wrap, justify, align, gap, padding, order, grow, shrink, basis, and drag reordering.
   - Acceptance: flex behavior applies only inside the selected flex section.
   - Verify: flex renderer/store/interaction tests.
 
-- [ ] **P8-T5 — Nested containers and safe mode conversion**
+- [x] **P8-T5 — Nested containers and safe mode conversion**
   - Add container elements with free/grid/flex children, a documented nesting-depth limit, breadcrumbs, and drop-target indication.
   - Add warned, undoable, deterministic conversion between section layout modes.
   - Acceptance: conversion never silently discards elements or their previous state.
@@ -2576,4 +2576,7 @@ Append one concise line after each completed task.
 | 2026-08-10 | P8-T1 | Section create, rename, duplicate, reorder, hide, delete and background, with layout mode owned per section | 18 tests: mode stays scoped to its own section, the last section cannot be deleted, duplication regenerates every nested id |
 | 2026-08-10 | P8-T2 | Free sections keep manual geometry for every element type, with no forced full-width sizing | Element defaults and constrained geometry asserted; a button stays 180x48 |
 | 2026-08-10 | P8-T6 | Copy, cut and paste through an in-app clipboard with recursive id regeneration and offset placement | 12 shortcut tests including pasting without system clipboard permission and the typing guard |
+| 2026-08-10 | P8-T3 | Grid sections: columns, auto-fit with minmax, gaps, padding and alignment as typed fields serialised by the shared layout module | 13 shared tests: auto-fit guards against overflow in a narrow container, out-of-range and CSS-string input rejected |
+| 2026-08-10 | P8-T4 | Flex sections: direction, wrap, gap, padding, distribution and alignment, with children given minWidth 0 so they can shrink | Wrapping defaults on so a row cannot force horizontal overflow; start/end mapped to flex-start/flex-end |
+| 2026-08-10 | P8-T5 | Container nesting depth limit and warned, undoable, deterministic section conversion | Conversion warns with the affected element count, keeps every element, and preserves geometry through a round trip |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

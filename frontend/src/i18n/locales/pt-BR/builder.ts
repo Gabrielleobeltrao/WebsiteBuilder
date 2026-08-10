@@ -184,6 +184,57 @@ export default {
     "front": "Trazer para a frente de tudo",
     "back": "Enviar para o fundo"
   },
+
+  "section": {
+    "layoutMode": "Modo de layout",
+    "mode": {
+      "free": "Livre",
+      "grid": "Grade",
+      "flex": "Flex"
+    },
+    "columns": "Colunas",
+    "autoFit": "Adaptar colunas automaticamente",
+    "minColumnWidth": "Largura mínima da coluna",
+    "rowGap": "Espaço entre linhas",
+    "columnGap": "Espaço entre colunas",
+    "gap": "Espaçamento",
+    "paddingX": "Espaçamento horizontal",
+    "paddingY": "Espaçamento vertical",
+    "direction": "Direção",
+    "wrap": "Quebra",
+    "justifyContent": "Distribuição",
+    "alignItems": "Alinhamento",
+    "directions": {
+      "row": "Linha",
+      "row-reverse": "Linha invertida",
+      "column": "Coluna",
+      "column-reverse": "Coluna invertida"
+    },
+    "wraps": {
+      "nowrap": "Linha única",
+      "wrap": "Quebrar",
+      "wrap-reverse": "Quebrar invertido"
+    },
+    "justify": {
+      "start": "Início",
+      "center": "Centro",
+      "end": "Fim",
+      "space-between": "Espaço entre",
+      "space-around": "Espaço ao redor",
+      "space-evenly": "Espaço uniforme"
+    },
+    "align": {
+      "start": "Início",
+      "center": "Centro",
+      "end": "Fim",
+      "stretch": "Esticar"
+    },
+    "responsiveHint": "As sobrescritas por breakpoint desta seção chegam com os controles responsivos.",
+    "convertTitle": "Mudar o layout desta seção?",
+    "convertLosesPositions": "Esta seção tem {{count}} elemento(s) posicionado(s) livremente. Eles mantêm tamanho e conteúdo, e serão organizados na ordem visual atual. Você pode desfazer.",
+    "convertKeepsContent": "Esta seção tem {{count}} elemento(s). Nada é removido, e você pode desfazer.",
+    "convertConfirm": "Mudar layout"
+  },
   loading: "Carregando o site…",
   loadError: "Não conseguimos abrir este site",
 } as const;
