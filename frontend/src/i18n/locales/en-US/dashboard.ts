@@ -98,4 +98,20 @@ export default {
     },
     "noOptionalModules": "No optional modules are in use yet. Add a block from the Elements panel to turn one on."
   },
+
+  "seo": {
+    "siteName": "Site name",
+    "titleTemplate": "Title template",
+    "titleTemplateHint": "Use %s for the page title and %site% for the site name.",
+    "defaultDescription": "Default description",
+    "canonicalBaseUrl": "Canonical base URL",
+    "canonicalHint": "Without this, no canonical URL is produced. Guessing one is worse than omitting it.",
+    "locale": "Site language",
+    "localeHint": "The language of the published website, not of this interface.",
+    "defaultRobots": "Default indexing",
+    "save": "Save SEO settings",
+    "saving": "Saving…",
+    "saved": "SEO settings saved",
+    "invalid": "Some values are not valid. Check the canonical URL."
+  },
 } as const;

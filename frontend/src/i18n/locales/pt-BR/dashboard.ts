@@ -98,4 +98,20 @@ export default {
     },
     "noOptionalModules": "Nenhum módulo opcional está em uso ainda. Adicione um bloco pelo painel Elementos para ativar um."
   },
+
+  "seo": {
+    "siteName": "Nome do site",
+    "titleTemplate": "Modelo de título",
+    "titleTemplateHint": "Use %s para o título da página e %site% para o nome do site.",
+    "defaultDescription": "Descrição padrão",
+    "canonicalBaseUrl": "URL base canônica",
+    "canonicalHint": "Sem isso, nenhuma URL canônica é gerada. Adivinhar uma é pior do que omitir.",
+    "locale": "Idioma do site",
+    "localeHint": "O idioma do site publicado, não desta interface.",
+    "defaultRobots": "Indexação padrão",
+    "save": "Salvar configurações de SEO",
+    "saving": "Salvando…",
+    "saved": "Configurações de SEO salvas",
+    "invalid": "Alguns valores não são válidos. Confira a URL canônica."
+  },
 } as const;

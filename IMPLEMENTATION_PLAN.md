@@ -1943,7 +1943,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: editor, preview, public renderer, and future exporter consume the same resolved metadata object.
   - Verify: contract, inheritance, normalization, and fallback unit tests.
 
-- [ ] **P12-T2 — Global SEO settings**
+- [x] **P12-T2 — Global SEO settings**
   - Add `Settings -> SEO` under the permanent left sidebar with site name, title template, default description/social image, locale, canonical base URL, organization name/logo, default robots, and optional verification token.
   - Provide validation, examples, save state, and clear explanations without promising rankings.
   - Acceptance: new pages inherit global defaults and changing defaults does not erase page overrides.
@@ -2608,4 +2608,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P12-T5 | Deterministic SEO checklist with severities, reporting facts about the document and never predicting ranking | Missing description is an error only when nothing inherits into it; duplicate titles are reported against every route that shares one; noindex is information, not failure |
 | 2026-08-10 | P12-T6 | Sitemap and robots generation excluding noindex and uncanonicalised routes, with XML escaping at serialisation | Listing a noindex route would contradict its own directive, so it is excluded; ampersands in URLs are escaped |
 | 2026-08-10 | P12-T3 | Page SEO as a right-panel mode with a search preview rendered by the shared resolver | 9 tests: the preview applies the site title template and canonical base, falls back to the site description, is labelled advisory, and index/follow toggle independently |
+| 2026-08-10 | P12-T2 | Site-wide SEO defaults with validation, explanations and no ranking promise | 9 tests: an invalid canonical URL is refused before sending, robots directives toggle independently, and changing a default provably leaves a page override intact |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
