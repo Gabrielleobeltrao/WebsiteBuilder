@@ -1,6 +1,7 @@
-import { Navigate, Route, Routes, useLocation } from "react-router";
+import { Navigate, Outlet, Route, Routes, useLocation, useParams } from "react-router";
 
 import { PublicShell } from "@/app/shells/PublicShell";
+import { SitesPage } from "@/features/projects/SitesPage";
 import { AuthPlaceholderPage } from "@/features/public/AuthPlaceholderPage";
 import { LandingPage } from "@/features/public/LandingPage";
 import { NotFoundPage } from "@/features/public/NotFoundPage";
@@ -10,9 +11,8 @@ import { safeReturnPath } from "@/lib/return-path";
 /**
  * Route families are `/`, `/roadmap`, `/login`, `/signup`, `/app/*` and `/api/*` on one origin.
  *
- * `/app/*` is deliberately declared outside the public layout: the authenticated shell arrives in
- * Phase 7 and must never mount the public sidebar. Until it exists, an unauthenticated visit is
- * sent to login carrying a validated internal return path.
+ * `/app/*` is declared outside the public layout so the two shells can never be mounted together.
+ * The permanent authenticated sidebar arrives in Phase 11; until then the area is a bare outlet.
  */
 function RequireAuthenticatedArea() {
   const location = useLocation();
@@ -20,9 +20,19 @@ function RequireAuthenticatedArea() {
   return <Navigate to={`/login?returnTo=${encodeURIComponent(returnTo)}`} replace />;
 }
 
+function SitesRoute() {
+  const { workspaceId } = useParams();
+  // The route cannot match without the segment; the server verifies membership regardless.
+  return <SitesPage workspaceId={workspaceId ?? ""} />;
+}
+
 export function AppRoutes({ authenticated = false }: { authenticated?: boolean } = {}) {
   return (
     <Routes>
+      <Route path="app/:workspaceId" element={authenticated ? <Outlet /> : <RequireAuthenticatedArea />}>
+        <Route index element={<Navigate to="sites" replace />} />
+        <Route path="sites" element={<SitesRoute />} />
+      </Route>
       <Route path="app/*" element={<RequireAuthenticatedArea />} />
 
       <Route element={<PublicShell authenticated={authenticated} />}>

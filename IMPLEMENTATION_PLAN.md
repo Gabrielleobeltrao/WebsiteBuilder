@@ -1560,24 +1560,24 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 2 — Persistence and project API
 
-- [ ] **P2-T1 — MongoDB connection layer**
+- [x] **P2-T1 — MongoDB connection layer**
   - Add validated `MONGODB_URI` and `MONGODB_DB_NAME`, one shared Mongo client, startup connection, indexes, and graceful close.
   - Make repository code injectable/testable without global database state.
   - Acceptance: startup fails clearly for invalid configuration; health reports database state.
   - Verify: backend unit/integration tests and typecheck.
 
-- [ ] **P2-T2 — Project repository and mapping**
+- [x] **P2-T2 — Project repository and mapping**
   - Implement ObjectId/API ID mapping, workspace/client-scoped summary listing, complete document read, create, rename, save with revision, and delete.
   - Require an injected verified workspace context even before the real auth UI is wired; tests may use an explicit seeded development workspace, never an unscoped fallback.
   - Acceptance: stale revision cannot overwrite data; timestamps and revision update correctly; no repository method can query business data without `workspaceId`.
   - Verify: repository tests against an isolated test database or approved test container strategy.
 
-- [ ] **P2-T3 — Project REST API**
+- [x] **P2-T3 — Project REST API**
   - Implement routes, controllers/services, Zod validation, standard envelopes, not-found, payload, and conflict errors.
   - Acceptance: all routes match Section 6; malformed IDs and documents return safe errors.
   - Verify: Supertest API suite.
 
-- [ ] **P2-T4 — Frontend API client and preliminary site list**
+- [x] **P2-T4 — Frontend API client and preliminary site list**
   - Add typed fetch wrapper and preliminary workspace-scoped site list/create/rename/delete/open UI, confirmation dialog, loading/error/empty states.
   - This is not yet the final agency dashboard; keep components reusable for the later workspace/client dashboards.
   - Acceptance: project CRUD works through the real backend and never leaks across seeded workspace contexts.
@@ -2522,6 +2522,11 @@ Append entries; do not erase history.
 | 2026-08-10 | P1-T7 | `graphify-out/` is git-ignored in full | `graph.json` is 432 KB and `graph.html` 384 KB, both rewritten by every structural change. The plan itself notes a stale committed graph is worse than a targeted source search. |
 | 2026-08-10 | P1-T7 | Graphify runs with `--code-only`; community names stay as placeholders | No LLM API key is configured. AST extraction is complete and queries resolve to correct source paths, which is what the task needs; naming can be regenerated later with a key. |
 | 2026-08-10 | P1-T7 | `/run-skill-generator` is not available in this Claude Code build; the run recipe was written into `project-runbook/references/commands.md` instead | The bundled generator does not exist to invoke. The reviewed recipe still exists, is source-linked and is what `/run` discovers. |
+| 2026-08-10 | P2-T1 | Backend integration tests run against `mongodb-memory-server` | No MongoDB or Docker exists on this machine, and the plan requires tests that never depend on a developer's personal database. Each test file gets its own ephemeral server. |
+| 2026-08-10 | P2-T2 | Project slug uniqueness is global, not per workspace | The slug becomes `${slug}.${PLATFORM_ROOT_DOMAIN}`, so two workspaces claiming one slug would claim one hostname. Collisions get a numeric suffix instead of failing the user's first action. |
+| 2026-08-10 | P2-T3 | A malformed project ID answers `404`, not `400` | Distinguishing "badly shaped" from "does not exist" tells an ID prober which shapes are real. |
+| 2026-08-10 | P2-T3 | The document endpoint refuses a changed project slug | The slug is public routing identity; changing it needs its own authorised operation with redirect and impact handling (Phase 18), not a side effect of an autosave. |
+| 2026-08-10 | P2-T4 | The authenticated area opens only when `VITE_DEV_WORKSPACE` names the seeded workspace | Before Phase 7 there is no session. An explicit developer opt-in keeps the app from ever pretending someone is signed in, and the backend refuses to serve business routes with the seeded resolver in production. |
 
 ## 15. Progress Log
 
@@ -2541,4 +2546,8 @@ Append one concise line after each completed task.
 | 2026-08-10 | P1-T5 | `PublicShell` with accessible drawer, landing page in the required order, data-driven roadmap with four honest statuses | Component tests, keyboard tests, 14 E2E across desktop and phone, no overflow at 320px |
 | 2026-08-10 | P1-T6 | i18next with typed `pt-BR`/`en-US` namespaces, deterministic locale precedence, `document.lang`, key parity and hardcoded-copy checks | Parity, precedence and both-locale render tests pass; language survives reload in E2E |
 | 2026-08-10 | P1-T7 | First code graph: 503 nodes, 741 edges, 26 communities; run/verify recipe documented | Queries resolve to correct source paths; generated output git-ignored after size measurement |
+| 2026-08-10 | P2-T1 | Shared Mongo client, workspace-first indexes, unique project slug index, health probe and graceful close | Startup fails clearly on invalid configuration; health reports up/down/not_configured |
+| 2026-08-10 | P2-T2 | Project repository with ObjectId/API id mapping, workspace-scoped listing, create, rename, revision-checked save and delete | 15 tests: cross-tenant read/write/delete all blocked, stale save rejected, concurrent saves leave exactly one winner |
+| 2026-08-10 | P2-T3 | Project REST API with Zod validation, success/error envelopes and documented status codes | 17 Supertest cases including 409 conflict, dangerous-link rejection and workspace scoping |
+| 2026-08-10 | P2-T4 | Typed same-origin fetch client and preliminary site list with create, rename, delete, confirmation dialog and loading/empty/error states | 9 component tests in both locales; request cancellation on workspace change asserted |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

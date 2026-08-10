@@ -39,7 +39,9 @@ function collectFiles(): string[] {
   }).filter((file) => !file.endsWith(".test.tsx"));
 }
 
-const JSX_TEXT = />([^<>{}\n]+)</g;
+// Requires a closing tag so a TypeScript generic such as `Promise<unknown>` is not mistaken for
+// rendered text.
+const JSX_TEXT = />([^<>{}\n]+)<\//g;
 const TEXT_ATTRIBUTE = /\b(?:placeholder|aria-label|title|alt|label)\s*=\s*"([^"]+)"/g;
 
 function findViolations(source: string, file: string): string[] {
