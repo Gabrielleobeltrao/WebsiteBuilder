@@ -1683,17 +1683,17 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 6 — Preview
 
-- [ ] **P6-T1 — Preview routing and page resolution**
+- [x] **P6-T1 — Preview routing and page resolution**
   - Implement `/preview/:projectId/*`, load saved data, resolve homepage/slugs, and show project-specific not-found state.
   - Acceptance: preview opens separately from editor and contains no editor chrome.
   - Verify: routing tests.
 
-- [ ] **P6-T2 — Preview navigation and isolation**
+- [x] **P6-T2 — Preview navigation and isolation**
   - Use shared renderer; support internal/external/email/phone/WhatsApp links; exclude hidden elements; prevent editor event handlers/styles from leaking.
   - Acceptance: links behave according to their typed configuration and internal navigation stays in preview.
   - Verify: integration tests.
 
-- [ ] **P6-T3 — Desktop/Mobile preview actions and mobile-only gate**
+- [x] **P6-T3 — Desktop/Mobile preview actions and mobile-only gate**
   - Add primary `Preview Desktop` and `Preview Mobile` actions to every desktop visual builder/template top bar, using one renderer/resolver and saved or explicitly previewable draft data.
   - Implement the mobile/tablet-class visual-editor route gate from Section 7: no editing code or mutation controls, page selector, saved-version timestamp, `Mobile preview`, `Desktop preview`, and `Continue editing on a computer` guidance.
   - Desktop preview on a phone is scaled read-only output with optional pan/zoom/fullscreen; Mobile preview uses the actual viewport. Neither mode writes document state or triggers autosave.
@@ -2565,4 +2565,7 @@ Append one concise line after each completed task.
 | 2026-08-10 | P5-T2 | Image inspector: source kind, URL, decorative state, alt, fit, radius | Alt field disappears for a decorative image; empty URL renders a placeholder instead of refetching the page |
 | 2026-08-10 | P5-T3 | Button inspector with the typed link editor for internal, external, email, phone and WhatsApp | Unsafe URL warns instead of storing silently; a deleted internal target shows a repairable state |
 | 2026-08-10 | P5-T4 | Keyboard shortcuts with the editable-target guard | 8 tests: backspacing in a field never deletes the element, undo and duplicate do not hijack typing, save still works from a field |
+| 2026-08-10 | P6-T1 | `/preview/:projectId/*` resolves the homepage, trailing slugs and a project-scoped not-found view | 10 preview tests including an unknown slug and a localized load failure |
+| 2026-08-10 | P6-T2 | Preview mounts the shared renderer only: no editor chrome, hidden content excluded, internal links stay inside the preview | Asserted absence of canvas, panel and Save; every preview request is a GET |
+| 2026-08-10 | P6-T3 | Preview Desktop and Preview Mobile in the builder top bar and inside preview, using one renderer and one document | Both viewports render the same document; the active one is announced through aria-pressed |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

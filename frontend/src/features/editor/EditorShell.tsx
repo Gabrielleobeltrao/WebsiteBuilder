@@ -150,6 +150,18 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
           >
             <Redo2 aria-hidden className="size-4" />
           </button>
+          <Link
+            to={`/preview/${projectId}?viewport=desktop`}
+            className="rounded-md border border-ink-200 px-3 py-1.5 text-xs font-medium text-ink-700"
+          >
+            {t("builder:topBar.previewDesktop")}
+          </Link>
+          <Link
+            to={`/preview/${projectId}`}
+            className="rounded-md border border-ink-200 px-3 py-1.5 text-xs font-medium text-ink-700"
+          >
+            {t("builder:topBar.previewMobile")}
+          </Link>
           <button
             type="button"
             onClick={() => void store.save()}

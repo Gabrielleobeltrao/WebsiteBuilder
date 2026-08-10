@@ -2,6 +2,7 @@ import { Navigate, Outlet, Route, Routes, useLocation, useParams } from "react-r
 
 import { PublicShell } from "@/app/shells/PublicShell";
 import { EditorRoute } from "@/features/editor/EditorRoute";
+import { PreviewRoute } from "@/features/preview/PreviewRoute";
 import { SitesPage } from "@/features/projects/SitesPage";
 import { AuthPlaceholderPage } from "@/features/public/AuthPlaceholderPage";
 import { LandingPage } from "@/features/public/LandingPage";
@@ -21,6 +22,15 @@ function RequireAuthenticatedArea() {
   return <Navigate to={`/login?returnTo=${encodeURIComponent(returnTo)}`} replace />;
 }
 
+/**
+ * Preview resolves its workspace from the same development seed the editor uses. Phase 7 replaces
+ * it with the authenticated session's active workspace.
+ */
+function PreviewRouteWithWorkspace() {
+  const workspaceId = import.meta.env.VITE_DEV_WORKSPACE ?? "";
+  return <PreviewRoute workspaceId={workspaceId} />;
+}
+
 function SitesRoute() {
   const { workspaceId } = useParams();
   // The route cannot match without the segment; the server verifies membership regardless.
@@ -37,6 +47,10 @@ export function AppRoutes({ authenticated = false }: { authenticated?: boolean }
         <Route path="sites/:projectId/builder/:pageId" element={<EditorRoute />} />
       </Route>
       <Route path="app/*" element={<RequireAuthenticatedArea />} />
+
+      {/* Preview mounts neither shell: it is a clean rendering of the saved document. */}
+      <Route path="preview/:projectId/*" element={<PreviewRouteWithWorkspace />} />
+      <Route path="preview/:projectId" element={<PreviewRouteWithWorkspace />} />
 
       <Route element={<PublicShell authenticated={authenticated} />}>
         <Route index element={<LandingPage />} />
