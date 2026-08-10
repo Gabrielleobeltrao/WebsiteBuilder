@@ -1,4 +1,5 @@
 export * from "./api";
+export * from "./bindings";
 export * from "./blog";
 export * from "./elements";
 export * from "./features";
