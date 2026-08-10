@@ -2149,7 +2149,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 18 — Production publishing, platform subdomains, and custom domains
 
-- [ ] **P18-T1 — Publication/domain contracts and repositories**
+- [x] **P18-T1 — Publication/domain contracts and repositories**
   - Add shared Zod contracts, MongoDB repositories, indexes, migrations, and authorization for `PublishedSiteVersion`, `SiteDomain`, publication summaries/audit events, active-version pointer, normalized hostnames, reserved platform labels, and unique project slugs.
   - Automatically create exactly one platform domain `${projectSlug}.${PLATFORM_ROOT_DOMAIN}` for every project; existing projects receive an idempotent collision-safe migration.
   - Acceptance: no two projects can claim one hostname; reserved labels are rejected; immutable versions cannot be updated after creation; cross-workspace publication/domain access is impossible.
@@ -2632,4 +2632,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P17-T2 | Broken-link and missing-media audit reporting deleted destinations before a visitor finds them | An unconfigured button is a warning, a deleted destination is an error, a page whose links all resolve reports nothing |
 | 2026-08-10 | P18-T7 | Dockerfiles, nginx gateway config and Coolify compose stack; `.env` now loaded in development | Verified against the real Atlas cluster: health reports `database: up`, indexes created, `/api/v1/health` returns JSON not HTML. Images not built — Docker is absent from this machine |
 | 2026-08-10 | P19-T3 | Detailed README covering stack, architecture, security model, testing, deployment and known limitations | States plainly what is unverified rather than implying a rehearsed deploy |
+| 2026-08-10 | P18-T1 | Publication and domain contracts plus immutable-version repository: publish is insert then verify then compare-and-swap one pointer, rollback moves that pointer | 41 tests: a snapshot compiled from a stale revision is never activated, an earlier version stays byte-identical after later publishes, retention never deletes the version being served, one hostname cannot be handed to a second project |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
