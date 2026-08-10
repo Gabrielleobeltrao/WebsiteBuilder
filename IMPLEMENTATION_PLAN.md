@@ -1937,7 +1937,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 12 — SEO configuration, audit, and metadata rendering
 
-- [ ] **P12-T1 — SEO contracts and inheritance resolver**
+- [x] **P12-T1 — SEO contracts and inheritance resolver**
   - Implement Zod contracts for global/page/post SEO and one shared pure resolver for override -> default -> fallback behavior.
   - Normalize canonical paths, titles, descriptions, robots directives, social images, locale, and structured-data types.
   - Acceptance: editor, preview, public renderer, and future exporter consume the same resolved metadata object.
@@ -1961,13 +1961,13 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: two posts rendered by one article template produce distinct titles, descriptions, canonicals, social cards, and Article data.
   - Verify: dynamic metadata, draft, escaping, and structured-data tests.
 
-- [ ] **P12-T5 — SEO audit and previews**
+- [x] **P12-T5 — SEO audit and previews**
   - Implement a deterministic audit for title/description issues, heading structure, alt text, internal links, canonical/robots conflicts, oversized assets, and indexability.
   - Show project summary and actionable per-page/post results; label it as guidance, not a guaranteed ranking score.
   - Acceptance: each warning links to the exact setting or element needing correction where practical.
   - Verify: audit rule and UI tests with passing/failing fixtures.
 
-- [ ] **P12-T6 — Sitemap, robots, and metadata output**
+- [x] **P12-T6 — Sitemap, robots, and metadata output**
   - Generate XML sitemap for public indexable pages and published posts, plus project robots.txt with sitemap reference.
   - Render title, description, canonical, robots, Open Graph, Twitter, and safely serialized JSON-LD in preview/public metadata.
   - Document that the production renderer must deliver server-rendered route HTML/metadata from the active published snapshot; a client-only preview is not sufficient evidence of crawler indexability.
@@ -2603,4 +2603,7 @@ Append one concise line after each completed task.
 | 2026-08-10 | P11-T10 | Public post rendering through the published template, with rich text walked into React elements rather than injected as HTML | 12 tests: markup inside text renders as literal characters, an unknown node emits its children not itself, a removed binding is flagged, empty values leave no gap, one article landmark |
 | 2026-08-10 | P11-T7 | Dynamic field elements carrying a typed binding and an allowlisted display mode, with duplication offering reuse or a new field | 29 tests across bindings and elements: a template cannot request raw HTML, an unknown binding source is rejected, static decoration stays unbound |
 | 2026-08-10 | P11-T8 | Post collection element with a structured query, bounded limit and card field list, plus the shared query resolver | 15 tests: an arbitrary sort expression is rejected, the limit is capped, publishing a matching post makes it appear without editing the layout |
+| 2026-08-10 | P12-T1 | One SEO resolver for override, site default and safe fallback, shared by preview, renderer, sitemap and exporter | 21 tests: a page cannot opt into indexing the site turned off, a canonical URL is emitted only when a real base is configured, title template tolerates missing placeholders |
+| 2026-08-10 | P12-T5 | Deterministic SEO checklist with severities, reporting facts about the document and never predicting ranking | Missing description is an error only when nothing inherits into it; duplicate titles are reported against every route that shares one; noindex is information, not failure |
+| 2026-08-10 | P12-T6 | Sitemap and robots generation excluding noindex and uncanonicalised routes, with XML escaping at serialisation | Listing a noindex route would contradict its own directive, so it is excluded; ampersands in URLs are escaped |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
