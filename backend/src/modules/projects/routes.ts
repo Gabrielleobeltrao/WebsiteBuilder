@@ -11,6 +11,8 @@ import { z } from "zod";
 import { ApiProblem, zodProblem } from "../../middleware/errors";
 import type { WorkspaceContext } from "./repository";
 import { ProjectRepository, RevisionConflictError, SlugTakenError } from "./repository";
+import { reconcileSiteStatus, type ModuleFacts } from "./status";
+import type { SiteFeatureKey } from "@websitebuilder/shared";
 
 /**
  * Resolves the verified tenant context for a request. Phase 7 replaces the seeded implementation
@@ -34,8 +36,16 @@ function parseProjectId(value: unknown): string {
 export function createProjectsRouter(options: {
   repository: ProjectRepository;
   resolveWorkspace: WorkspaceResolver;
+  /**
+   * Reads each optional module's own records. Injected so the projection is assembled from real
+   * sources rather than from anything the caller sends.
+   */
+  collectModuleFacts?: (input: {
+    workspaceId: string;
+    projectId: string;
+  }) => Promise<Partial<Record<SiteFeatureKey, ModuleFacts>>>;
 }): Router {
-  const { repository, resolveWorkspace } = options;
+  const { repository, resolveWorkspace, collectModuleFacts } = options;
   // mergeParams: the router is mounted under /workspaces/:workspaceId.
   const router = Router({ mergeParams: true });
 
@@ -68,6 +78,20 @@ export function createProjectsRouter(options: {
       const project = await repository.findById(context, parseProjectId(req.params.projectId));
       if (project === null) throw new ApiProblem("NOT_FOUND", "Project not found");
       res.json({ data: project });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/:projectId/status", async (req, res, next) => {
+    try {
+      const context = await resolveWorkspace(req);
+      const projectId = parseProjectId(req.params.projectId);
+      const project = await repository.findById(context, projectId);
+      if (project === null) throw new ApiProblem("NOT_FOUND", "Project not found");
+
+      const facts = (await collectModuleFacts?.({ workspaceId: context.workspaceId, projectId })) ?? {};
+      res.json({ data: reconcileSiteStatus({ project, facts }) });
     } catch (error) {
       next(error);
     }

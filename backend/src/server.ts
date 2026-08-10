@@ -70,6 +70,22 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
         // Read is the floor for reaching the router at all; each mutating route needs more, which
         // Phase 13 tightens per operation once the member management UI exists.
         resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
+        // Facts come from each module's own records, never from the request.
+        collectModuleFacts: async ({ workspaceId, projectId }) => {
+          const context = { workspaceId, userId: "" };
+          const settings = await blog.loadSettings(context, projectId);
+          const posts = await blog.list(context, projectId, { perPage: 1 });
+
+          return {
+            blog: {
+              hasRecords: posts.total > 0,
+              explicitlyActivated: settings.enabled,
+              // A blog turned on with no article template yet cannot render its routes.
+              blockingIssueCount: settings.enabled && settings.articleTemplateId === undefined ? 1 : 0,
+              warningCount: 0,
+            },
+          };
+        },
       }),
     },
   );
