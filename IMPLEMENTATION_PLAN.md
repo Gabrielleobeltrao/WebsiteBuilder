@@ -2122,13 +2122,13 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 17 — Site readiness, accessibility, and performance
 
-- [ ] **P17-T1 — Unified accessibility audit**
+- [x] **P17-T1 — Unified accessibility audit**
   - Implement the site-readiness accessibility rules from Section 7 with severity, route/element IDs, explanations, manual-review items, and direct editor navigation.
   - Clearly state that automated checks improve quality but do not guarantee legal compliance.
   - Acceptance: known violations are reproducible, actionable, and cannot be dismissed globally without an explicit documented acknowledgement.
   - Verify: rule fixtures, false-positive controls, route mapping, and accessibility regression tests.
 
-- [ ] **P17-T2 — Broken-link, redirect, and content audit**
+- [x] **P17-T2 — Broken-link, redirect, and content audit**
   - Audit internal ID bindings, missing routes/media, unsafe URLs, redirect loops/chains, orphaned CMS/blog bindings, empty required metadata, and unreachable system states.
   - Acceptance: the report identifies the exact source and destination problem before handoff.
   - Verify: deterministic fixture suite covering deleted/renamed pages, posts, items, media, and redirects.
@@ -2626,4 +2626,6 @@ Append one concise line after each completed task.
 | 2026-08-10 | P15-T1 | CMS collection and item contracts with immutable field ids, typed validation, project-scoped references and a schema-change impact report | 17 tests: a wrong-typed value is refused rather than coerced, undeclared values are ignored, a reference outside the project is refused, only a newly required field blocks a schema change |
 | 2026-08-10 | P16-T2 | Slug-history redirects with path normalisation, loop and chain detection, reserved paths and chain flattening | 20 tests: anything that could leave the origin is refused, a duplicate source is caught however it was written, a cycle is detected rather than followed, chains are counted the way a visitor experiences them |
 | 2026-08-10 | P16-T3 | Bounded internal search that excludes drafts and noindex content at index time, with accent folding, explainable ranking and pagination | 15 tests: a draft's text is absent from the index rather than filtered from results, a one-character query returns nothing, results expose no internal field |
+| 2026-08-10 | P17-T1 | Accessibility audit for heading order, alt text, link text, WCAG contrast and tap targets, with manual-review findings kept separate | 21 tests: every finding names an element and says what to fix, judgement-dependent checks are reported for review rather than passed, hidden elements are ignored |
+| 2026-08-10 | P17-T2 | Broken-link and missing-media audit reporting deleted destinations before a visitor finds them | An unconfigured button is a warning, a deleted destination is an error, a page whose links all resolve reports nothing |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

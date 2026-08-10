@@ -1,4 +1,5 @@
 export * from "./api";
+export * from "./audit";
 export * from "./bindings";
 export * from "./blog";
 export * from "./cms";
