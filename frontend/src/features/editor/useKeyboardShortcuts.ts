@@ -51,7 +51,25 @@ export function useKeyboardShortcuts(enabled = true): void {
         return;
       }
 
+      // Paste needs no selection: it places the clipboard into the current page.
+      if (modifier && event.key.toLowerCase() === "v") {
+        event.preventDefault();
+        store.paste();
+        return;
+      }
+
       if (selectedId === null) return;
+
+      if (modifier && event.key.toLowerCase() === "c") {
+        event.preventDefault();
+        store.copySelection();
+        return;
+      }
+      if (modifier && event.key.toLowerCase() === "x") {
+        event.preventDefault();
+        store.cutSelection();
+        return;
+      }
 
       if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();

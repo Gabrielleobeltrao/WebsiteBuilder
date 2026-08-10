@@ -148,3 +148,48 @@ describe("save shortcut", () => {
     expect(saved).toHaveBeenCalled();
   });
 });
+
+describe("clipboard shortcuts", () => {
+  it("copies and pastes an element with a new id", async () => {
+    const user = userEvent.setup();
+    const id = setup();
+
+    await user.keyboard("{Control>}c{/Control}");
+    await user.keyboard("{Control>}v{/Control}");
+
+    expect(elementCount()).toBe(2);
+    const selection = useEditorStore.getState().ui.selection;
+    expect(selection?.kind === "element" && selection.elementId).not.toBe(id);
+  });
+
+  it("cuts the element and restores it on paste", async () => {
+    const user = userEvent.setup();
+    const id = setup();
+
+    await user.keyboard("{Control>}x{/Control}");
+    expect(findElement(useEditorStore.getState().history.present, id)).toBeNull();
+    expect(elementCount()).toBe(0);
+
+    await user.keyboard("{Control>}v{/Control}");
+    expect(elementCount()).toBe(1);
+  });
+
+  it("works without system clipboard permission, because the clipboard is in-app state", async () => {
+    const user = userEvent.setup();
+    setup();
+    // No navigator.clipboard is stubbed: the shortcuts must not depend on it.
+    await user.keyboard("{Control>}c{/Control}");
+    await user.keyboard("{Control>}v{/Control}");
+    expect(elementCount()).toBe(2);
+  });
+
+  it("does not copy or paste while typing in a field", async () => {
+    const user = userEvent.setup();
+    setup();
+
+    await user.click(screen.getByLabelText("Content"));
+    await user.keyboard("{Control>}c{/Control}");
+    await user.keyboard("{Control>}v{/Control}");
+    expect(elementCount()).toBe(1);
+  });
+});

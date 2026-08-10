@@ -1741,13 +1741,13 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 8 — Hybrid sections, containers, and manual freedom
 
-- [ ] **P8-T1 — Migrate page model to ordered sections**
+- [x] **P8-T1 — Migrate page model to ordered sections**
   - Add versioned migration from legacy page-level elements into one default free section.
   - Implement section create, rename, duplicate, reorder, hide, delete, and background controls.
   - Acceptance: existing documents migrate without losing geometry.
   - Verify: schema migration and section action tests.
 
-- [ ] **P8-T2 — Complete free-layout section behavior**
+- [x] **P8-T2 — Complete free-layout section behavior**
   - Ensure text, images, buttons, and containers remain freely draggable and manually resizable with eight handles.
   - Never force full-width sizing because another section uses grid/flex.
   - Acceptance: a user can make a button narrow, wide, short, or tall within sensible minimums.
@@ -1769,7 +1769,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: conversion never silently discards elements or their previous state.
   - Verify: nesting, drag/drop, conversion, undo, and persistence tests.
 
-- [ ] **P8-T6 — Copy, cut, and paste**
+- [x] **P8-T6 — Copy, cut, and paste**
   - Implement toolbar/context actions and keyboard shortcuts; regenerate IDs recursively and offset pasted free elements.
   - Support pasting between pages/sections while validating layout compatibility.
   - Acceptance: copied nested content has no duplicate IDs and one undo removes the pasted tree.
@@ -2573,4 +2573,7 @@ Append one concise line after each completed task.
 | 2026-08-10 | P7-T3 | Server-side authorization: session, then membership read from the database, then the role matrix | 14 adversarial tests: cross-tenant read/write/delete blocked, role applied per workspace, revoked membership immediate, forged workspace id in body ignored |
 | 2026-08-10 | P7-T4 | Real login and signup, `AuthenticatedAppShell` as a sibling layout, workspace switcher, sign out, safe return path | Failed sign-in shows one localized message and never the provider text, so an attempt cannot enumerate accounts |
 | 2026-08-10 | P7-T5 | `GET/PUT /me/preferences` keyed by the session user, `Settings -> Language`, and account-first locale precedence | A saved account preference wins; only an account with none is seeded; a failed save keeps the local change and says so |
+| 2026-08-10 | P8-T1 | Section create, rename, duplicate, reorder, hide, delete and background, with layout mode owned per section | 18 tests: mode stays scoped to its own section, the last section cannot be deleted, duplication regenerates every nested id |
+| 2026-08-10 | P8-T2 | Free sections keep manual geometry for every element type, with no forced full-width sizing | Element defaults and constrained geometry asserted; a button stays 180x48 |
+| 2026-08-10 | P8-T6 | Copy, cut and paste through an in-app clipboard with recursive id regeneration and offset placement | 12 shortcut tests including pasting without system clipboard permission and the typing guard |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

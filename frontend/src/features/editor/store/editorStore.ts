@@ -1,11 +1,20 @@
-import type { BuilderDocumentInput, BuilderPage, BuilderProject, ElementType, Geometry } from "@websitebuilder/shared";
+import type {
+  BuilderDocumentInput,
+  BuilderPage,
+  BuilderProject,
+  ElementType,
+  Geometry,
+  SectionLayoutMode,
+} from "@websitebuilder/shared";
 import { create } from "zustand";
 
 import { ApiError } from "@/api/client";
 import { projectsApi } from "@/api/projects";
+import * as clipboardOps from "./clipboard";
 import * as elementOps from "./elements";
 import * as history from "./history";
 import * as pageOps from "./pages";
+import * as sectionOps from "./sections";
 
 /**
  * Editor state in four slices, exactly as the plan requires:
@@ -82,6 +91,20 @@ export type EditorState = {
   renameElement: (elementId: string, name: string) => void;
   setElementFlag: (elementId: string, flag: "locked" | "hidden", value: boolean) => void;
   changeZOrder: (elementId: string, direction: "forward" | "backward" | "front" | "back") => void;
+
+  clipboard: clipboardOps.ClipboardState;
+  copySelection: () => void;
+  cutSelection: () => void;
+  paste: () => void;
+
+  addSection: (layoutMode?: SectionLayoutMode) => void;
+  renameSection: (sectionId: string, name: string) => void;
+  setSectionBackground: (sectionId: string, color: string) => void;
+  setSectionHidden: (sectionId: string, hidden: boolean) => void;
+  duplicateSection: (sectionId: string) => void;
+  deleteSection: (sectionId: string) => void;
+  reorderSections: (from: number, to: number) => void;
+  convertSectionLayout: (sectionId: string, layoutMode: SectionLayoutMode) => void;
 };
 
 function toDocumentInput(project: BuilderProject): BuilderDocumentInput {
@@ -153,6 +176,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
       zoom: 1,
     },
     persistence: { status: "clean" },
+    clipboard: null,
 
     async load(workspaceId, projectId, signal) {
       set({ loadStatus: "loading", loadErrorCode: null });
@@ -348,6 +372,81 @@ export const useEditorStore = create<EditorState>((set, get) => {
 
     changeZOrder(elementId, direction) {
       get().update((document) => elementOps.changeZOrder(document, elementId, direction));
+    },
+
+    copySelection() {
+      const state = get();
+      if (state.ui.selection?.kind !== "element") return;
+      set({ clipboard: clipboardOps.copyElement(state.history.present, state.ui.selection.elementId) });
+    },
+
+    cutSelection() {
+      const state = get();
+      if (state.ui.selection?.kind !== "element") return;
+      const elementId = state.ui.selection.elementId;
+
+      let clipboard: clipboardOps.ClipboardState = null;
+      state.update((document) => {
+        const result = clipboardOps.cutElement(document, elementId);
+        clipboard = result.clipboard;
+        return result.document;
+      });
+      set({ clipboard });
+      get().select(null);
+    },
+
+    paste() {
+      const state = get();
+      const page = selectCurrentPage(state);
+      const sectionId = page?.sections[0]?.id;
+      if (!page || sectionId === undefined || state.clipboard === null) return;
+
+      let created: string | null = null;
+      state.update((document) => {
+        const result = clipboardOps.pasteElement(document, state.clipboard, { pageId: page.id, sectionId });
+        created = result.elementId;
+        return result.document;
+      });
+      if (created !== null) get().select({ kind: "element", elementId: created });
+    },
+
+    addSection(layoutMode = "free") {
+      const pageId = selectCurrentPage(get())?.id;
+      if (pageId === undefined) return;
+
+      let created: string | null = null;
+      get().update((document) => {
+        const result = sectionOps.addSection(document, pageId, layoutMode);
+        created = result.sectionId;
+        return result.document;
+      });
+      if (created !== null) get().select({ kind: "section", sectionId: created });
+    },
+
+    renameSection(sectionId, name) {
+      get().update((document) => sectionOps.renameSection(document, sectionId, name));
+    },
+    setSectionBackground(sectionId, color) {
+      get().update((document) => sectionOps.setSectionBackground(document, sectionId, color));
+    },
+    setSectionHidden(sectionId, hidden) {
+      get().update((document) => sectionOps.setSectionFlag(document, sectionId, "hidden", hidden));
+    },
+    duplicateSection(sectionId) {
+      get().update((document) => sectionOps.duplicateSection(document, sectionId));
+    },
+    deleteSection(sectionId) {
+      get().update((document) => sectionOps.deleteSection(document, sectionId));
+      const selection = get().ui.selection;
+      if (selection?.kind === "section" && selection.sectionId === sectionId) get().select(null);
+    },
+    reorderSections(from, to) {
+      const pageId = selectCurrentPage(get())?.id;
+      if (pageId === undefined) return;
+      get().update((document) => sectionOps.reorderSections(document, pageId, from, to));
+    },
+    convertSectionLayout(sectionId, layoutMode) {
+      get().update((document) => sectionOps.convertSectionLayout(document, sectionId, layoutMode));
     },
   };
 });
