@@ -1995,7 +1995,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: the same builder works unchanged for agency client sites and self-service personal sites.
   - Verify: creation, reassignment, filtering, authorization, and E2E tests.
 
-- [ ] **P13-T4 — Campaign summary module**
+- [x] **P13-T4 — Campaign summary module**
   - Implement lightweight campaign CRUD with name, client, optional site, status, dates, notes, dashboard summaries, and filtering.
   - Keep provider metrics/integrations behind a future adapter; do not fabricate campaign performance.
   - Acceptance: workspace/client/site dashboards show correctly scoped active/upcoming campaigns.
@@ -2614,4 +2614,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P13-T3 | Sites optionally owned by a client, listed per client or across the workspace, using the same builder and APIs | Client-filtered and workspace-wide listings asserted together, including a direct site with no client |
 | 2026-08-10 | P13-T1 | Workspace dashboard aggregates computed in the database, never by loading builder documents | 10 tests: page totals summed with $size, media storage summed across variants, switching workspace changes every number, nothing counted from another tenant |
 | 2026-08-10 | P13-T7 | Analytics reported as an explicit not-connected state rather than a zero | Asserted that the payload carries no visit field at all, so a fabricated zero cannot be mistaken for measured traffic |
+| 2026-08-10 | P13-T4 | Campaign summaries with client and site scoping, date validation and an active/upcoming view | 10 tests: a campaign cannot end before it starts, a performance field is rejected outright, filters and the dashboard view never cross workspaces |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
