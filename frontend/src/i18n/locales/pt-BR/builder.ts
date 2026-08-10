@@ -235,6 +235,22 @@ export default {
     "convertKeepsContent": "Esta seção tem {{count}} elemento(s). Nada é removido, e você pode desfazer.",
     "convertConfirm": "Mudar layout"
   },
+
+  "responsive": {
+    "canvasWidth": "Largura da tela",
+    "preset": {
+      "desktop": "Desktop",
+      "tablet": "Tablet",
+      "mobile": "Mobile"
+    },
+    "origin": {
+      "base": "Valor base",
+      "inherited": "Herdado de {{breakpoint}}",
+      "override": "Sobrescrito aqui"
+    },
+    "reset": "Voltar ao herdado",
+    "editingAt": "Editando em {{width}}px"
+  },
   loading: "Carregando o site…",
   loadError: "Não conseguimos abrir este site",
 } as const;

@@ -1824,7 +1824,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: diagnostics report affected width ranges and never auto-change layout without user action.
   - Verify: diagnostic fixtures and visual/integration tests at `320`, `375`, `390`, `768`, `1024`, `1280`, `1440`, `1920`, plus breakpoint-adjacent widths.
 
-- [ ] **P9-T9 — Desktop authoring gate and preview-only mobile shell**
+- [x] **P9-T9 — Desktop authoring gate and preview-only mobile shell**
   - Enforce the configurable desktop-class visual-authoring requirement and implement the small-screen/touch-first preview-only shell without mounting canvas interaction, inspector, mutation shortcuts, or autosave code.
   - Keep non-canvas application navigation appropriately responsive, but route visual page/blog/CMS/system-template editing attempts into the preview-only experience.
   - Handle a desktop window crossing below/above the minimum width without losing unsaved local editor state or mutating the document.
@@ -2584,4 +2584,6 @@ Append one concise line after each completed task.
 | 2026-08-10 | P9-T1 | One shared resolver for breakpoint inheritance, with base/inherited/override origin reporting | 24 tests: narrowest rule wins, unset keys inherit rather than reset, result independent of stored array order, inputs never mutated |
 | 2026-08-10 | P9-T2 | Typed responsive values serialised through one allowlisted path, with structured grid/flex layouts | Arbitrary CSS strings and out-of-range values rejected at the schema; serialisation emits only validated units |
 | 2026-08-10 | P9-T3 | Free-layout constraints resolved at arbitrary widths without mutating stored geometry | Left, right, centre, stretch and scale asserted across the sweep; aspect ratio honoured; stored geometry unchanged at every width |
+| 2026-08-10 | P9-T9 | Desktop authoring gate and preview-only shell for touch-first and narrow viewports | Gate combines viewport width with pointer precision, mounts no canvas, inspector or autosave, and preserves the unsaved document when a window narrows |
+| 2026-08-10 | P9-T1b | Continuous canvas width control with presets, slider and numeric entry driving the shared resolver | 9 tests: intermediate widths reachable, range clamped, width changes never touch the document, overrides apply only where their breakpoint covers |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

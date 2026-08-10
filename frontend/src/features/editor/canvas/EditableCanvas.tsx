@@ -1,4 +1,11 @@
-import { DESIGN_WIDTH, type BuilderElement, type BuilderPage, type BuilderSection } from "@websitebuilder/shared";
+import {
+  applyConstraints,
+  resolveLayoutAt,
+  type BreakpointDefinition,
+  type BuilderElement,
+  type BuilderPage,
+  type BuilderSection,
+} from "@websitebuilder/shared";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Moveable from "react-moveable";
@@ -21,16 +28,37 @@ function EditableElement({
   element,
   positioned,
   selected,
+  editingWidth,
+  breakpoints,
 }: {
   element: BuilderElement;
   positioned: boolean;
   selected: boolean;
+  editingWidth: number;
+  breakpoints: readonly BreakpointDefinition[];
 }) {
   const { t } = useTranslation("builder");
   const select = useEditorStore((state) => state.select);
   const [hovered, setHovered] = useState(false);
 
   if (element.hidden) return null;
+
+  // Everything shown here comes from the shared resolver, so the canvas cannot disagree with what
+  // preview and the published site produce at the same width.
+  const resolved = resolveLayoutAt({
+    width: editingWidth,
+    base: element.responsiveLayout,
+    geometry: element.geometry,
+    breakpoints,
+    overrides: element.breakpointOverrides,
+  });
+  if (!resolved.layout.visible) return null;
+
+  const placed = applyConstraints({
+    geometry: resolved.geometry,
+    layout: resolved.layout,
+    containerWidth: editingWidth,
+  });
 
   return (
     <div
@@ -47,10 +75,10 @@ function EditableElement({
         positioned
           ? {
               position: "absolute",
-              left: element.geometry.x,
-              top: element.geometry.y,
-              width: element.geometry.width,
-              height: element.geometry.height,
+              left: placed.x,
+              top: placed.y,
+              width: placed.width,
+              height: placed.height,
               zIndex: element.zIndex,
             }
           : undefined
@@ -79,7 +107,17 @@ function EditableElement({
   );
 }
 
-function EditableSection({ section, selectedElementId }: { section: BuilderSection; selectedElementId: string | null }) {
+function EditableSection({
+  section,
+  selectedElementId,
+  editingWidth,
+  breakpoints,
+}: {
+  section: BuilderSection;
+  selectedElementId: string | null;
+  editingWidth: number;
+  breakpoints: readonly BreakpointDefinition[];
+}) {
   const { t } = useTranslation("builder");
   const select = useEditorStore((state) => state.select);
   const selection = useEditorStore((state) => state.ui.selection);
@@ -106,6 +144,8 @@ function EditableSection({ section, selectedElementId }: { section: BuilderSecti
           element={element}
           positioned={section.layoutMode === "free"}
           selected={element.id === selectedElementId}
+          editingWidth={editingWidth}
+          breakpoints={breakpoints}
         />
       ))}
     </section>
@@ -115,6 +155,8 @@ function EditableSection({ section, selectedElementId }: { section: BuilderSecti
 export function EditableCanvas({ page }: { page: BuilderPage | null }) {
   const { t } = useTranslation("builder");
   const zoom = useEditorStore((state) => state.ui.zoom);
+  const editingWidth = useEditorStore((state) => state.ui.editingWidth);
+  const breakpoints = useEditorStore((state) => state.history.present.breakpoints);
   const selection = useEditorStore((state) => state.ui.selection);
   const store = useEditorStore();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -159,13 +201,13 @@ export function EditableCanvas({ page }: { page: BuilderPage | null }) {
         role="group"
         aria-label={t("canvas.label")}
         onClick={() => store.select(null)}
-        style={{ width: DESIGN_WIDTH * zoom }}
+        style={{ width: editingWidth * zoom }}
         className="mx-auto"
       >
         <div
           ref={containerRef}
           style={{
-            width: DESIGN_WIDTH,
+            width: editingWidth,
             transform: `scale(${zoom})`,
             transformOrigin: "top left",
             backgroundColor: page.canvas.backgroundColor,
@@ -174,7 +216,13 @@ export function EditableCanvas({ page }: { page: BuilderPage | null }) {
           className="shadow-sm"
         >
           {page.sections.map((section) => (
-            <EditableSection key={section.id} section={section} selectedElementId={selectedElementId} />
+            <EditableSection
+              key={section.id}
+              section={section}
+              selectedElementId={selectedElementId}
+              editingWidth={editingWidth}
+              breakpoints={breakpoints}
+            />
           ))}
         </div>
       </div>

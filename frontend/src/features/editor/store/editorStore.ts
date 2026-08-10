@@ -1,3 +1,8 @@
+import {
+  DESIGN_WIDTH,
+  resolveBreakpointAt,
+  type BreakpointDefinition,
+} from "@websitebuilder/shared";
 import type {
   BuilderDocumentInput,
   BuilderPage,
@@ -56,6 +61,11 @@ export type EditorState = {
     lastPanelMode: PanelMode;
     panelMode: PanelMode;
     zoom: number;
+    /**
+     * Width the canvas is being authored at. It selects which breakpoint's overrides are edited
+     * and previewed; it is display state and never part of the document or of history.
+     */
+    editingWidth: number;
   };
   persistence: PersistenceState;
 
@@ -75,6 +85,14 @@ export type EditorState = {
   select: (target: InspectorTarget | null) => void;
   setPanelMode: (mode: PanelMode) => void;
   setZoom: (zoom: number) => void;
+  setEditingWidth: (width: number) => void;
+  setBreakpointOverride: (
+    elementId: string,
+    breakpointId: string,
+    part: "layout" | "geometry",
+    values: Record<string, unknown>,
+  ) => void;
+  clearBreakpointOverride: (elementId: string, breakpointId: string, part: "layout" | "geometry", key: string) => void;
 
   addPage: (name: string) => void;
   renamePage: (pageId: string, name: string) => void;
@@ -174,6 +192,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
       lastPanelMode: "pages",
       panelMode: "pages",
       zoom: 1,
+      editingWidth: DESIGN_WIDTH,
     },
     persistence: { status: "clean" },
     clipboard: null,
@@ -298,6 +317,45 @@ export const useEditorStore = create<EditorState>((set, get) => {
 
     setZoom(zoom) {
       set((state) => ({ ui: { ...state.ui, zoom: Math.max(0.1, Math.min(4, zoom)) } }));
+    },
+
+    setEditingWidth(width) {
+      set((state) => ({ ui: { ...state.ui, editingWidth: Math.max(320, Math.min(1920, Math.round(width))) } }));
+    },
+
+    setBreakpointOverride(elementId, breakpointId, part, values) {
+      get().update((document) =>
+        elementOps.updateElement(document, elementId, (element) => ({
+          ...element,
+          breakpointOverrides: {
+            ...element.breakpointOverrides,
+            [breakpointId]: {
+              ...element.breakpointOverrides?.[breakpointId],
+              [part]: { ...element.breakpointOverrides?.[breakpointId]?.[part], ...values },
+            },
+          },
+        })),
+      );
+    },
+
+    clearBreakpointOverride(elementId, breakpointId, part, key) {
+      get().update((document) =>
+        elementOps.updateElement(document, elementId, (element) => {
+          const existing = element.breakpointOverrides?.[breakpointId]?.[part];
+          if (existing === undefined) return element;
+
+          const { [key]: _removed, ...rest } = existing as Record<string, unknown>;
+          const overrides = { ...element.breakpointOverrides };
+          const forBreakpoint = { ...overrides[breakpointId], [part]: rest };
+
+          // An empty override object would keep reporting the value as overridden.
+          if (Object.keys(rest).length === 0) delete (forBreakpoint as Record<string, unknown>)[part];
+          if (Object.keys(forBreakpoint).length === 0) delete overrides[breakpointId];
+          else overrides[breakpointId] = forBreakpoint;
+
+          return { ...element, breakpointOverrides: overrides };
+        }),
+      );
     },
 
     addPage(name) {
@@ -456,6 +514,12 @@ export function selectCurrentPage(state: EditorState): BuilderPage | null {
   const { currentPageId } = state.ui;
   const pages = state.history.present.pages;
   return pages.find((page) => page.id === currentPageId) ?? pages[0] ?? null;
+}
+
+/** Breakpoint the editing width currently falls into, or the widest one as a fallback. */
+export function selectEditingBreakpoint(state: EditorState): BreakpointDefinition | null {
+  const breakpoints = state.history.present.breakpoints;
+  return resolveBreakpointAt(state.ui.editingWidth, breakpoints) ?? breakpoints[0] ?? null;
 }
 
 export function selectHasUnsavedChanges(state: EditorState): boolean {

@@ -235,6 +235,22 @@ export default {
     "convertKeepsContent": "This section has {{count}} element(s). Nothing is removed, and you can undo this.",
     "convertConfirm": "Change layout"
   },
+
+  "responsive": {
+    "canvasWidth": "Canvas width",
+    "preset": {
+      "desktop": "Desktop",
+      "tablet": "Tablet",
+      "mobile": "Mobile"
+    },
+    "origin": {
+      "base": "Base value",
+      "inherited": "Inherited from {{breakpoint}}",
+      "override": "Overridden here"
+    },
+    "reset": "Reset to inherited",
+    "editingAt": "Editing at {{width}}px"
+  },
   loading: "Loading the site…",
   loadError: "We could not open this site",
 } as const;

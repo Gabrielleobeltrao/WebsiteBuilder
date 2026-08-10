@@ -11,6 +11,7 @@ import { PageSettingsPanel } from "@/features/editor/panel/PageSettingsPanel";
 import { PagesPanel } from "@/features/editor/panel/PagesPanel";
 import { resolvePanelView } from "@/features/editor/panel/panelMachine";
 import { RightPanel } from "@/features/editor/panel/RightPanel";
+import { WidthControl } from "@/features/editor/canvas/WidthControl";
 import { SaveStateIndicator } from "@/features/editor/SaveStateIndicator";
 import {
   selectCurrentPage,
@@ -127,6 +128,7 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
         </div>
 
         <div className="flex items-center gap-3">
+          <WidthControl />
           <SaveStateIndicator
             persistence={store.persistence}
             onRetry={() => void store.save()}
