@@ -2174,7 +2174,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: many platform/customer hostnames share one renderer process without content leakage; unknown/pending hosts never render another site; public HTML includes the correct content and metadata before client JavaScript.
   - Verify: two-tenant host/path matrix, spoofed forwarded headers, cache isolation/invalidation, redirects, SEO HTML, unknown hosts, load/concurrency, and renderer E2E tests.
 
-- [ ] **P18-T5 — Cloudflare for SaaS provider adapter**
+- [x] **P18-T5 — Cloudflare for SaaS provider adapter**
   - Implement a backend-only `CustomHostnameProvider` plus Cloudflare for SaaS adapter for create/get/refresh/delete, hostname ownership instructions, separate hostname/SSL statuses, timeouts/backoff, idempotency, provider error mapping, and mocked tests.
   - Use least-privilege token and configurable endpoints. Never call real provider APIs from unit/E2E tests or expose credentials/provider responses to the browser.
   - Acceptance: provider outages do not affect already active rendered sites; new activation remains pending/retryable; duplicate requests cannot create conflicting mappings.
@@ -2636,4 +2636,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P18-T2 | Deterministic snapshot compiler: route manifest, flattened redirects, search index, media references and preflight, all from one revision | 26 tests: the same revision yields the same content hash while a revision bump alone does not change it, drafts have no route at all, a route collision blocks, a blocked build returns no snapshot to publish |
 | 2026-08-10 | Security | Per-route permissions: a router declares its weakest permission and every writing route demands its own | Found while wiring publishing — `media:read` had been enough to upload and delete media, and `project:read` enough to create, rename and delete projects. A viewer now gets 403 on each, asserted in workspace-authorization |
 | 2026-08-10 | P18-T4 | Multi-tenant public renderer: hostname-only tenant resolution, per-host snapshot cache, route/redirect/404 resolution and server HTML from the same renderer the editor uses | 11 tests with two tenants sharing one process: a query parameter, a custom header and an untrusted X-Forwarded-Host all fail to reach the other tenant; an unknown host and a non-live host answer identically; metadata is present with no script tag in the response |
+| 2026-08-10 | P18-T5 | Cloudflare for SaaS adapter behind a provider-neutral interface, plus an in-memory fake and the custom-domain lifecycle | 27 tests, none touching a real API: a retried create returns the existing registration instead of a competing one, an unauthorized reply is not retried and its message never carries the token, and a provider outage leaves a live customer domain serving traffic |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

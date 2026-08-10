@@ -1,8 +1,10 @@
 import { resourceIdSchema } from "@websitebuilder/shared";
 import { Router } from "express";
+import { ObjectId } from "mongodb";
 
 import { ApiProblem } from "../../middleware/errors";
 import type { WorkspaceResolver } from "../projects/routes";
+import type { DomainService } from "../domains/service";
 import { PublishError, type PublishingRepository } from "./repository";
 import type { PublishingService } from "./service";
 
@@ -26,11 +28,12 @@ function parseId(value: unknown, message: string): string {
 export function createPublishingRouter(options: {
   service: PublishingService;
   repository: PublishingRepository;
+  domains: DomainService;
   resolveWorkspace: WorkspaceResolver;
   platformRootDomain: string;
   reservedSubdomains: readonly string[];
 }): Router {
-  const { service, repository, resolveWorkspace, platformRootDomain, reservedSubdomains } = options;
+  const { service, repository, domains, resolveWorkspace, platformRootDomain, reservedSubdomains } = options;
   const router = Router({ mergeParams: true });
 
   router.get("/preflight", async (req, res, next) => {
@@ -129,6 +132,54 @@ export function createPublishingRouter(options: {
     }
   });
 
+  router.post("/domains/custom", async (req, res, next) => {
+    try {
+      const context = await resolveWorkspace(req, "domain:manage");
+      const projectId = parseId(param(req, "projectId"), "Project not found");
+      const hostname = typeof req.body?.hostname === "string" ? req.body.hostname : "";
+
+      const outcome = await domains.connect(context, projectId, hostname);
+      if (outcome.status === "rejected") {
+        throw new ApiProblem("VALIDATION_ERROR", rejectionMessage(outcome.reason));
+      }
+
+      // A provider outage still returns the stored claim: the customer keeps their place and the
+      // instructions arrive on the next refresh.
+      res.status(201).json({ data: { domain: outcome.domain, providerReachable: outcome.status === "connected" } });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/domains/:domainId/refresh", async (req, res, next) => {
+    try {
+      const context = await resolveWorkspace(req, "domain:manage");
+      const domainId = parseId(param(req, "domainId"), "Domain not found");
+
+      const domain = await domains.refresh(context, new ObjectId(domainId));
+      if (domain === null) throw new ApiProblem("NOT_FOUND", "Domain not found");
+
+      res.json({ data: domain });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete("/domains/:domainId", async (req, res, next) => {
+    try {
+      const context = await resolveWorkspace(req, "domain:manage");
+      const domainId = parseId(param(req, "domainId"), "Domain not found");
+
+      if (!(await domains.disconnect(context, new ObjectId(domainId)))) {
+        throw new ApiProblem("NOT_FOUND", "Domain not found");
+      }
+
+      res.status(204).end();
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.post("/domains/:domainId/primary", async (req, res, next) => {
     try {
       const context = await resolveWorkspace(req, "domain:manage");
@@ -145,4 +196,12 @@ export function createPublishingRouter(options: {
   });
 
   return router;
+}
+
+function rejectionMessage(reason: "invalid-hostname" | "already-connected" | "platform-domain"): string {
+  if (reason === "platform-domain") return "This address belongs to the platform and cannot be connected";
+  // One message for a hostname taken by this project and one taken by another customer: which
+  // tenant owns a domain is not disclosed here.
+  if (reason === "already-connected") return "This address is already connected";
+  return "This is not a valid address";
 }

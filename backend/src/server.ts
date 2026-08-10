@@ -19,10 +19,35 @@ import { ProjectRepository } from "./modules/projects/repository";
 import { createProjectsRouter } from "./modules/projects/routes";
 import { WorkspaceRepository } from "./modules/workspaces/repository";
 import { COLLECTIONS } from "./db/indexes";
+import { CloudflareHostnameProvider } from "./modules/domains/cloudflare";
+import { FakeHostnameProvider } from "./modules/domains/fakeProvider";
+import { DomainService } from "./modules/domains/service";
+import type { CustomHostnameProvider } from "./modules/domains/provider";
 import { createPublishingRouter } from "./modules/publishing/routes";
 import { ensurePublishingIndexes, PublishingRepository } from "./modules/publishing/repository";
 import { PublishingService } from "./modules/publishing/service";
 import { createWorkspacesRouter } from "./modules/workspaces/routes";
+
+/**
+ * The custom-hostname provider.
+ *
+ * Without credentials the in-memory fake is used so development and tests never contact a paid API.
+ * In production that would silently promise customers a domain nobody registered, so it is refused.
+ */
+function createHostnameProvider(env: Env, logger: ReturnType<typeof createLogger>): CustomHostnameProvider {
+  if (!env.CLOUDFLARE_ZONE_ID || !env.CLOUDFLARE_API_TOKEN) {
+    if (env.isProduction) throw new EnvironmentError(["CLOUDFLARE_ZONE_ID", "CLOUDFLARE_API_TOKEN"]);
+    logger.warn("Cloudflare is not configured; custom domains use the in-memory fake provider");
+    return new FakeHostnameProvider(env.PUBLIC_RENDERER_ORIGIN);
+  }
+
+  return new CloudflareHostnameProvider({
+    apiBaseUrl: env.CLOUDFLARE_API_BASE_URL,
+    zoneId: env.CLOUDFLARE_ZONE_ID,
+    apiToken: env.CLOUDFLARE_API_TOKEN,
+    originHostname: env.PUBLIC_RENDERER_ORIGIN,
+  });
+}
 
 async function buildDependencies(env: Env, logger: ReturnType<typeof createLogger>) {
   const routers: NonNullable<AppDependencies["routers"]> = [];
@@ -42,6 +67,7 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
   const media = new MediaRepository(database.db, createGridFsStorage(database.db));
   const blog = new BlogRepository(database.db);
   const publishing = new PublishingRepository(database.db, database.db.collection(COLLECTIONS.projects));
+  const domains = new DomainService(database.db, createHostnameProvider(env, logger), env.PLATFORM_ROOT_DOMAIN);
   await ensureBlogIndexes(database.db);
   await ensurePublishingIndexes(database.db);
 
@@ -101,6 +127,7 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
       router: createPublishingRouter({
         service: new PublishingService({ projects, publishing, blog, media, collectModuleFacts }),
         repository: publishing,
+        domains,
         resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
         platformRootDomain: env.PLATFORM_ROOT_DOMAIN,
         reservedSubdomains: env.reservedSubdomains,

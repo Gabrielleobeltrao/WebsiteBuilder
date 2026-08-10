@@ -24,6 +24,14 @@ const baseSchema = z.object({
    * multi-tenant renderer, believing X-Forwarded-Host from an untrusted hop hands out any tenant.
    */
   TRUSTED_PROXY_CIDRS: z.string().default(""),
+  /**
+   * Cloudflare for SaaS. Absent means custom domains run against the in-memory fake, which is
+   * correct for development and never for production.
+   */
+  CLOUDFLARE_API_BASE_URL: z.string().url().default("https://api.cloudflare.com/client/v4"),
+  CLOUDFLARE_ZONE_ID: z.string().min(1).optional(),
+  CLOUDFLARE_API_TOKEN: z.string().min(1).optional(),
+  PUBLIC_RENDERER_ORIGIN: z.string().min(3).default("origin.localhost"),
   /** Bytes accepted for a builder document save. Larger documents are rejected with 413. */
   JSON_BODY_LIMIT: z.string().default("8mb"),
   PUBLIC_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
