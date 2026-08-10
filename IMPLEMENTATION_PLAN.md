@@ -1888,7 +1888,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: draft posts never resolve publicly; cross-workspace and cross-project access is blocked.
   - Verify: repository, API, authorization, validation, and pagination tests.
 
-- [ ] **P11-T5 — Blog post dashboard**
+- [x] **P11-T5 — Blog post dashboard**
   - Add post list, search, status/category filters, create, edit, duplicate, publish, unpublish, delete, and empty/loading/error states under the permanent left-sidebar Blog route.
   - Acceptance: the user can manage a growing blog without entering the visual builder.
   - Verify: component/integration tests.
@@ -2592,4 +2592,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P10-T3 | Shared header and footer as references resolved at render time by both the canvas and preview | 13 tests: one shared record across pages, an edit reaches every page, a page can hide it locally, a dangling reference resolves to nothing, deletion cleans up every reference |
 | 2026-08-10 | P11-T3 | Blog settings per project with disabled default, validated base path and non-destructive deactivation | Disabling hides public routes while every post survives; settings never leak across workspaces |
 | 2026-08-10 | P11-T4 | Blog post repository and API with allowlisted Tiptap validation, unique per-project slugs and published-only public reads | 56 tests: raw HTML and unknown node types rejected, drafts never resolve publicly, ownership fields stripped from public responses, cross-tenant and cross-project access blocked |
+| 2026-08-10 | P11-T5 | Blog post dashboard with explicit activation, status filters, search, publish/unpublish, confirmed delete and full state coverage | 11 tests: visiting the route never enables the blog, filters and search go through the API rather than the browser, deletion issues no request before confirmation |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

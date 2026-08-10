@@ -12,6 +12,9 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@tiptap/extension-link": "^3.29.2",
+    "@tiptap/react": "^3.29.2",
+    "@tiptap/starter-kit": "^3.29.2",
     "@websitebuilder/shared": "*",
     "better-auth": "^1.6.26",
     "i18next": "^24.2.1",
