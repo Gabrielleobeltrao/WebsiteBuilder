@@ -2029,7 +2029,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 14 — Native forms and submissions
 
-- [ ] **P14-T1 — Form contracts, persistence, and builder element**
+- [x] **P14-T1 — Form contracts, persistence, and builder element**
   - Implement shared form/field schemas, stable field IDs, `draft`/`needs_setup`/`ready`/`archived` lifecycle, form-definition repository/API, and a responsive builder form element with reorderable fields and property controls.
   - On the first committed Form drop, create the definition idempotently, insert its stable reference, autosave the site draft, reveal Forms with a `Setup required` badge, and expose `Finish form setup` in the selected element's right inspector. The interaction may be optimistic but must compensate/retry safely when either definition creation or document save fails; unused orphan drafts are cleaned only after a safe grace period.
   - Keep instance-level visual/layout controls in the right inspector and long-lived definition/submission settings on the Forms route. Preserve a validated `returnTo` page/element reference between them.
@@ -2037,13 +2037,13 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: one form can be designed, saved, duplicated, reloaded, and rendered identically in editor/preview with accessible labels and validation states; the live published snapshot is unchanged while the form remains only in the editable draft.
   - Verify: schema, idempotency, partial-failure recovery, orphan cleanup, repository, renderer, persistence, contextual navigation, return path, responsive, and accessibility tests.
 
-- [ ] **P14-T2 — Hardened public submission pipeline**
+- [x] **P14-T2 — Hardened public submission pipeline**
   - Implement the public submission endpoint with shared validation, strict size/count limits, honeypot, rate limiting, duplicate suppression, origin/project validation, safe normalization, consent capture, and generic success/error responses.
   - Store only configured field values, minimal attribution/path/UTM data, and operational metadata required for abuse prevention; never store arbitrary request bodies.
   - Acceptance: valid submissions are stored once; invalid/spam/oversized/cross-project attempts fail safely without leaking recipients or tenant data.
   - Verify: API, fuzz/abuse, rate-limit, authorization, validation, and concurrency tests.
 
-- [ ] **P14-T3 — Submission dashboard and lifecycle**
+- [x] **P14-T3 — Submission dashboard and lifecycle**
   - Add the contextual site-level `Forms` route with definition list, setup checklist, counts, paginated submissions, search/filter, new/read/archive/spam state, detail view, single delete, bulk archive/delete with confirmation, and empty/loading/error states.
   - Implement reference-aware last-instance removal: unused drafts may be deleted after confirmation; definitions with submissions, published references, or history are archived and recoverable rather than silently deleted. Hide Forms from primary navigation only when no active references remain.
   - Enforce optional retention days through an idempotent cleanup job scoped by workspace/project.
@@ -2619,4 +2619,7 @@ Append one concise line after each completed task.
 | 2026-08-10 | P13-T8 | Consolidated tenant-isolation audit across every repository, aggregate and media stream | 10 cross-module tests with a second workspace holding real data: no listing, id lookup, byte stream, write or aggregate returns anything from it; guessed and malformed ids answer not-found rather than revealing shape |
 | 2026-08-10 | P13-T6 | Self-service onboarding with a plan-entitlement boundary and no agency assumptions baked into navigation | 12 tests: a personal workspace hides Clients until one exists, a solo user reaches site creation without a client, storage is checked against the incoming size not only the current total |
 | 2026-08-10 | P14-T1a | Form contracts: typed fields, setup checklist, submission validation keyed by field id, and CSV formula neutralisation | 22 tests: undeclared payload properties are ignored so a form is not a write endpoint, control characters are stripped, every formula-leading character is neutralised on export |
+| 2026-08-10 | P14-T1 | Form definitions with server-derived status, reference-aware removal and restore | 39 tests: status is recomputed rather than trusted, a definition with submissions is archived not deleted, cross-workspace read and write blocked |
+| 2026-08-10 | P14-T2 | Hardened public submission: declared fields only, duplicate suppression, archived forms closed, uniform responses | An unknown and a malformed form id answer identically, so the endpoint reveals nothing about what exists; a suppressed duplicate still reports success so the visitor does not resubmit |
+| 2026-08-10 | P14-T3 | Submission lifecycle with new/read/archived/spam, pagination and workspace-scoped retention | Retention deletes only within its own workspace, asserted with a second tenant holding an equally old submission |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
