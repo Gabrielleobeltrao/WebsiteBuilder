@@ -1,43 +1,57 @@
+import { toNodeHandler } from "better-auth/node";
+import express from "express";
+
 import { createApp, type AppDependencies } from "./app";
 import { EnvironmentError, loadEnv, type Env } from "./config/env";
 import { createLogger } from "./config/logger";
 import { connectDatabase, createDatabaseHealthProbe, type Database } from "./db/client";
 import { installGracefulShutdown } from "./lifecycle";
-import { createSeededWorkspaceResolver } from "./middleware/workspace";
+import { createWorkspaceResolver } from "./middleware/session";
+import { createAuth } from "./modules/auth/auth";
+import { PreferencesRepository } from "./modules/preferences/repository";
+import { createPreferencesRouter } from "./modules/preferences/routes";
 import { ProjectRepository } from "./modules/projects/repository";
 import { createProjectsRouter } from "./modules/projects/routes";
-
-/**
- * Development workspace used until Phase 7 installs Better Auth sessions and organization
- * membership. It is explicit and seeded, never an unscoped fallback, and production refuses to
- * start with it.
- */
-const DEVELOPMENT_WORKSPACE = { workspaceId: "development-workspace", userId: "development-user" };
+import { WorkspaceRepository } from "./modules/workspaces/repository";
+import { createWorkspacesRouter } from "./modules/workspaces/routes";
 
 async function buildDependencies(env: Env, logger: ReturnType<typeof createLogger>) {
-  let database: Database | null = null;
   const routers: NonNullable<AppDependencies["routers"]> = [];
+  let database: Database | null = null;
+  let mountAuth: AppDependencies["mountAuth"];
 
-  if (env.MONGODB_URI && env.MONGODB_DB_NAME) {
-    database = await connectDatabase(env, logger);
-    if (env.isProduction) {
-      // Phase 7 replaces this with the real session resolver. Shipping the seeded one would give
-      // every visitor the same workspace, so production must not reach here.
-      throw new Error("Authentication is not configured yet; refusing to serve business routes in production");
-    }
-    routers.push({
-      path: "/workspaces/:workspaceId/projects",
-      router: createProjectsRouter({
-        repository: new ProjectRepository(database.db),
-        resolveWorkspace: createSeededWorkspaceResolver(DEVELOPMENT_WORKSPACE),
-      }),
-    });
-    logger.warn({ workspace: DEVELOPMENT_WORKSPACE.workspaceId }, "serving business routes with a seeded workspace");
-  } else {
+  if (!env.MONGODB_URI || !env.MONGODB_DB_NAME) {
     logger.warn("MONGODB_URI is not set; only health is served");
+    return { database, routers, mountAuth };
   }
 
-  return { database, routers };
+  database = await connectDatabase(env, logger);
+  const auth = createAuth({ db: database.db, env });
+  const workspaces = new WorkspaceRepository(database.db);
+  const projects = new ProjectRepository(database.db);
+  const preferences = new PreferencesRepository(database.db);
+
+  // Better Auth owns its own routes and needs the raw body, so it is mounted before the JSON
+  // parser rather than behind it.
+  mountAuth = (app: express.Express) => {
+    app.all(`${env.BETTER_AUTH_BASE_PATH}/*splat`, toNodeHandler(auth));
+  };
+
+  routers.push(
+    { path: "/me/preferences", router: createPreferencesRouter({ auth, preferences }) },
+    { path: "/workspaces", router: createWorkspacesRouter({ auth, workspaces }) },
+    {
+      path: "/workspaces/:workspaceId/projects",
+      router: createProjectsRouter({
+        repository: projects,
+        // Read is the floor for reaching the router at all; each mutating route needs more, which
+        // Phase 13 tightens per operation once the member management UI exists.
+        resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
+      }),
+    },
+  );
+
+  return { database, routers, mountAuth };
 }
 
 async function start(): Promise<void> {
@@ -53,9 +67,16 @@ async function start(): Promise<void> {
   }
 
   const logger = createLogger(env);
-  const { database, routers } = await buildDependencies(env, logger);
+  const { database, routers, mountAuth } = await buildDependencies(env, logger);
 
-  const app = createApp({ env, logger, routers, healthProbe: createDatabaseHealthProbe(database) });
+  const app = createApp({
+    env,
+    logger,
+    routers,
+    ...(mountAuth ? { mountAuth } : {}),
+    healthProbe: createDatabaseHealthProbe(database),
+  });
+
   const server = app.listen(env.API_PORT, () => {
     logger.info({ port: env.API_PORT, env: env.NODE_ENV }, "API listening");
   });

@@ -26,8 +26,30 @@ describe("loadEnv", () => {
 
     expect(() => loadEnv(production)).toThrow(EnvironmentError);
     expect(() =>
-      loadEnv({ ...production, MONGODB_URI: "mongodb://localhost:27017", MONGODB_DB_NAME: "builder" }),
+      loadEnv({
+        ...production,
+        MONGODB_URI: "mongodb://localhost:27017",
+        MONGODB_DB_NAME: "builder",
+        BETTER_AUTH_SECRET: "a".repeat(32),
+      }),
     ).not.toThrow();
+  });
+
+  it("requires an authentication secret in production", () => {
+    const production = {
+      NODE_ENV: "production",
+      FRONTEND_ORIGIN: "https://osistema.com",
+      PLATFORM_PUBLIC_ORIGIN: "https://osistema.com",
+      PLATFORM_ROOT_DOMAIN: "osistema.com",
+      MONGODB_URI: "mongodb://localhost:27017",
+      MONGODB_DB_NAME: "builder",
+    } as NodeJS.ProcessEnv;
+
+    expect(() => loadEnv(production)).toThrow(/BETTER_AUTH_SECRET/);
+  });
+
+  it("rejects a session secret that is too short to be safe", () => {
+    expect(() => loadEnv({ BETTER_AUTH_SECRET: "too-short" } as NodeJS.ProcessEnv)).toThrow(EnvironmentError);
   });
 
   it("names the missing variables without echoing any value", () => {

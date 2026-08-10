@@ -23,6 +23,10 @@ const baseSchema = z.object({
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
   MONGODB_URI: z.string().min(1).optional(),
   MONGODB_DB_NAME: z.string().min(1).optional(),
+  /** At least 32 bytes. Sessions signed with a weak secret are forgeable. */
+  BETTER_AUTH_SECRET: z.string().min(32).optional(),
+  BETTER_AUTH_URL: z.string().url().default("http://localhost:5173"),
+  BETTER_AUTH_BASE_PATH: z.string().startsWith("/").default("/api/auth"),
 });
 
 export type Env = z.infer<typeof baseSchema> & {
@@ -46,7 +50,11 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   const env = parsed.data;
 
   // Values that may default in development but must be explicit in production.
-  const requiredInProduction: Array<keyof typeof env> = ["MONGODB_URI", "MONGODB_DB_NAME"];
+  const requiredInProduction: Array<keyof typeof env> = [
+    "MONGODB_URI",
+    "MONGODB_DB_NAME",
+    "BETTER_AUTH_SECRET",
+  ];
   if (env.NODE_ENV === "production") {
     const missing = requiredInProduction.filter((key) => !env[key]);
     if (missing.length > 0) throw new EnvironmentError(missing.map(String));

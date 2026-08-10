@@ -16,6 +16,11 @@ export type AppDependencies = {
   healthProbe?: HealthProbe;
   /** Feature routers mounted under the API base path. */
   routers?: Array<{ path: string; router: Router }>;
+  /**
+   * Mounts authentication routes. Called before the JSON body parser, because Better Auth reads
+   * the raw request body itself.
+   */
+  mountAuth?: (app: Express) => void;
 };
 
 /**
@@ -34,6 +39,9 @@ export function createApp(dependencies: AppDependencies = {}): Express {
 
   app.use(pinoHttp({ logger, autoLogging: !env.isTest }));
   app.use(cors({ origin: env.FRONTEND_ORIGIN, credentials: true }));
+
+  dependencies.mountAuth?.(app);
+
   app.use(express.json({ limit: env.JSON_BODY_LIMIT }));
 
   app.use(`${API_BASE_PATH}/health`, createHealthRouter(dependencies.healthProbe));
