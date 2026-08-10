@@ -5,6 +5,7 @@ import { PublicShell } from "@/app/shells/PublicShell";
 import { AuthPage } from "@/features/auth/AuthPage";
 import { SettingsPage } from "@/features/auth/SettingsPage";
 import { BlogRoute } from "@/features/blog/BlogRoute";
+import { PostEditorRoute } from "@/features/blog/PostEditorRoute";
 import { EditorRoute } from "@/features/editor/EditorRoute";
 import { MediaRoute } from "@/features/media/MediaRoute";
 import { PreviewRoute } from "@/features/preview/PreviewRoute";
@@ -56,6 +57,8 @@ export function AppRoutes({
           <Route index element={<Navigate to="sites" replace />} />
           <Route path="sites" element={<SitesRoute />} />
           <Route path="sites/:projectId/blog" element={<BlogRoute />} />
+          <Route path="sites/:projectId/blog/posts/new" element={<PostEditorRoute />} />
+          <Route path="sites/:projectId/blog/posts/:postId/edit" element={<PostEditorRoute />} />
           <Route path="media" element={<MediaRoute />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>

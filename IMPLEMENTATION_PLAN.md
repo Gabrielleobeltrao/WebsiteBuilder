@@ -1893,7 +1893,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: the user can manage a growing blog without entering the visual builder.
   - Verify: component/integration tests.
 
-- [ ] **P11-T6 — Generated post editor**
+- [x] **P11-T6 — Generated post editor**
   - Build the standard post form with Tiptap rich content, cover media, author, category, tags, slug, status, publish date, and SEO fields.
   - Generate additional form controls from stable template field definitions, including one control per distinct dynamic image field.
   - Clearly distinguish missing required fields, optional fields, inherited defaults, and fields no longer used by the published template.
@@ -2593,4 +2593,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P11-T3 | Blog settings per project with disabled default, validated base path and non-destructive deactivation | Disabling hides public routes while every post survives; settings never leak across workspaces |
 | 2026-08-10 | P11-T4 | Blog post repository and API with allowlisted Tiptap validation, unique per-project slugs and published-only public reads | 56 tests: raw HTML and unknown node types rejected, drafts never resolve publicly, ownership fields stripped from public responses, cross-tenant and cross-project access blocked |
 | 2026-08-10 | P11-T5 | Blog post dashboard with explicit activation, status filters, search, publish/unpublish, confirmed delete and full state coverage | 11 tests: visiting the route never enables the blog, filters and search go through the API rather than the browser, deletion issues no request before confirmation |
+| 2026-08-10 | P11-T6 | Post editor as a generated form with Tiptap content and one control per stable field definition | 11 tests: slug follows the title until the author edits it and then stops, values stored by field id survive a label rename, two distinct definitions produce two independent inputs |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
