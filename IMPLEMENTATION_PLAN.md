@@ -1587,31 +1587,31 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 3 — Editor document and pages
 
-- [ ] **P3-T1 — Implement editor store foundation**
+- [x] **P3-T1 — Implement editor store foundation**
   - Add Zustand document/UI/history/persistence slices and typed actions.
   - Implement dirty tracking, 100-action undo/redo, and history transaction boundaries.
   - Acceptance: document actions are reversible; selection/zoom changes do not pollute history.
   - Verify: store unit tests.
 
-- [ ] **P3-T2 — Load, manual save, and autosave**
+- [x] **P3-T2 — Load, manual save, and autosave**
   - Load project into store; implement revision-aware manual save, 1.5s debounce, retry, conflict UI, navigation warning, and save-state indicator.
   - Acceptance: reload preserves state; failed save remains dirty; no per-pixel requests.
   - Verify: fake-timer tests and API integration tests.
 
-- [ ] **P3-T3 — Page management**
+- [x] **P3-T3 — Page management**
   - Create, rename, duplicate, delete, reorder, select, set homepage, and normalize unique slugs.
   - Prevent deletion of the final page and maintain exactly one homepage.
   - Acceptance: every page keeps an independent element array and valid slug.
   - Verify: page action/schema tests.
 
-- [ ] **P3-T4 — Build editor shell**
+- [x] **P3-T4 — Build editor shell**
   - Implement the top bar, center canvas workspace, permanent application navigation on the left, and a unified right-side builder control panel for pages, available elements, and the property inspector.
   - Organize the right panel with clear tabs or modes so pages, elements, and settings do not compete for space.
   - Do not create a second builder-specific left sidebar.
   - Acceptance: the canvas remains centered; application navigation is on the left; builder controls are on the right; all major editor states are visible and keyboard navigable.
   - Verify: component tests and visual manual smoke test.
 
-- [ ] **P3-T5 — Right-panel state machine and overlay foundation**
+- [x] **P3-T5 — Right-panel state machine and overlay foundation**
   - Implement the mutually exclusive right-panel modes, remembered return mode, section/element inspector transitions, parent breadcrumb, fixed desktop width, desktop-only authoring gate, and selection-driven focus behavior from Section 7.
   - Add one accessible overlay manager for popovers, dialogs, and large resource pickers with documented stacking, outside-click/Escape rules, focus trapping/restoration, and background-shortcut suppression.
   - Acceptance: selecting a button/text/image/section replaces the right panel with the matching inspector without moving the canvas; Back/deselect restores the prior mode and scroll position; only one modal can exist at a time.
@@ -2550,4 +2550,9 @@ Append one concise line after each completed task.
 | 2026-08-10 | P2-T2 | Project repository with ObjectId/API id mapping, workspace-scoped listing, create, rename, revision-checked save and delete | 15 tests: cross-tenant read/write/delete all blocked, stale save rejected, concurrent saves leave exactly one winner |
 | 2026-08-10 | P2-T3 | Project REST API with Zod validation, success/error envelopes and documented status codes | 17 Supertest cases including 409 conflict, dangerous-link rejection and workspace scoping |
 | 2026-08-10 | P2-T4 | Typed same-origin fetch client and preliminary site list with create, rename, delete, confirmation dialog and loading/empty/error states | 9 component tests in both locales; request cancellation on workspace change asserted |
+| 2026-08-10 | P3-T1 | Zustand document/UI/history/persistence slices with 100-entry snapshot history and transaction boundaries | 8 history tests: transactions collapse, empty transactions leave no step, UI state never enters history |
+| 2026-08-10 | P3-T2 | Revision-aware manual save, 1.5s debounced autosave, retry, conflict dialog, navigation guard and persistent save indicator | 14 store tests with fake timers: debounce restarts, manual save cancels autosave, failed save stays dirty, conflict stops retrying |
+| 2026-08-10 | P3-T3 | Page create, rename, slug, duplicate, delete, reorder and homepage with invariants enforced | 17 tests: last page cannot be deleted, exactly one homepage always, duplicate regenerates every nested id |
+| 2026-08-10 | P3-T4 | Editor shell: top bar, centred canvas workspace, fixed-width right panel, no second left sidebar | 14 component tests including layout, loading, error and both locales |
+| 2026-08-10 | P3-T5 | Right-panel mode machine, inspector shell with the five capability groups, overlay manager and desktop authoring gate | Panel machine unit tests plus shell tests for mode return, inspector replacement and the touch/narrow gate |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

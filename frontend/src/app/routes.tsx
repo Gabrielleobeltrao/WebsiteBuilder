@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes, useLocation, useParams } from "react-router";
 
 import { PublicShell } from "@/app/shells/PublicShell";
+import { EditorRoute } from "@/features/editor/EditorRoute";
 import { SitesPage } from "@/features/projects/SitesPage";
 import { AuthPlaceholderPage } from "@/features/public/AuthPlaceholderPage";
 import { LandingPage } from "@/features/public/LandingPage";
@@ -32,6 +33,8 @@ export function AppRoutes({ authenticated = false }: { authenticated?: boolean }
       <Route path="app/:workspaceId" element={authenticated ? <Outlet /> : <RequireAuthenticatedArea />}>
         <Route index element={<Navigate to="sites" replace />} />
         <Route path="sites" element={<SitesRoute />} />
+        <Route path="sites/:projectId/builder" element={<EditorRoute />} />
+        <Route path="sites/:projectId/builder/:pageId" element={<EditorRoute />} />
       </Route>
       <Route path="app/*" element={<RequireAuthenticatedArea />} />
 
