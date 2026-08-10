@@ -2050,7 +2050,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: authorized users manage only their site's submissions, retention cannot delete another tenant's data, and hiding an unused module never loses historical submissions.
   - Verify: repository/API/UI, reference counting, archive/restore, pagination, bulk-action, retention, and tenant-isolation tests.
 
-- [ ] **P14-T4 — Notification contract, CSV, and visitor completion states**
+- [x] **P14-T4 — Notification contract, CSV, and visitor completion states**
   - Add one provider-neutral notification adapter with a safe development sink only. Document the future provider boundary, but do not connect SMTP or a transactional-email API in this phase; future notification failure must never be allowed to lose a stored submission.
   - Add streaming CSV export with spreadsheet-formula injection protection and configurable success message or safe internal thank-you-page redirect.
   - Do not implement CRM, calendar, newsletter, webhook automation, or payment integrations.
@@ -2622,4 +2622,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P14-T1 | Form definitions with server-derived status, reference-aware removal and restore | 39 tests: status is recomputed rather than trusted, a definition with submissions is archived not deleted, cross-workspace read and write blocked |
 | 2026-08-10 | P14-T2 | Hardened public submission: declared fields only, duplicate suppression, archived forms closed, uniform responses | An unknown and a malformed form id answer identically, so the endpoint reveals nothing about what exists; a suppressed duplicate still reports success so the visitor does not resubmit |
 | 2026-08-10 | P14-T3 | Submission lifecycle with new/read/archived/spam, pagination and workspace-scoped retention | Retention deletes only within its own workspace, asserted with a second tenant holding an equally old submission |
+| 2026-08-10 | P14-T4 | Provider-neutral notification adapter with a development sink, plus safe CSV export | 11 tests: a provider failure never surfaces because the submission is already stored, the sink contacts nothing, headers use current labels while values resolve by field id, a submitted formula is neutralised |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
