@@ -1,0 +1,109 @@
+# Coolify production stack.
+#
+# Three services, one public entry point. Only the frontend gateway gets a domain: the API is
+# reachable exclusively through https://${PLATFORM_ROOT_DOMAIN}/api/*, which is what keeps session
+# cookies same-origin and removes CORS from the product entirely.
+#
+# The public renderer is a separate service with its own hostname because it serves *customer*
+# sites. Sharing an origin with the application would mean a published customer page and the
+# authenticated dashboard sat on the same cookie domain.
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_PUBLIC_ORIGIN: ${PLATFORM_PUBLIC_ORIGIN}
+        VITE_API_URL: /api/v1
+    restart: unless-stopped
+    environment:
+      # Coolify reads this to route the domain to this service.
+      SERVICE_FQDN_FRONTEND: ${PLATFORM_PUBLIC_ORIGIN}
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["node", "backend/dist/server.js"]
+    restart: unless-stopped
+    # Deliberately no SERVICE_FQDN: this service must not be publicly routable.
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: production
+      API_PORT: 3000
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      MONGODB_URI: ${MONGODB_URI}
+      MONGODB_DB_NAME: ${MONGODB_DB_NAME}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${PLATFORM_PUBLIC_ORIGIN}
+      BETTER_AUTH_BASE_PATH: /api/auth
+      FRONTEND_ORIGIN: ${PLATFORM_PUBLIC_ORIGIN}
+      PLATFORM_ROOT_DOMAIN: ${PLATFORM_ROOT_DOMAIN}
+      PLATFORM_PUBLIC_ORIGIN: ${PLATFORM_PUBLIC_ORIGIN}
+      PLATFORM_RESERVED_SUBDOMAINS: ${PLATFORM_RESERVED_SUBDOMAINS:-www,app,api,admin,origin,customers,coolify,status,mail,cdn,assets,static,docs,support}
+      JSON_BODY_LIMIT: ${JSON_BODY_LIMIT:-8mb}
+      SHUTDOWN_TIMEOUT_MS: ${SHUTDOWN_TIMEOUT_MS:-30000}
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  renderer:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["node", "backend/dist/renderer-server.js"]
+    restart: unless-stopped
+    environment:
+      # Technical hostname plus the wildcard for project subdomains. Never advertised as a product
+      # URL — customers reach their sites through their own hostname.
+      SERVICE_FQDN_RENDERER: ${PUBLIC_RENDERER_ORIGIN}
+      NODE_ENV: production
+      PUBLIC_RENDERER_PORT: 3001
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      MONGODB_URI: ${MONGODB_URI}
+      MONGODB_DB_NAME: ${MONGODB_DB_NAME}
+      PLATFORM_ROOT_DOMAIN: ${PLATFORM_ROOT_DOMAIN}
+      PLATFORM_PUBLIC_ORIGIN: ${PLATFORM_PUBLIC_ORIGIN}
+      PUBLIC_SITE_CACHE_TTL_SECONDS: ${PUBLIC_SITE_CACHE_TTL_SECONDS:-60}
+      # Must match the real Coolify/Traefik proxy range before any forwarded header is trusted.
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3001/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 512M

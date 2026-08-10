@@ -182,3 +182,18 @@ describe("sitemap and robots", () => {
     expect(renderRobotsTxt({ allowIndexing: false, sitemapUrl: null })).not.toContain("Sitemap:");
   });
 });
+
+describe("stored defaults", () => {
+  it("stores an English locale by default, like every other technical default", () => {
+    // The published site's language is data the owner sets per site. Defaulting it to a specific
+    // human language would put one country's assumption into every new project's database record.
+    expect(createDefaultSiteSeo("Acme").locale).toBe("en-US");
+  });
+
+  it("keeps the site locale separate from the interface language", () => {
+    // SiteSeoSettings.locale describes the published website; the user's own interface language is
+    // a separate per-user preference and changing one must not change the other.
+    const settings = createDefaultSiteSeo("Acme");
+    expect(settings).not.toHaveProperty("interfaceLocale");
+  });
+});

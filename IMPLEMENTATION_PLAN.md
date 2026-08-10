@@ -2186,7 +2186,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: an authorized user can connect a disposable test subdomain, watch status transitions, make it primary, redirect secondary domains, and disconnect it without deleting the site.
   - Verify: state-machine, DNS/status polling, primary/canonical redirects, permissions, disconnect, provider-failure UI, and E2E tests with fakes plus one documented manual staging smoke test.
 
-- [ ] **P18-T7 — Environment validation and Coolify production manifests**
+- [~] **P18-T7 — Environment validation and Coolify production manifests**
   - Complete `.env.example`, service-specific env schemas, Dockerfiles/Compose or Coolify-compatible manifests, frontend gateway route configuration, health checks, graceful shutdown, ports, trusted proxy configuration, resource limits, and frontend/backend secret separation exactly as defined in Section 8.
   - Add an operator guide with apex/root frontend routing, `/api/*` private-backend proxying, SPA fallback exclusions, DNS records, wildcard project routing, Cloudflare fallback/CNAME target, Traefik renderer catch-all, origin TLS/DNS challenge when needed, Coolify service configuration, environment placement, and validation checks without real secrets.
   - Acceptance: a new production environment can be configured from documentation; startup fails safely for missing/invalid variables; no backend secret enters the frontend bundle.
@@ -2212,7 +2212,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: tests prove save/reload, preview navigation, immediate language switching, and persisted preference in both locales.
   - Verify: `npm run test:e2e`.
 
-- [ ] **P19-T3 — Documentation and environment setup**
+- [~] **P19-T3 — Documentation and environment setup**
   - Complete the English README, `.env.example`, installation, scripts, architecture, repository/branch workflow, MongoDB/Better Auth/media/i18n setup, testing, responsive behavior, publishing/domain/Coolify/Cloudflare operations, known limitations, and optional future static-export path.
   - Never commit secrets or real credentials.
   - Acceptance: a new developer can run the project using only the documentation.
@@ -2530,6 +2530,8 @@ Append entries; do not erase history.
 | 2026-08-10 | P9-T1 | `BreakpointOverride` carries `layout` and `geometry` as named parts instead of `Partial<ResponsiveElementLayout & Geometry>` | The intersection in Section 5 cannot be satisfied: both sides declare `width` and `height`, so it demands a value that is simultaneously a structured length and a number. Naming the parts keeps the same expressive power with a type that can hold a value. |
 | 2026-08-10 | P9-T1 | `ResolvedLayout` keeps layout and geometry separate rather than merging them | Flattening let the numeric geometry width overwrite the structured responsive width, silently destroying the value. Caught by a test before any consumer depended on it. |
 | 2026-08-10 | P10-T1 | Uploads arrive as a raw body with the filename in a header, not multipart | One file is sent at a time and the frontend controls both ends, so skipping multipart removes a parser and temporary-file handling from a path that accepts untrusted bytes. The declared content type still decides nothing: the pipeline sniffs the actual bytes. |
+| 2026-08-10 | P19-T3 | Stored site SEO locale defaults to `en-US` rather than `pt-BR` | Everything persisted is a technical artefact and is English by rule. Defaulting a database record to one country's language put that assumption into every new project; the owner sets the real published-site language per site, and it is unrelated to the interface language. |
+| 2026-08-10 | P18-T7 | Dev scripts load `.env` through Node's `--env-file-if-exists` | Nothing read the file, so a configured `MONGODB_URI` was ignored locally and the app silently ran without a database. `-if-exists` keeps production working, where Coolify injects the environment and no file exists. |
 | 2026-08-10 | P12-T3 | History transactions push their undo step on the first real change rather than when the interaction opens | Pushing on open meant focusing a field and tabbing away created an empty undo step. Opening now records a baseline and pushes it only when something actually changes, so abandoning an interaction leaves history untouched. |
 
 ## 15. Progress Log
@@ -2628,4 +2630,6 @@ Append one concise line after each completed task.
 | 2026-08-10 | P16-T3 | Bounded internal search that excludes drafts and noindex content at index time, with accent folding, explainable ranking and pagination | 15 tests: a draft's text is absent from the index rather than filtered from results, a one-character query returns nothing, results expose no internal field |
 | 2026-08-10 | P17-T1 | Accessibility audit for heading order, alt text, link text, WCAG contrast and tap targets, with manual-review findings kept separate | 21 tests: every finding names an element and says what to fix, judgement-dependent checks are reported for review rather than passed, hidden elements are ignored |
 | 2026-08-10 | P17-T2 | Broken-link and missing-media audit reporting deleted destinations before a visitor finds them | An unconfigured button is a warning, a deleted destination is an error, a page whose links all resolve reports nothing |
+| 2026-08-10 | P18-T7 | Dockerfiles, nginx gateway config and Coolify compose stack; `.env` now loaded in development | Verified against the real Atlas cluster: health reports `database: up`, indexes created, `/api/v1/health` returns JSON not HTML. Images not built — Docker is absent from this machine |
+| 2026-08-10 | P19-T3 | Detailed README covering stack, architecture, security model, testing, deployment and known limitations | States plainly what is unverified rather than implying a rehearsed deploy |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

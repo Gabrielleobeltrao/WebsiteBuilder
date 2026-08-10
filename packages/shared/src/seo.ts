@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { DEFAULT_APP_LOCALE } from "./api";
+
 const robotsSchema = z.object({ index: z.boolean(), follow: z.boolean() }).strict();
 
 export const pageSeoSettingsSchema = z
@@ -62,7 +64,10 @@ export function createDefaultSiteSeo(siteName: string): SiteSeoSettings {
     siteName,
     titleTemplate: "%s | %site%",
     defaultDescription: "",
-    locale: "pt-BR",
+    // Technical default, stored in the database and emitted as the published site's lang. It is
+    // English like every other stored default; the owner sets the real language per site in
+    // Settings -> SEO, and it is unrelated to the interface language the user reads.
+    locale: DEFAULT_APP_LOCALE,
     defaultRobots: { index: true, follow: true },
   };
 }

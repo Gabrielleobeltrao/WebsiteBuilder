@@ -149,7 +149,7 @@ const EMPTY_DOCUMENT: BuilderDocumentInput = {
     siteName: "",
     titleTemplate: "%s",
     defaultDescription: "",
-    locale: "pt-BR",
+    locale: "en-US",
     defaultRobots: { index: true, follow: true },
   },
   featureStates: [],
