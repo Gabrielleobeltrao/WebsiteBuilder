@@ -12,6 +12,7 @@ export * from "./links";
 export * from "./navigation";
 export * from "./project";
 export * from "./resolve";
+export * from "./redirects";
 export * from "./responsive";
 export * from "./schema-version";
 export * from "./seo";

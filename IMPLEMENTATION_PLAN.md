@@ -2095,7 +2095,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: each state is brandable and responsive while preserving required status/behavior and accessibility.
   - Verify: renderer, protected-binding, route, reset, responsive, and accessibility tests.
 
-- [ ] **P16-T2 — Slug history and redirect manager**
+- [x] **P16-T2 — Slug history and redirect manager**
   - Create automatic 301 redirects for changed page, blog-post, and CMS-item paths; add authorized manual redirect list/create/edit/delete/test UI.
   - Normalize paths and reject loops, self-redirects, ambiguous duplicates, unsafe destinations, reserved routes, and excessive chains.
   - Acceptance: old links resolve to the intended current content and invalid rules cannot make the site unreachable.
@@ -2624,4 +2624,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P14-T3 | Submission lifecycle with new/read/archived/spam, pagination and workspace-scoped retention | Retention deletes only within its own workspace, asserted with a second tenant holding an equally old submission |
 | 2026-08-10 | P14-T4 | Provider-neutral notification adapter with a development sink, plus safe CSV export | 11 tests: a provider failure never surfaces because the submission is already stored, the sink contacts nothing, headers use current labels while values resolve by field id, a submitted formula is neutralised |
 | 2026-08-10 | P15-T1 | CMS collection and item contracts with immutable field ids, typed validation, project-scoped references and a schema-change impact report | 17 tests: a wrong-typed value is refused rather than coerced, undeclared values are ignored, a reference outside the project is refused, only a newly required field blocks a schema change |
+| 2026-08-10 | P16-T2 | Slug-history redirects with path normalisation, loop and chain detection, reserved paths and chain flattening | 20 tests: anything that could leave the origin is refused, a duplicate source is caught however it was written, a cycle is detected rather than followed, chains are counted the way a visitor experiences them |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
