@@ -1,8 +1,9 @@
-import type { BuilderDocumentInput, BuilderPage, BuilderProject } from "@websitebuilder/shared";
+import type { BuilderDocumentInput, BuilderPage, BuilderProject, ElementType, Geometry } from "@websitebuilder/shared";
 import { create } from "zustand";
 
 import { ApiError } from "@/api/client";
 import { projectsApi } from "@/api/projects";
+import * as elementOps from "./elements";
 import * as history from "./history";
 import * as pageOps from "./pages";
 
@@ -73,6 +74,14 @@ export type EditorState = {
   deletePage: (pageId: string) => void;
   reorderPages: (from: number, to: number) => void;
   setHomePage: (pageId: string) => void;
+
+  addElement: (sectionId: string, type: ElementType, viewportCentre?: { x: number; y: number }) => void;
+  deleteElement: (elementId: string) => void;
+  duplicateElement: (elementId: string) => void;
+  moveElement: (elementId: string, geometry: Geometry) => void;
+  renameElement: (elementId: string, name: string) => void;
+  setElementFlag: (elementId: string, flag: "locked" | "hidden", value: boolean) => void;
+  changeZOrder: (elementId: string, direction: "forward" | "backward" | "front" | "back") => void;
 };
 
 function toDocumentInput(project: BuilderProject): BuilderDocumentInput {
@@ -292,6 +301,53 @@ export const useEditorStore = create<EditorState>((set, get) => {
     },
     setHomePage(pageId) {
       get().update((document) => pageOps.setHomePage(document, pageId));
+    },
+
+    addElement(sectionId, type, viewportCentre) {
+      const state = get();
+      const pageId = selectCurrentPage(state)?.id;
+      if (pageId === undefined) return;
+
+      let created: string | null = null;
+      state.update((document) => {
+        const result = elementOps.addElement(document, { pageId, sectionId }, type, viewportCentre);
+        created = result.elementId;
+        return result.document;
+      });
+      // Adding an element selects it, so the inspector opens on what the user just placed.
+      if (created !== null) get().select({ kind: "element", elementId: created });
+    },
+
+    deleteElement(elementId) {
+      get().update((document) => elementOps.deleteElement(document, elementId));
+      const selection = get().ui.selection;
+      if (selection?.kind === "element" && selection.elementId === elementId) get().select(null);
+    },
+
+    duplicateElement(elementId) {
+      let created: string | null = null;
+      get().update((document) => {
+        const result = elementOps.duplicateElement(document, elementId);
+        created = result.elementId;
+        return result.document;
+      });
+      if (created !== null) get().select({ kind: "element", elementId: created });
+    },
+
+    moveElement(elementId, geometry) {
+      get().update((document) => elementOps.moveElement(document, elementId, geometry));
+    },
+
+    renameElement(elementId, name) {
+      get().update((document) => elementOps.renameElement(document, elementId, name));
+    },
+
+    setElementFlag(elementId, flag, value) {
+      get().update((document) => elementOps.setElementFlag(document, elementId, flag, value));
+    },
+
+    changeZOrder(elementId, direction) {
+      get().update((document) => elementOps.changeZOrder(document, elementId, direction));
     },
   };
 });

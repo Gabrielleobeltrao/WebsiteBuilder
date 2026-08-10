@@ -1621,29 +1621,29 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 4 — Canvas and element interactions
 
-- [ ] **P4-T1 — Build logical canvas and zoom mapping**
+- [x] **P4-T1 — Build logical canvas and zoom mapping**
   - Render 1440px logical canvas scaled to the workspace; implement coordinate conversion and scroll behavior.
   - Acceptance: persisted geometry does not change when editor zoom/fit changes.
   - Verify: coordinate utility tests at multiple scales.
 
-- [ ] **P4-T2 — Shared element renderer**
+- [x] **P4-T2 — Shared element renderer**
   - Implement text/image/button renderers and centralized model-to-style mapping.
   - Render plain text safely; handle missing/broken images; render typed links safely.
   - Acceptance: renderer contains no editor selection logic and works in a standalone test harness.
   - Verify: renderer unit/component tests.
 
-- [ ] **P4-T3 — Add/select/delete/duplicate elements**
+- [x] **P4-T3 — Add/select/delete/duplicate elements**
   - Add default elements near viewport center; click-select; click-empty deselect; hover/selected outlines and element label; delete; duplicate; lock/hide behavior; Layers-based recovery for locked/hidden elements.
   - Acceptance: IDs are unique, operations create correct history entries, the selected element is unambiguous on light/dark content, and editor outlines never appear in preview/public rendering.
   - Verify: store and interaction tests.
 
-- [ ] **P4-T4 — Drag and resize with Moveable**
+- [x] **P4-T4 — Drag and resize with Moveable**
   - Add selection outline, exactly eight resize handles (four corners and four side midpoints), drag, two-axis corner resize, one-axis side resize, minimum sizes, logical coordinate conversion, and reasonable canvas bounds.
   - Commit one history action at interaction end.
   - Acceptance: interactions remain smooth and do not trigger API calls continuously.
   - Verify: interaction tests plus manual drag/resize at multiple zoom levels.
 
-- [ ] **P4-T5 — Z-order and canvas height**
+- [x] **P4-T5 — Z-order and canvas height**
   - Bring forward/send backward, normalize z-indexes, and allow controlled page-height adjustment or growth when needed.
   - Acceptance: visual stacking is deterministic after save/reload.
   - Verify: z-order tests.
@@ -2555,4 +2555,9 @@ Append one concise line after each completed task.
 | 2026-08-10 | P3-T3 | Page create, rename, slug, duplicate, delete, reorder and homepage with invariants enforced | 17 tests: last page cannot be deleted, exactly one homepage always, duplicate regenerates every nested id |
 | 2026-08-10 | P3-T4 | Editor shell: top bar, centred canvas workspace, fixed-width right panel, no second left sidebar | 14 component tests including layout, loading, error and both locales |
 | 2026-08-10 | P3-T5 | Right-panel mode machine, inspector shell with the five capability groups, overlay manager and desktop authoring gate | Panel machine unit tests plus shell tests for mode return, inspector replacement and the touch/narrow gate |
+| 2026-08-10 | P4-T1 | Single screen/logical coordinate module with zoom clamping, fit, rounding and canvas bounds | 12 tests: identical logical geometry for the same gesture at six zoom levels; no off-canvas placement |
+| 2026-08-10 | P4-T2 | Shared pure renderer for text, image, button and container plus one model-to-CSS module | 16 tests: markup in content renders as text, dangerous and deleted links yield a disabled button, hidden content excluded |
+| 2026-08-10 | P4-T3 | Add, select, delete, duplicate, lock and hide with unique ids and Layers-based recovery | 17 tests: unique nested ids on duplicate, locked elements refuse to move, defaults never full width |
+| 2026-08-10 | P4-T4 | Moveable drag and resize with exactly eight handles and one history entry per interaction | Transactions asserted in history tests; geometry commit routed through the constrained coordinate module |
+| 2026-08-10 | P4-T5 | Bring forward, send backward, front, back with contiguous z-index normalisation and page height growth | 17 element tests including boundary no-ops and deterministic order after reload |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

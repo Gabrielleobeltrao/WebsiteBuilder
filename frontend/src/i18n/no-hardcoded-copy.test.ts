@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { extname, join, relative } from "node:path";
+import { dirname, extname, join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
@@ -11,8 +12,9 @@ import { describe, expect, it } from "vitest";
  * exception is marked with `i18n-exempt` on the same line.
  */
 
-// Vitest runs with the frontend workspace as its root.
-const SRC = join(process.cwd(), "src");
+// Anchored to this file, not the working directory: the suite must pass whether it is run
+// from the workspace or from the repository root.
+const SRC = dirname(dirname(fileURLToPath(import.meta.url)));
 
 const COVERED_DIRECTORIES = ["app", "components", "features", "routes"];
 

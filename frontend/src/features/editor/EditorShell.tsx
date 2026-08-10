@@ -4,7 +4,7 @@ import { Link } from "react-router";
 
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { PageMetadata } from "@/components/common/PageMetadata";
-import { CanvasWorkspace } from "@/features/editor/canvas/CanvasWorkspace";
+import { EditableCanvas } from "@/features/editor/canvas/EditableCanvas";
 import { ElementsPanel } from "@/features/editor/panel/ElementsPanel";
 import { LayersPanel } from "@/features/editor/panel/LayersPanel";
 import { PageSettingsPanel } from "@/features/editor/panel/PageSettingsPanel";
@@ -96,7 +96,14 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
       case "pages":
         return <PagesPanel />;
       case "elements":
-        return <ElementsPanel />;
+        return (
+          <ElementsPanel
+            onAdd={(type) => {
+              const sectionId = page?.sections[0]?.id;
+              if (sectionId) store.addElement(sectionId, type);
+            }}
+          />
+        );
       case "layers":
         return <LayersPanel />;
       case "pageSettings":
@@ -152,7 +159,7 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
 
       <div className="flex min-h-0 flex-1">
         <main className="min-w-0 flex-1">
-          <CanvasWorkspace page={page} />
+          <EditableCanvas page={page} />
         </main>
 
         {/* Fixed width: changing panel modes must never resize or jump the canvas. */}
