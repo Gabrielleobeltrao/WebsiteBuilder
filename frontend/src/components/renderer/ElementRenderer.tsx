@@ -26,9 +26,10 @@ export function TextRenderer({ element }: { element: TextElement }) {
 export function ImageRenderer({ element }: { element: ImageElement }) {
   const { resolveMediaUrl } = useRendererContext();
 
+  // An empty URL is treated as no source: rendering src="" makes the browser refetch the page.
   const src =
     element.source.kind === "url"
-      ? element.source.url
+      ? (element.source.url.trim() || null)
       : element.source.kind === "media"
         ? resolveMediaUrl(element.source.mediaId)
         : null;

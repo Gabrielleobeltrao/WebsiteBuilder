@@ -91,6 +91,99 @@ export default {
     previewMobile: "Mobile preview",
     savedAt: "Last saved {{when}}",
   },
+
+  "fields": {
+    "content": "Content",
+    "text": "Text",
+    "tag": "Tag",
+    "alt": "Alternative text",
+    "decorative": "Decorative image",
+    "imageSource": "Image source",
+    "imageUrl": "Image URL",
+    "fontFamily": "Font",
+    "fontSize": "Font size",
+    "fontWeight": "Weight",
+    "fontStyle": "Style",
+    "textAlign": "Alignment",
+    "color": "Colour",
+    "lineHeight": "Line height",
+    "backgroundColor": "Background",
+    "textColor": "Text colour",
+    "borderRadius": "Corner radius",
+    "objectFit": "Fit",
+    "horizontalAlign": "Horizontal alignment",
+    "width": "Width",
+    "height": "Height",
+    "x": "X",
+    "y": "Y",
+    "zIndex": "Layer",
+    "linkKind": "Link to",
+    "linkPage": "Page",
+    "linkUrl": "Address",
+    "linkEmail": "Email",
+    "linkPhone": "Phone",
+    "linkMessage": "Message",
+    "newTab": "Open in a new tab",
+    "icon": "Icon",
+    "iconPosition": "Icon position",
+    "locked": "Locked",
+    "hidden": "Hidden",
+    "displayName": "Display name"
+  },
+  "options": {
+    "tag": {
+      "h1": "Heading 1",
+      "h2": "Heading 2",
+      "h3": "Heading 3",
+      "h4": "Heading 4",
+      "h5": "Heading 5",
+      "h6": "Heading 6",
+      "p": "Paragraph"
+    },
+    "fontStyle": {
+      "normal": "Normal",
+      "italic": "Italic"
+    },
+    "align": {
+      "left": "Left",
+      "center": "Centre",
+      "right": "Right"
+    },
+    "objectFit": {
+      "cover": "Cover",
+      "contain": "Contain",
+      "fill": "Fill"
+    },
+    "source": {
+      "empty": "None",
+      "url": "External URL",
+      "media": "Media library"
+    },
+    "link": {
+      "none": "Nothing yet",
+      "internal": "A page in this site",
+      "external": "External address",
+      "email": "Email",
+      "phone": "Phone",
+      "whatsapp": "WhatsApp"
+    },
+    "iconPosition": {
+      "before": "Before text",
+      "after": "After text"
+    }
+  },
+  "validation": {
+    "unsafeUrl": "Only https addresses are accepted.",
+    "missingPage": "The linked page no longer exists. Choose another one.",
+    "invalidEmail": "Enter a valid email address.",
+    "invalidPhone": "Enter a phone number with 6 to 20 digits."
+  },
+  "zorder": {
+    "forward": "Bring forward",
+    "backward": "Send backward",
+    "front": "Bring to front",
+    "back": "Send to back"
+  },
   loading: "Loading the site…",
   loadError: "We could not open this site",
 } as const;

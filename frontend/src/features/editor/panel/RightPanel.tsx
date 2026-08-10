@@ -2,6 +2,7 @@ import type { BuilderElement, BuilderPage, BuilderSection } from "@websitebuilde
 import { useTranslation } from "react-i18next";
 
 import type { PanelMode } from "@/features/editor/store/editorStore";
+import { ElementInspector } from "@/features/editor/inspector/ElementInspector";
 import { NON_INSPECTOR_MODES, type PanelView } from "./panelMachine";
 
 /**
@@ -58,11 +59,13 @@ function InspectorShell({
   typeLabel,
   breadcrumb,
   onBack,
+  children,
 }: {
   title: string;
   typeLabel: string;
   breadcrumb: string[];
   onBack: () => void;
+  children?: React.ReactNode;
 }) {
   const { t } = useTranslation("builder");
   return (
@@ -89,15 +92,15 @@ function InspectorShell({
         <p className="text-xs text-ink-500">{typeLabel}</p>
       </div>
 
-      {/* Phase 5 fills these groups with the shared inspector controls. */}
       <div className="flex-1 overflow-y-auto p-3">
-        {INSPECTOR_GROUPS.map((group) => (
-          <section key={group} className="border-b border-ink-100 py-3 last:border-b-0">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-              {t(`inspector.${group}`)}
-            </h3>
-          </section>
-        ))}
+        {children ??
+          INSPECTOR_GROUPS.map((group) => (
+            <section key={group} className="border-b border-ink-100 py-3 last:border-b-0">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                {t(`inspector.${group}`)}
+              </h3>
+            </section>
+          ))}
       </div>
     </div>
   );
@@ -106,6 +109,7 @@ function InspectorShell({
 export function RightPanel(props: {
   view: PanelView;
   page: BuilderPage | null;
+  pages: readonly BuilderPage[];
   panelMode: PanelMode;
   onPanelMode: (mode: PanelMode) => void;
   onBack: () => void;
@@ -122,7 +126,9 @@ export function RightPanel(props: {
         typeLabel={element ? t(`elements.${element.type}`) : t("panel.elementInspector")}
         breadcrumb={[page?.name ?? "", t("panel.sectionInspector"), t("panel.elementInspector")]}
         onBack={props.onBack}
-      />
+      >
+        {element && <ElementInspector element={element} pages={props.pages} />}
+      </InspectorShell>
     );
   }
 

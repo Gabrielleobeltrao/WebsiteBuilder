@@ -1652,29 +1652,29 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 5 — Property inspectors and shortcuts
 
-- [ ] **P5-T0 — Shared inspector framework**
+- [x] **P5-T0 — Shared inspector framework**
   - Build reusable inspector section primitives for Content, Style, Layout, Responsive, and Advanced; standardize labels, units, inherited/override badges, validation, reset actions, disclosure state, and continuous-control history transactions.
   - Keep inspector state keyed by selected element/type without writing UI-only disclosure/scroll state into the builder document.
   - Acceptance: every element inspector follows one predictable structure and switching selections never creates document history or loses canvas state.
   - Verify: inspector framework, transaction grouping, selection switching, disclosure persistence, and validation tests.
 
-- [ ] **P5-T1 — Text inspector and inline editing**
+- [x] **P5-T1 — Text inspector and inline editing**
   - Implement content, font family, size/unit, weight, style, decoration, transform, alignment, color, line-height, letter spacing, wrapping, and semantic heading/paragraph controls plus double-click inline editing.
   - Bundle a small safe initial font list; do not implement arbitrary remote font loading.
   - Acceptance: inspector and inline edits stay synchronized and undoable.
   - Verify: component and store tests.
 
-- [ ] **P5-T2 — Image inspector**
+- [x] **P5-T2 — Image inspector**
   - Implement owned-media/HTTPS source, alt/decorative state, object-fit, focal position, radius, opacity, border, shadow, aspect ratio, and shared geometry/layout controls with invalid/broken-image feedback.
   - Acceptance: bad input cannot corrupt document state; the source model supports both URL and uploaded media selection.
   - Verify: validation and component tests.
 
-- [ ] **P5-T3 — Button inspector and links**
+- [x] **P5-T3 — Button inspector and links**
   - Implement button text, typography, text/background colors for normal/hover/focus/disabled states, border, radius, shadow, padding, alignment, shared width/height/min/max controls, typed link editor, internal page selector, new-tab choice, Lucide icon allowlist/search, icon position, icon size, and icon/text gap.
   - Acceptance: unsafe protocols are rejected; deleted internal targets show a repairable validation state.
   - Verify: safe-link and button tests.
 
-- [ ] **P5-T4 — Keyboard shortcuts and accessibility pass**
+- [x] **P5-T4 — Keyboard shortcuts and accessibility pass**
   - Implement documented shortcuts with editable-target guards, focus handling, labels, and tooltips.
   - Acceptance: typing in an input/contenteditable is never deleted or undone by canvas shortcuts.
   - Verify: keyboard interaction tests.
@@ -2560,4 +2560,9 @@ Append one concise line after each completed task.
 | 2026-08-10 | P4-T3 | Add, select, delete, duplicate, lock and hide with unique ids and Layers-based recovery | 17 tests: unique nested ids on duplicate, locked elements refuse to move, defaults never full width |
 | 2026-08-10 | P4-T4 | Moveable drag and resize with exactly eight handles and one history entry per interaction | Transactions asserted in history tests; geometry commit routed through the constrained coordinate module |
 | 2026-08-10 | P4-T5 | Bring forward, send backward, front, back with contiguous z-index normalisation and page height growth | 17 element tests including boundary no-ops and deterministic order after reload |
+| 2026-08-10 | P5-T0 | Shared inspector primitives with transaction-grouped continuous controls and component-owned disclosure state | 15 inspector tests: one undo step per editing burst, collapsing a group never touches the document |
+| 2026-08-10 | P5-T1 | Text inspector: content, semantic tag, bundled font list, size with allowlisted units, weight, alignment, colour, line height | Structured font size asserted after a unit change; tag change reflected in the rendered heading level |
+| 2026-08-10 | P5-T2 | Image inspector: source kind, URL, decorative state, alt, fit, radius | Alt field disappears for a decorative image; empty URL renders a placeholder instead of refetching the page |
+| 2026-08-10 | P5-T3 | Button inspector with the typed link editor for internal, external, email, phone and WhatsApp | Unsafe URL warns instead of storing silently; a deleted internal target shows a repairable state |
+| 2026-08-10 | P5-T4 | Keyboard shortcuts with the editable-target guard | 8 tests: backspacing in a field never deletes the element, undo and duplicate do not hijack typing, save still works from a field |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

@@ -19,6 +19,7 @@ import {
   type PanelMode,
 } from "@/features/editor/store/editorStore";
 import { useAuthoringCapability } from "@/features/editor/useAuthoringCapability";
+import { useKeyboardShortcuts } from "@/features/editor/useKeyboardShortcuts";
 import { canRedo, canUndo } from "@/features/editor/store/history";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
 import { useUnsavedChangesWarning } from "@/hooks/useUnsavedChangesWarning";
@@ -39,6 +40,8 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
   const view = resolvePanelView({ panelMode: store.ui.panelMode, selection: store.ui.selection });
 
   useUnsavedChangesWarning(hasUnsaved);
+  // Shortcuts are mounted only where authoring is allowed, never in the preview-only shell.
+  useKeyboardShortcuts(capability.canAuthor);
 
   if (store.loadStatus === "loading" || store.loadStatus === "idle") {
     return (
@@ -167,6 +170,7 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
           <RightPanel
             view={view}
             page={page}
+            pages={store.history.present.pages}
             panelMode={store.ui.panelMode}
             onPanelMode={store.setPanelMode}
             onBack={() => store.select(null)}

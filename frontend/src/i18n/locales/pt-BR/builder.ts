@@ -91,6 +91,99 @@ export default {
     previewMobile: "Pré-visualização mobile",
     savedAt: "Salvo pela última vez {{when}}",
   },
+
+  "fields": {
+    "content": "Conteúdo",
+    "text": "Texto",
+    "tag": "Tag",
+    "alt": "Texto alternativo",
+    "decorative": "Imagem decorativa",
+    "imageSource": "Origem da imagem",
+    "imageUrl": "URL da imagem",
+    "fontFamily": "Fonte",
+    "fontSize": "Tamanho da fonte",
+    "fontWeight": "Peso",
+    "fontStyle": "Estilo",
+    "textAlign": "Alinhamento",
+    "color": "Cor",
+    "lineHeight": "Altura da linha",
+    "backgroundColor": "Fundo",
+    "textColor": "Cor do texto",
+    "borderRadius": "Arredondamento",
+    "objectFit": "Ajuste",
+    "horizontalAlign": "Alinhamento horizontal",
+    "width": "Largura",
+    "height": "Altura",
+    "x": "X",
+    "y": "Y",
+    "zIndex": "Camada",
+    "linkKind": "Link para",
+    "linkPage": "Página",
+    "linkUrl": "Endereço",
+    "linkEmail": "E-mail",
+    "linkPhone": "Telefone",
+    "linkMessage": "Mensagem",
+    "newTab": "Abrir em nova aba",
+    "icon": "Ícone",
+    "iconPosition": "Posição do ícone",
+    "locked": "Bloqueado",
+    "hidden": "Oculto",
+    "displayName": "Nome de exibição"
+  },
+  "options": {
+    "tag": {
+      "h1": "Título 1",
+      "h2": "Título 2",
+      "h3": "Título 3",
+      "h4": "Título 4",
+      "h5": "Título 5",
+      "h6": "Título 6",
+      "p": "Parágrafo"
+    },
+    "fontStyle": {
+      "normal": "Normal",
+      "italic": "Itálico"
+    },
+    "align": {
+      "left": "Esquerda",
+      "center": "Centro",
+      "right": "Direita"
+    },
+    "objectFit": {
+      "cover": "Cobrir",
+      "contain": "Conter",
+      "fill": "Preencher"
+    },
+    "source": {
+      "empty": "Nenhuma",
+      "url": "URL externa",
+      "media": "Biblioteca de mídia"
+    },
+    "link": {
+      "none": "Nada ainda",
+      "internal": "Uma página deste site",
+      "external": "Endereço externo",
+      "email": "E-mail",
+      "phone": "Telefone",
+      "whatsapp": "WhatsApp"
+    },
+    "iconPosition": {
+      "before": "Antes do texto",
+      "after": "Depois do texto"
+    }
+  },
+  "validation": {
+    "unsafeUrl": "Somente endereços https são aceitos.",
+    "missingPage": "A página vinculada não existe mais. Escolha outra.",
+    "invalidEmail": "Informe um e-mail válido.",
+    "invalidPhone": "Informe um telefone com 6 a 20 dígitos."
+  },
+  "zorder": {
+    "forward": "Trazer para frente",
+    "backward": "Enviar para trás",
+    "front": "Trazer para a frente de tudo",
+    "back": "Enviar para o fundo"
+  },
   loading: "Carregando o site…",
   loadError: "Não conseguimos abrir este site",
 } as const;
