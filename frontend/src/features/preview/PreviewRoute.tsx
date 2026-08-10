@@ -7,6 +7,7 @@ import { ApiError } from "@/api/client";
 import { projectsApi } from "@/api/projects";
 import { PageMetadata } from "@/components/common/PageMetadata";
 import { ProjectPageRenderer } from "@/components/renderer/ProjectPageRenderer";
+import { resolvePageSections } from "@/features/editor/store/sharedSections";
 import { RendererContext, type RendererContextValue } from "@/components/renderer/RendererContext";
 import { MOBILE_PREVIEW_WIDTH } from "@websitebuilder/shared";
 
@@ -130,7 +131,10 @@ export function PreviewRoute({ workspaceId }: { workspaceId: string }) {
             style={viewport === "mobile" ? { width: "100%", maxWidth: MOBILE_PREVIEW_WIDTH } : { width: "100%" }}
             className="bg-white shadow-sm"
           >
-            <ProjectPageRenderer page={page} breakpointId={viewport === "mobile" ? "mobile" : "desktop"} />
+            <ProjectPageRenderer
+              page={{ ...page, sections: resolvePageSections(state.project, page) }}
+              breakpointId={viewport === "mobile" ? "mobile" : "desktop"}
+            />
           </div>
         </div>
       </div>

@@ -14,6 +14,7 @@ import { ElementRenderer } from "@/components/renderer/ElementRenderer";
 import { sectionStyle } from "@/components/renderer/styles";
 import { constrainGeometry, RESIZE_HANDLES } from "@/features/editor/canvas/coordinates";
 import { useEditorStore } from "@/features/editor/store/editorStore";
+import { resolvePageSections } from "@/features/editor/store/sharedSections";
 
 /**
  * Editor interaction layer over the shared renderer.
@@ -157,6 +158,7 @@ export function EditableCanvas({ page }: { page: BuilderPage | null }) {
   const zoom = useEditorStore((state) => state.ui.zoom);
   const editingWidth = useEditorStore((state) => state.ui.editingWidth);
   const breakpoints = useEditorStore((state) => state.history.present.breakpoints);
+  const sharedSections = useEditorStore((state) => state.history.present.sharedSections);
   const selection = useEditorStore((state) => state.ui.selection);
   const store = useEditorStore();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -215,7 +217,7 @@ export function EditableCanvas({ page }: { page: BuilderPage | null }) {
           }}
           className="shadow-sm"
         >
-          {page.sections.map((section) => (
+          {resolvePageSections({ sharedSections }, page).map((section) => (
             <EditableSection
               key={section.id}
               section={section}

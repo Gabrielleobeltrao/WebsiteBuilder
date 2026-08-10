@@ -1853,7 +1853,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: uploaded media can be reused in multiple image elements without duplicate upload and public rendering never uses the raw source upload.
   - Verify: component/integration/E2E tests.
 
-- [ ] **P10-T3 — Shared header and footer**
+- [x] **P10-T3 — Shared header and footer**
   - Add project-level shared sections with header/footer roles; pages reference them instead of copying their contents.
   - Provide enable/disable or override controls per page while retaining one shared source.
   - Acceptance: editing a shared header/footer updates every referencing page and all previews.
@@ -2589,4 +2589,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P9-T1b | Continuous canvas width control with presets, slider and numeric entry driving the shared resolver | 9 tests: intermediate widths reachable, range clamped, width changes never touch the document, overrides apply only where their breakpoint covers |
 | 2026-08-10 | P10-T1 | Secure upload pipeline: byte sniffing, autorotation before metadata stripping, responsive WebP variants, atomic storage and workspace-scoped streaming | 37 tests: SVG and corrupt files rejected, orientation applied, transparency kept, no upscaling, partial-failure cleanup leaves nothing behind, cross-tenant read/stream/delete blocked |
 | 2026-08-10 | P10-T2 | Reusable media library with upload, search, select, delete, responsive thumbnails and full state coverage | 12 tests: thumbnails request the smallest variant and offer srcset, explicit dimensions prevent layout shift, rejected and oversized uploads explained distinctly, deletion confirmed before any request |
+| 2026-08-10 | P10-T3 | Shared header and footer as references resolved at render time by both the canvas and preview | 13 tests: one shared record across pages, an edit reaches every page, a page can hide it locally, a dangling reference resolves to nothing, deletion cleans up every reference |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
