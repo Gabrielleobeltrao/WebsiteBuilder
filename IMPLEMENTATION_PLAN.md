@@ -1984,13 +1984,13 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: switching workspaces changes every number/list and cannot retain stale data from the previous tenant.
   - Verify: aggregation, cache-key, authorization, component, and workspace-switch E2E tests.
 
-- [ ] **P13-T2 — Client management**
+- [x] **P13-T2 — Client management**
   - Implement person/company client CRUD, lead/active/paused/archived status, primary contact, notes, search/filter, archive confirmation, and client dashboard.
   - Client records do not require authentication accounts.
   - Acceptance: an agency can open one client and see only sites/campaigns belonging to that client.
   - Verify: repository/API/UI/tenant-isolation tests.
 
-- [ ] **P13-T3 — Direct and client-owned sites**
+- [x] **P13-T3 — Direct and client-owned sites**
   - Allow projects with optional `clientId`; provide `All Sites`, client-specific site creation, reassignment with permission/impact checks, and direct personal-workspace sites.
   - Acceptance: the same builder works unchanged for agency client sites and self-service personal sites.
   - Verify: creation, reassignment, filtering, authorization, and E2E tests.
@@ -2610,4 +2610,6 @@ Append one concise line after each completed task.
 | 2026-08-10 | P12-T3 | Page SEO as a right-panel mode with a search preview rendered by the shared resolver | 9 tests: the preview applies the site title template and canonical base, falls back to the site description, is labelled advisory, and index/follow toggle independently |
 | 2026-08-10 | P12-T2 | Site-wide SEO defaults with validation, explanations and no ranking promise | 9 tests: an invalid canonical URL is refused before sending, robots directives toggle independently, and changing a default provably leaves a page override intact |
 | 2026-08-10 | P12-T4 | Dynamic post metadata and Article JSON-LD derived from the post, with drafts kept out of the index and out of structured data | 13 tests: two posts on one template produce distinct titles and canonicals, a draft is noindex whatever the site default says, JSON-LD escapes characters that could close a script element |
+| 2026-08-10 | P13-T2 | Client accounts with person/company types, lead-to-archived lifecycle, filtered listing and archive-only removal | 11 tests: cross-workspace read, update and archive blocked; search cannot act as a pattern; archiving destroys neither the client nor the sites it owns |
+| 2026-08-10 | P13-T3 | Sites optionally owned by a client, listed per client or across the workspace, using the same builder and APIs | Client-filtered and workspace-wide listings asserted together, including a direct site with no client |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
