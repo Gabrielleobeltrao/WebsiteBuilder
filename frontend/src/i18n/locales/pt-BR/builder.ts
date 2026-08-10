@@ -29,6 +29,7 @@ export default {
     elements: "Elementos",
     layers: "Camadas",
     pageSettings: "Configurações da página",
+    pageSeo: "SEO",
     sectionInspector: "Seção",
     elementInspector: "Elemento",
     back: "Voltar",
@@ -250,6 +251,40 @@ export default {
     },
     "reset": "Voltar ao herdado",
     "editingAt": "Editando em {{width}}px"
+  },
+
+  "seo": {
+    "title": "SEO",
+    "pageTitle": "Título de SEO",
+    "pageDescription": "Meta descrição",
+    "canonicalPath": "Caminho canônico",
+    "robotsIndex": "Permitir que buscadores indexem esta página",
+    "robotsFollow": "Permitir que buscadores sigam os links desta página",
+    "ogTitle": "Título social",
+    "ogDescription": "Descrição social",
+    "ogType": "Tipo social",
+    "twitterCard": "Tamanho do card",
+    "structuredData": "Tipo da página",
+    "preview": "Prévia do resultado de busca",
+    "previewNote": "Como esta página pode aparecer. A aparência é decidida pelos buscadores, não por esta prévia.",
+    "inherited": "Herdado das configurações do site",
+    "reset": "Usar o padrão do site",
+    "titleCount": "{{count}} de {{max}} caracteres",
+    "cardOptions": {
+      "summary": "Pequeno",
+      "summary_large_image": "Imagem grande"
+    },
+    "ogTypes": {
+      "website": "Site",
+      "article": "Artigo"
+    },
+    "pageTypes": {
+      "WebPage": "Página",
+      "AboutPage": "Sobre",
+      "ContactPage": "Contato",
+      "Article": "Artigo"
+    },
+    "noRanking": "Estas verificações descrevem a página. Elas não preveem posicionamento em buscadores."
   },
   loading: "Carregando o site…",
   loadError: "Não conseguimos abrir este site",

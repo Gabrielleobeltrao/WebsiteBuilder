@@ -35,7 +35,7 @@ import * as sectionOps from "./sections";
 
 export const AUTOSAVE_DELAY_MS = 1500;
 
-export type PanelMode = "pages" | "elements" | "layers" | "pageSettings";
+export type PanelMode = "pages" | "elements" | "layers" | "pageSettings" | "pageSeo";
 export type InspectorTarget = { kind: "section"; sectionId: string } | { kind: "element"; elementId: string };
 
 export type PersistenceState =
@@ -169,13 +169,10 @@ export const useEditorStore = create<EditorState>((set, get) => {
     }, AUTOSAVE_DELAY_MS);
   }
 
-  function applyDocument(next: BuilderDocumentInput, options: { transactional?: boolean } = {}) {
-    set((state) => ({
-      history: options.transactional
-        ? { ...state.history, present: next, future: [] }
-        : history.commit(state.history, next),
-      persistence: { status: "dirty" },
-    }));
+  function applyDocument(next: BuilderDocumentInput) {
+    // commit() knows whether a transaction is open and whether it has already contributed a step,
+    // so the store no longer needs a parallel notion of "transactional".
+    set((state) => ({ history: history.commit(state.history, next), persistence: { status: "dirty" } }));
     scheduleAutosave();
   }
 
@@ -274,7 +271,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
       const state = get();
       const next = recipe(state.history.present);
       if (next === state.history.present) return;
-      applyDocument(next, { transactional: state.history.transaction !== null });
+      applyDocument(next);
     },
 
     beginTransaction(label) {

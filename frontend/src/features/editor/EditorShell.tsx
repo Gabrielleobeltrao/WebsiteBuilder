@@ -8,6 +8,7 @@ import { EditableCanvas } from "@/features/editor/canvas/EditableCanvas";
 import { ElementsPanel } from "@/features/editor/panel/ElementsPanel";
 import { LayersPanel } from "@/features/editor/panel/LayersPanel";
 import { PageSettingsPanel } from "@/features/editor/panel/PageSettingsPanel";
+import { PageSeoPanel } from "@/features/editor/inspector/PageSeoPanel";
 import { PagesPanel } from "@/features/editor/panel/PagesPanel";
 import { resolvePanelView } from "@/features/editor/panel/panelMachine";
 import { RightPanel } from "@/features/editor/panel/RightPanel";
@@ -112,6 +113,8 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
         return <LayersPanel />;
       case "pageSettings":
         return <PageSettingsPanel />;
+      case "pageSeo":
+        return <PageSeoPanel />;
     }
   };
 

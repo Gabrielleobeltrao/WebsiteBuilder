@@ -16,8 +16,11 @@ export type HistoryState = {
   past: BuilderDocumentInput[];
   present: BuilderDocumentInput;
   future: BuilderDocumentInput[];
-  /** Open transaction label; while set, commits replace the pending entry instead of stacking. */
-  transaction: string | null;
+  /**
+   * Open transaction. `pushed` records whether this interaction has already contributed an undo
+   * step, so focusing a field and leaving without typing creates nothing.
+   */
+  transaction: { label: string; baseline: BuilderDocumentInput; pushed: boolean } | null;
 };
 
 export function createHistory(present: BuilderDocumentInput): HistoryState {
@@ -38,26 +41,31 @@ export function canRedo(history: HistoryState): boolean {
  */
 export function commit(history: HistoryState, next: BuilderDocumentInput): HistoryState {
   if (history.transaction !== null) {
-    return { ...history, present: next, future: [] };
+    // The first real change inside an interaction contributes the single undo step; later ones
+    // replace the present without stacking.
+    if (history.transaction.pushed) return { ...history, present: next, future: [] };
+    return {
+      past: [...history.past, history.transaction.baseline].slice(-HISTORY_LIMIT),
+      present: next,
+      future: [],
+      transaction: { ...history.transaction, pushed: true },
+    };
   }
   const past = [...history.past, history.present].slice(-HISTORY_LIMIT);
   return { past, present: next, future: [], transaction: null };
 }
 
-/** Opens a transaction: the first commit inside it pushes history, later ones replace it. */
+/**
+ * Opens a transaction. Nothing is pushed yet: merely focusing a field or pressing a slider must
+ * not create an undo step, and only the first real change inside the interaction does.
+ */
 export function beginTransaction(history: HistoryState, label: string): HistoryState {
   if (history.transaction !== null) return history;
-  const past = [...history.past, history.present].slice(-HISTORY_LIMIT);
-  return { ...history, past, future: [], transaction: label };
+  return { ...history, transaction: { label, baseline: history.present, pushed: false } };
 }
 
 export function endTransaction(history: HistoryState): HistoryState {
   if (history.transaction === null) return history;
-  // A transaction that changed nothing must not leave an empty undo step behind.
-  const previous = history.past[history.past.length - 1];
-  if (previous !== undefined && previous === history.present) {
-    return { ...history, past: history.past.slice(0, -1), transaction: null };
-  }
   return { ...history, transaction: null };
 }
 

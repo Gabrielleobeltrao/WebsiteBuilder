@@ -99,3 +99,39 @@ describe("history", () => {
     expect(state.present).toEqual(doc("loaded"));
   });
 });
+
+describe("transactions do not create empty steps", () => {
+  it("opening and closing without a change leaves history untouched", () => {
+    let state = createHistory(doc("start"));
+    state = beginTransaction(state, "focus");
+    state = endTransaction(state);
+
+    expect(state.past).toHaveLength(0);
+    expect(canUndo(state)).toBe(false);
+  });
+
+  it("opening a transaction and abandoning it without ending also leaves nothing", () => {
+    let state = createHistory(doc("start"));
+    state = beginTransaction(state, "focus");
+
+    // Focus moved to another field: a second transaction opens while the first was never ended.
+    expect(state.past).toHaveLength(0);
+    state = beginTransaction(state, "another");
+    expect(state.past).toHaveLength(0);
+  });
+
+  it("pushes exactly one step on the first change and none after", () => {
+    let state = createHistory(doc("start"));
+    state = beginTransaction(state, "type");
+    state = commit(state, doc("a"));
+    expect(state.past).toEqual([doc("start")]);
+
+    state = commit(state, doc("ab"));
+    state = commit(state, doc("abc"));
+    expect(state.past).toEqual([doc("start")]);
+
+    state = endTransaction(state);
+    state = undo(state);
+    expect(state.present).toEqual(doc("start"));
+  });
+});

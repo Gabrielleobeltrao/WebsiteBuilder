@@ -1949,7 +1949,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: new pages inherit global defaults and changing defaults does not erase page overrides.
   - Verify: settings API/component/integration tests.
 
-- [ ] **P12-T3 — Page SEO inspector**
+- [x] **P12-T3 — Page SEO inspector**
   - Add `Page -> SEO` to the right builder panel with title, description, canonical override, robots, Open Graph, Twitter Card, and structured-data type.
   - Add search/social previews, character guidance, inherited-value indicators, and reset-to-default actions.
   - Acceptance: every page can override or inherit metadata independently and saving/reloading preserves it.
@@ -2530,6 +2530,7 @@ Append entries; do not erase history.
 | 2026-08-10 | P9-T1 | `BreakpointOverride` carries `layout` and `geometry` as named parts instead of `Partial<ResponsiveElementLayout & Geometry>` | The intersection in Section 5 cannot be satisfied: both sides declare `width` and `height`, so it demands a value that is simultaneously a structured length and a number. Naming the parts keeps the same expressive power with a type that can hold a value. |
 | 2026-08-10 | P9-T1 | `ResolvedLayout` keeps layout and geometry separate rather than merging them | Flattening let the numeric geometry width overwrite the structured responsive width, silently destroying the value. Caught by a test before any consumer depended on it. |
 | 2026-08-10 | P10-T1 | Uploads arrive as a raw body with the filename in a header, not multipart | One file is sent at a time and the frontend controls both ends, so skipping multipart removes a parser and temporary-file handling from a path that accepts untrusted bytes. The declared content type still decides nothing: the pipeline sniffs the actual bytes. |
+| 2026-08-10 | P12-T3 | History transactions push their undo step on the first real change rather than when the interaction opens | Pushing on open meant focusing a field and tabbing away created an empty undo step. Opening now records a baseline and pushes it only when something actually changes, so abandoning an interaction leaves history untouched. |
 
 ## 15. Progress Log
 
@@ -2606,4 +2607,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P12-T1 | One SEO resolver for override, site default and safe fallback, shared by preview, renderer, sitemap and exporter | 21 tests: a page cannot opt into indexing the site turned off, a canonical URL is emitted only when a real base is configured, title template tolerates missing placeholders |
 | 2026-08-10 | P12-T5 | Deterministic SEO checklist with severities, reporting facts about the document and never predicting ranking | Missing description is an error only when nothing inherits into it; duplicate titles are reported against every route that shares one; noindex is information, not failure |
 | 2026-08-10 | P12-T6 | Sitemap and robots generation excluding noindex and uncanonicalised routes, with XML escaping at serialisation | Listing a noindex route would contradict its own directive, so it is excluded; ampersands in URLs are escaped |
+| 2026-08-10 | P12-T3 | Page SEO as a right-panel mode with a search preview rendered by the shared resolver | 9 tests: the preview applies the site title template and canonical base, falls back to the site description, is labelled advisory, and index/follow toggle independently |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

@@ -11,6 +11,7 @@ export type PanelView =
   | { kind: "elements" }
   | { kind: "layers" }
   | { kind: "pageSettings" }
+  | { kind: "pageSeo" }
   | { kind: "sectionInspector"; sectionId: string }
   | { kind: "elementInspector"; elementId: string };
 
@@ -29,4 +30,4 @@ export function isInspector(view: PanelView): boolean {
 }
 
 /** Modes a user can open deliberately, and therefore the only ones worth returning to. */
-export const NON_INSPECTOR_MODES: PanelMode[] = ["pages", "elements", "layers", "pageSettings"];
+export const NON_INSPECTOR_MODES: PanelMode[] = ["pages", "elements", "layers", "pageSettings", "pageSeo"];

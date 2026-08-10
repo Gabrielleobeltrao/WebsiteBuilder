@@ -29,6 +29,7 @@ export default {
     elements: "Elements",
     layers: "Layers",
     pageSettings: "Page settings",
+    pageSeo: "SEO",
     sectionInspector: "Section",
     elementInspector: "Element",
     back: "Back",
@@ -250,6 +251,40 @@ export default {
     },
     "reset": "Reset to inherited",
     "editingAt": "Editing at {{width}}px"
+  },
+
+  "seo": {
+    "title": "SEO",
+    "pageTitle": "SEO title",
+    "pageDescription": "Meta description",
+    "canonicalPath": "Canonical path",
+    "robotsIndex": "Allow search engines to index this page",
+    "robotsFollow": "Allow search engines to follow links on this page",
+    "ogTitle": "Social title",
+    "ogDescription": "Social description",
+    "ogType": "Social type",
+    "twitterCard": "Card size",
+    "structuredData": "Page type",
+    "preview": "Search result preview",
+    "previewNote": "How this page may appear. Appearance is decided by search engines, not by this preview.",
+    "inherited": "Inherited from site settings",
+    "reset": "Use the site default",
+    "titleCount": "{{count}} of {{max}} characters",
+    "cardOptions": {
+      "summary": "Small",
+      "summary_large_image": "Large image"
+    },
+    "ogTypes": {
+      "website": "Website",
+      "article": "Article"
+    },
+    "pageTypes": {
+      "WebPage": "Page",
+      "AboutPage": "About",
+      "ContactPage": "Contact",
+      "Article": "Article"
+    },
+    "noRanking": "These checks describe the page. They do not predict search ranking."
   },
   loading: "Loading the site…",
   loadError: "We could not open this site",
