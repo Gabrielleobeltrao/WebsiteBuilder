@@ -50,14 +50,29 @@ when the change touches routing, the shell, or a user journey.
 
 ## Code graph
 
+The CLI lives in `~/.local/bin`, which is not on the default PATH:
+
 ```bash
-graphify . --code-only --no-viz && graphify cluster-only .   # rebuild
-graphify query "<question>"                                  # scoped subgraph
+export PATH="$HOME/.local/bin:$PATH"
+
+graphify . --code-only --no-viz && graphify cluster-only .   # full rebuild
 graphify update .                                            # incremental refresh
+graphify query "<question>"                                  # scoped subgraph
+graphify path "<A>" "<B>" --undirected                       # relationship between two symbols
+open graphify-out/graph.html                                 # interactive view
 ```
 
-`graphify-out/` is generated and git-ignored. `--code-only` avoids needing an LLM key; without one,
-community names stay as placeholders.
+Three things that are not obvious:
+
+- `path` needs `--undirected` whenever the relationship crosses a barrel `export *`, which most of
+  this repository's cross-workspace links do. Without it the answer is "no directed path found".
+- `explain` matches **node names**, not concepts: `explain "resolveSafeLinkHref"` works,
+  `explain "revision conflict"` finds nothing.
+- `--code-only` avoids needing an LLM key. Without a key the Markdown files are skipped and
+  community names stay as `Community N` placeholders; set `GEMINI_API_KEY` to get real names.
+
+Treat every answer as a navigation hint and confirm it against the file and line it cites before
+editing. `graphify-out/` is generated and git-ignored.
 
 ## Environment
 
