@@ -2019,7 +2019,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: a future analytics implementation can populate widgets without changing workspace/client/project ownership schemas.
   - Verify: contract and empty-state tests.
 
-- [ ] **P13-T8 — Multi-tenant security audit**
+- [x] **P13-T8 — Multi-tenant security audit**
   - Audit every collection, index, repository, cache key, background job payload, media stream, public/private preview, and aggregate endpoint for tenant scoping.
   - Add adversarial tests using two workspaces, shared users with different roles, guessed IDs, stale active-workspace state, and nested resources from another tenant.
   - Acceptance: no unauthorized cross-workspace data is returned, mutated, counted, cached, or inferred.
@@ -2616,4 +2616,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P13-T7 | Analytics reported as an explicit not-connected state rather than a zero | Asserted that the payload carries no visit field at all, so a fabricated zero cannot be mistaken for measured traffic |
 | 2026-08-10 | P13-T4 | Campaign summaries with client and site scoping, date validation and an active/upcoming view | 10 tests: a campaign cannot end before it starts, a performance field is rejected outright, filters and the dashboard view never cross workspaces |
 | 2026-08-10 | P13-T5 | Workspace members, roles and invitations with last-owner protection and no privilege escalation | 16 tests: the only owner cannot be demoted or removed, an admin cannot promote to owner or invite one, an expired or revoked invitation cannot be accepted, acceptance is once only |
+| 2026-08-10 | P13-T8 | Consolidated tenant-isolation audit across every repository, aggregate and media stream | 10 cross-module tests with a second workspace holding real data: no listing, id lookup, byte stream, write or aggregate returns anything from it; guessed and malformed ids answer not-found rather than revealing shape |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
