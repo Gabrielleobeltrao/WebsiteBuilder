@@ -1,0 +1,4 @@
+{
+  "$comment": "Reviewed, shareable project settings only. Machine-specific permissions and credentials belong in .claude/settings.local.json, which is git-ignored. Graphify hook-guard is intentionally not enabled: IMPLEMENTATION_PLAN.md P0-T4 forbids strict blocking mode, because exact-source verification must never be obstructed.",
+  "hooks": {}
+}

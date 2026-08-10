@@ -1,0 +1,32 @@
+{
+  "name": "websitebuilder",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Visual website builder SaaS with a shared renderer for editor preview and published multi-tenant sites.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=22.11.0"
+  },
+  "workspaces": [
+    "packages/shared",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,renderer,web -c blue,magenta,green \"npm:dev:backend\" \"npm:dev:renderer\" \"npm:dev:frontend\"",
+    "dev:frontend": "npm run dev -w frontend",
+    "dev:backend": "npm run dev -w backend",
+    "dev:renderer": "npm run dev:renderer -w backend",
+    "build": "npm run build -w packages/shared && npm run build -w backend && npm run build -w frontend",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "npm run test:e2e -w frontend",
+    "check:plan-skill": "node --test .claude/skills/execute-plan-task/scripts/extract-plan-task.test.mjs",
+    "check:runbook": "node .claude/skills/project-runbook/scripts/check-runbook.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
+  }
+}

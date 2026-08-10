@@ -1,0 +1,13 @@
+node_modules/
+dist/
+build/
+coverage/
+playwright-report/
+test-results/
+blob-report/
+graphify-out/
+package-lock.json
+*.log
+.env
+.env.*
+.DS_Store
