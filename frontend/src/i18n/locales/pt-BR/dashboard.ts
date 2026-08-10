@@ -57,4 +57,45 @@ export default {
     "search": "Buscar por nome do arquivo",
     "noMatches": "Nenhuma imagem corresponde a essa busca."
   },
+
+  "site": {
+    "title": "Site",
+    "overview": "Visão geral",
+    "pages": "Páginas",
+    "editSite": "Editar site",
+    "preview": "Pré-visualizar",
+    "core": "Site",
+    "optional": "Módulos",
+    "nav": {
+      "blog": "Blog",
+      "forms": "Formulários",
+      "cms": "CMS",
+      "search": "Busca"
+    },
+    "badge": {
+      "needs_setup": "Configuração pendente",
+      "error": "Requer atenção",
+      "draft": "Rascunho",
+      "published": "No ar",
+      "ready": "Pronto"
+    },
+    "issues_one": "{{count}} pendência",
+    "issues_other": "{{count}} pendências",
+    "warnings_one": "{{count}} aviso",
+    "warnings_other": "{{count}} avisos",
+    "status": {
+      "title": "Status do site",
+      "ready": "Nada está bloqueando a publicação.",
+      "blocked": "Conclua a configuração antes de publicar.",
+      "loading": "Verificando o status do site…",
+      "error": "Não conseguimos verificar o status deste site"
+    },
+    "cards": {
+      "pages": "Páginas",
+      "posts": "Posts publicados",
+      "modules": "Módulos ativos",
+      "lastUpdate": "Última atualização"
+    },
+    "noOptionalModules": "Nenhum módulo opcional está em uso ainda. Adicione um bloco pelo painel Elementos para ativar um."
+  },
 } as const;

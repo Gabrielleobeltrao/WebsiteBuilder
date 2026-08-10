@@ -1863,7 +1863,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 11 — Application dashboard, navigation, and blog CMS
 
-- [ ] **P11-T1 — Permanent application shell and site dashboard**
+- [x] **P11-T1 — Permanent application shell and site dashboard**
   - Implement the authenticated workspace-aware left sidebar, workspace switcher, contextual site navigation, and route structure defined in Section 7.
   - Add the site-level dashboard with page/blog/SEO/campaign summaries, recent activity, future analytics placeholders, and prominent `Edit site` action.
   - Keep this shell around both site and blog-template builders; builder-specific controls remain on the right.
@@ -1926,7 +1926,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: public article layout changes globally only when the article template is published.
   - Verify: public routing, metadata, security, and E2E tests.
 
-- [ ] **P11-T11 — Contextual feature registry, navigation, and site status center**
+- [x] **P11-T11 — Contextual feature registry, navigation, and site status center**
   - Implement the typed `SiteFeatureState` lifecycle and backend reconciler from saved builder references plus Blog, Forms, CMS, and Search records. Persist the revision-tagged projection on the project, reconcile after relevant mutations and project saves, and expose `/projects/:projectId/status`.
   - Split core site navigation from optional module entries. Keep optional blocks discoverable in the right Elements library, reveal their left-sidebar management route only after committed use/activation, show setup/error badges, and provide archived/unused recovery under Settings.
   - Add the persistent Site status pill and accessible status-center popover with draft/published state, blockers, warnings, affected resources, validated internal deep links, and return-to-builder context.
@@ -2595,4 +2595,6 @@ Append one concise line after each completed task.
 | 2026-08-10 | P11-T5 | Blog post dashboard with explicit activation, status filters, search, publish/unpublish, confirmed delete and full state coverage | 11 tests: visiting the route never enables the blog, filters and search go through the API rather than the browser, deletion issues no request before confirmation |
 | 2026-08-10 | P11-T6 | Post editor as a generated form with Tiptap content and one control per stable field definition | 11 tests: slug follows the title until the author edits it and then stops, values stored by field id survive a label rename, two distinct definitions produce two independent inputs |
 | 2026-08-10 | P11-T11a | Typed `SiteFeatureState` lifecycle reconciler derived only from saved records and stamped with its source revision | 20 tests: a caller cannot assert a lifecycle, an incomplete used module stays visible, an unused one never blocks publication, archived data stays reachable, staleness detectable |
+| 2026-08-10 | P11-T1 | Site dashboard with always-present core navigation, usage-driven optional module entries and a persistent status panel | 9 tests: an untouched site shows no optional module, a module appears only when the server says it is in use, archived stays hidden, setup badges surface blockers |
+| 2026-08-10 | P11-T11 | `SiteFeatureState` lifecycle, server-side reconciler and `GET /projects/:projectId/status` consumed by navigation | 30 tests: lifecycle derived not asserted, stale stored projections recomputed, unused modules never block publication, archived data stays reachable |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

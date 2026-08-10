@@ -8,6 +8,7 @@ import { BlogRoute } from "@/features/blog/BlogRoute";
 import { PostEditorRoute } from "@/features/blog/PostEditorRoute";
 import { EditorRoute } from "@/features/editor/EditorRoute";
 import { MediaRoute } from "@/features/media/MediaRoute";
+import { SiteDashboardRoute } from "@/features/sites/SiteDashboardRoute";
 import { PreviewRoute } from "@/features/preview/PreviewRoute";
 import { SitesPage } from "@/features/projects/SitesPage";
 import { LandingPage } from "@/features/public/LandingPage";
@@ -56,6 +57,7 @@ export function AppRoutes({
         <Route path="app/:workspaceId" element={<AuthenticatedAppShell />}>
           <Route index element={<Navigate to="sites" replace />} />
           <Route path="sites" element={<SitesRoute />} />
+          <Route path="sites/:projectId/dashboard" element={<SiteDashboardRoute />} />
           <Route path="sites/:projectId/blog" element={<BlogRoute />} />
           <Route path="sites/:projectId/blog/posts/new" element={<PostEditorRoute />} />
           <Route path="sites/:projectId/blog/posts/:postId/edit" element={<PostEditorRoute />} />

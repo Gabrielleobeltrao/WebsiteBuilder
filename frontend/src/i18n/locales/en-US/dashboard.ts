@@ -57,4 +57,45 @@ export default {
     "search": "Search by filename",
     "noMatches": "No images match that search."
   },
+
+  "site": {
+    "title": "Site",
+    "overview": "Overview",
+    "pages": "Pages",
+    "editSite": "Edit site",
+    "preview": "Preview",
+    "core": "Site",
+    "optional": "Modules",
+    "nav": {
+      "blog": "Blog",
+      "forms": "Forms",
+      "cms": "CMS",
+      "search": "Search"
+    },
+    "badge": {
+      "needs_setup": "Setup required",
+      "error": "Needs attention",
+      "draft": "Draft",
+      "published": "Live",
+      "ready": "Ready"
+    },
+    "issues_one": "{{count}} issue",
+    "issues_other": "{{count}} issues",
+    "warnings_one": "{{count}} warning",
+    "warnings_other": "{{count}} warnings",
+    "status": {
+      "title": "Site status",
+      "ready": "Nothing is blocking publication.",
+      "blocked": "Finish setup before publishing.",
+      "loading": "Checking site status…",
+      "error": "We could not check this site's status"
+    },
+    "cards": {
+      "pages": "Pages",
+      "posts": "Published posts",
+      "modules": "Active modules",
+      "lastUpdate": "Last update"
+    },
+    "noOptionalModules": "No optional modules are in use yet. Add a block from the Elements panel to turn one on."
+  },
 } as const;
