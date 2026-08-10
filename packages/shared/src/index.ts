@@ -4,6 +4,7 @@ export * from "./blog";
 export * from "./dynamic-elements";
 export * from "./elements";
 export * from "./features";
+export * from "./forms";
 export * from "./ids";
 export * from "./layout";
 export * from "./links";
