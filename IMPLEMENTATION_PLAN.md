@@ -2061,7 +2061,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 15 — General CMS and dynamic pages
 
-- [ ] **P15-T1 — Collection schemas, presets, repositories, and APIs**
+- [x] **P15-T1 — Collection schemas, presets, repositories, and APIs**
   - Implement CMS collection/item contracts and CRUD with stable field IDs, validation, draft/published state, project ownership, pagination, safe single references, and initial editable presets for Services, Portfolio, Team, Testimonials, FAQ, Jobs, Locations, and simple Catalogs.
   - Support short/long/rich text, number, boolean, date, image, gallery, link, and single-reference fields.
   - Acceptance: presets create ordinary editable collections; field renames preserve values; cross-project references and draft public reads are blocked.
@@ -2623,4 +2623,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P14-T2 | Hardened public submission: declared fields only, duplicate suppression, archived forms closed, uniform responses | An unknown and a malformed form id answer identically, so the endpoint reveals nothing about what exists; a suppressed duplicate still reports success so the visitor does not resubmit |
 | 2026-08-10 | P14-T3 | Submission lifecycle with new/read/archived/spam, pagination and workspace-scoped retention | Retention deletes only within its own workspace, asserted with a second tenant holding an equally old submission |
 | 2026-08-10 | P14-T4 | Provider-neutral notification adapter with a development sink, plus safe CSV export | 11 tests: a provider failure never surfaces because the submission is already stored, the sink contacts nothing, headers use current labels while values resolve by field id, a submitted formula is neutralised |
+| 2026-08-10 | P15-T1 | CMS collection and item contracts with immutable field ids, typed validation, project-scoped references and a schema-change impact report | 17 tests: a wrong-typed value is refused rather than coerced, undeclared values are ignored, a reference outside the project is refused, only a newly required field blocks a schema change |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

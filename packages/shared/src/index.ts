@@ -1,6 +1,7 @@
 export * from "./api";
 export * from "./bindings";
 export * from "./blog";
+export * from "./cms";
 export * from "./dynamic-elements";
 export * from "./elements";
 export * from "./features";
