@@ -1955,7 +1955,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: every page can override or inherit metadata independently and saving/reloading preserves it.
   - Verify: inspector, inheritance, persistence, and preview tests.
 
-- [ ] **P12-T4 — Dynamic blog SEO**
+- [x] **P12-T4 — Dynamic blog SEO**
   - Resolve post metadata dynamically from title/excerpt/cover/author/date with per-post overrides and published article template rules.
   - Emit safe Article JSON-LD with canonical URL and optimized social image; drafts must remain noindex and absent publicly.
   - Acceptance: two posts rendered by one article template produce distinct titles, descriptions, canonicals, social cards, and Article data.
@@ -2609,4 +2609,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P12-T6 | Sitemap and robots generation excluding noindex and uncanonicalised routes, with XML escaping at serialisation | Listing a noindex route would contradict its own directive, so it is excluded; ampersands in URLs are escaped |
 | 2026-08-10 | P12-T3 | Page SEO as a right-panel mode with a search preview rendered by the shared resolver | 9 tests: the preview applies the site title template and canonical base, falls back to the site description, is labelled advisory, and index/follow toggle independently |
 | 2026-08-10 | P12-T2 | Site-wide SEO defaults with validation, explanations and no ranking promise | 9 tests: an invalid canonical URL is refused before sending, robots directives toggle independently, and changing a default provably leaves a page override intact |
+| 2026-08-10 | P12-T4 | Dynamic post metadata and Article JSON-LD derived from the post, with drafts kept out of the index and out of structured data | 13 tests: two posts on one template produce distinct titles and canonicals, a draft is noindex whatever the site default says, JSON-LD escapes characters that could close a script element |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
