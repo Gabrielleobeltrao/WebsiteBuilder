@@ -2007,7 +2007,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: role permissions are enforced on the server and the final owner cannot accidentally remove the only recoverable ownership path.
   - Verify: invite, expiry, role matrix, membership removal, and security tests.
 
-- [ ] **P13-T6 — Self-service SaaS onboarding readiness**
+- [x] **P13-T6 — Self-service SaaS onboarding readiness**
   - Implement personal-workspace onboarding, first-site wizard, empty states, plan/entitlement abstraction, and feature-limit checks that default to a development/free entitlement without integrating payments yet.
   - Do not hardcode agency-only assumptions into navigation or project creation.
   - Acceptance: a new SaaS user can register and create a site without creating a client; an agency owner can create clients and many sites through the same APIs.
@@ -2617,4 +2617,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P13-T4 | Campaign summaries with client and site scoping, date validation and an active/upcoming view | 10 tests: a campaign cannot end before it starts, a performance field is rejected outright, filters and the dashboard view never cross workspaces |
 | 2026-08-10 | P13-T5 | Workspace members, roles and invitations with last-owner protection and no privilege escalation | 16 tests: the only owner cannot be demoted or removed, an admin cannot promote to owner or invite one, an expired or revoked invitation cannot be accepted, acceptance is once only |
 | 2026-08-10 | P13-T8 | Consolidated tenant-isolation audit across every repository, aggregate and media stream | 10 cross-module tests with a second workspace holding real data: no listing, id lookup, byte stream, write or aggregate returns anything from it; guessed and malformed ids answer not-found rather than revealing shape |
+| 2026-08-10 | P13-T6 | Self-service onboarding with a plan-entitlement boundary and no agency assumptions baked into navigation | 12 tests: a personal workspace hides Clients until one exists, a solo user reaches site creation without a client, storage is checked against the incoming size not only the current total |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
