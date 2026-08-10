@@ -1900,14 +1900,14 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: a template with two distinct image bindings produces two independently saved image inputs; reusing one binding displays one input whose value may render more than once.
   - Verify: form-generation, rich-text, media, validation, and save/reload tests.
 
-- [ ] **P11-T7 — Article template builder and dynamic elements**
+- [x] **P11-T7 — Article template builder and dynamic elements**
   - Reuse the site builder with permanent left navigation and right builder controls.
   - Add dynamic elements for title, excerpt, cover, rich content, author, date, category, custom text/image/gallery/link/date fields, and related posts.
   - On duplication, ask whether to reuse the binding or create a new field.
   - Acceptance: static decorations stay fixed while dynamic values change with the selected sample post.
   - Verify: binding, duplication choice, renderer, preview, and persistence tests.
 
-- [ ] **P11-T8 — Blog index template and repeatable post collection**
+- [x] **P11-T8 — Blog index template and repeatable post collection**
   - Add a Post Collection element whose card sub-layout can be designed once and repeated from published post data.
   - Support query/sort, category filter, pagination, responsive columns, visible fields, empty state, and safe link to each article.
   - Acceptance: adding a published post automatically appears according to the configured query without editing the index layout.
@@ -2601,4 +2601,6 @@ Append one concise line after each completed task.
 | 2026-08-10 | P11-T9 | Blog template draft/published lifecycle with a field-compatibility impact report that blocks only unsafe publications | 14 tests: editing a draft leaves the live document byte-identical, a newly required field blocks and names the exact posts, an optional field never blocks, a refused publication reaches nothing live |
 | 2026-08-10 | P11-T7a | Dynamic binding resolver shared by the article template builder, preview and public rendering | 14 tests: a removed field reports missing rather than rendering blank, a label rename keeps resolving, duplication either reuses a binding or forks a new field, two slots on one field ask the author once |
 | 2026-08-10 | P11-T10 | Public post rendering through the published template, with rich text walked into React elements rather than injected as HTML | 12 tests: markup inside text renders as literal characters, an unknown node emits its children not itself, a removed binding is flagged, empty values leave no gap, one article landmark |
+| 2026-08-10 | P11-T7 | Dynamic field elements carrying a typed binding and an allowlisted display mode, with duplication offering reuse or a new field | 29 tests across bindings and elements: a template cannot request raw HTML, an unknown binding source is rejected, static decoration stays unbound |
+| 2026-08-10 | P11-T8 | Post collection element with a structured query, bounded limit and card field list, plus the shared query resolver | 15 tests: an arbitrary sort expression is rejected, the limit is capped, publishing a matching post makes it appear without editing the layout |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
