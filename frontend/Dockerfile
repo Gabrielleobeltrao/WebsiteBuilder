@@ -27,7 +27,11 @@ RUN npm run build --workspace @websitebuilder/frontend
 
 FROM nginx:1.27-alpine AS runtime
 
-COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+# The nginx image runs envsubst over /etc/nginx/templates at start-up. The filter restricts
+# substitution to this one variable, so nginx's own $host, $scheme and $remote_addr survive.
+COPY frontend/nginx.conf.template /etc/nginx/templates/default.conf.template
+ENV NGINX_ENVSUBST_FILTER=BACKEND_ORIGIN
+ENV BACKEND_ORIGIN=http://backend:3000
 COPY --from=build /app/frontend/dist /usr/share/nginx/html
 
 EXPOSE 8080

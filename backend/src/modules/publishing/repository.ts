@@ -77,11 +77,16 @@ export class PublishingRepository {
       routes: RouteManifestEntry[];
       redirects: PublishedRedirect[];
       referencedMediaIds: string[];
+      /** Content identity from the compiler. Recomputing it here would use a different input. */
+      contentHash: string;
     },
   ): Promise<PublishedSiteVersion> {
     if (!ObjectId.isValid(projectId) || projectId.length !== 24) throw new PublishError("not-found");
 
-    const expectedHash = contentHash(input);
+    // Integrity, not identity: this hash exists only to prove the stored document is the one that
+    // was sent. The compiler's contentHash answers the different question of whether the site
+    // changed, and is stored as given.
+    const writtenHash = contentHash(input);
     const nextVersion = (await this.latestVersionNumber(projectId)) + 1;
     const now = new Date().toISOString();
 
@@ -95,7 +100,7 @@ export class PublishingRepository {
       routes: input.routes,
       redirects: input.redirects,
       referencedMediaIds: input.referencedMediaIds,
-      contentHash: expectedHash,
+      contentHash: input.contentHash,
       createdByUserId: context.userId,
       createdAt: now,
     };
@@ -104,7 +109,7 @@ export class PublishingRepository {
 
     // Read it back: a snapshot that did not survive the write must never become live.
     const stored = await this.versions.findOne({ _id: inserted.insertedId });
-    if (stored === null || stored.contentHash !== expectedHash) throw new PublishError("hash-mismatch");
+    if (stored === null || contentHash(stored) !== writtenHash) throw new PublishError("hash-mismatch");
 
     const swapped = await this.projects.updateOne(
       { _id: new ObjectId(projectId), workspaceId: context.workspaceId, revision: input.sourceRevision },
@@ -144,6 +149,13 @@ export class PublishingRepository {
     if (activeVersionId === undefined || !ObjectId.isValid(activeVersionId)) return null;
     const version = await this.versions.findOne({ _id: new ObjectId(activeVersionId), projectId });
     return version === null ? null : toVersion(version);
+  }
+
+  /** The version a project is serving right now, resolved from the project's own pointer. */
+  async findActiveForProject(projectId: string): Promise<PublishedSiteVersion | null> {
+    if (!ObjectId.isValid(projectId) || projectId.length !== 24) return null;
+    const project = await this.projects.findOne({ _id: new ObjectId(projectId) });
+    return this.findActive(projectId, project?.activePublishedVersionId);
   }
 
   async history(

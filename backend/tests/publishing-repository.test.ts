@@ -29,6 +29,7 @@ const snapshot = (overrides: Record<string, unknown> = {}) => ({
   routes: [route("/")],
   redirects: [],
   referencedMediaIds: [],
+  contentHash: "aaaa1111",
   ...overrides,
 });
 
@@ -85,13 +86,17 @@ describe("publish", () => {
     expect(await activeVersionId(project.id)).toBeUndefined();
   });
 
-  it("produces the same content hash for identical content", async () => {
+  it("stores the compiler's content hash rather than deriving its own", async () => {
+    // The compiler hashes what a visitor observes; a hash derived here would include bookkeeping
+    // and would differ for a site that did not change.
     const project = await projects.create(A, { name: "Acme" });
-    const first = await publishing.publish(A, project.id, snapshot({ sourceRevision: project.revision }));
+    const version = await publishing.publish(
+      A,
+      project.id,
+      snapshot({ sourceRevision: project.revision, contentHash: "deadbeef" }),
+    );
 
-    const reloaded = await projects.findById(A, project.id);
-    const second = await publishing.publish(A, project.id, snapshot({ sourceRevision: reloaded!.revision }));
-    expect(second.contentHash).toBe(first.contentHash);
+    expect(version.contentHash).toBe("deadbeef");
   });
 
   it("does not publish into another workspace's project", async () => {

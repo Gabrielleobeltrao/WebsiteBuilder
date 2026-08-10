@@ -18,8 +18,11 @@ server {
   # The API is proxied before any SPA rule can see it. This ordering is the whole point: if
   # index.html were ever served for /api/*, a backend outage would return 200 with HTML and every
   # client would parse a login page as JSON.
+  # BACKEND_ORIGIN is substituted at container start (see NGINX_ENVSUBST_FILTER in the Dockerfile,
+  # which keeps nginx's own $host and $remote_addr untouched). It defaults to the Compose service
+  # name; deployments that run the API as a separate unit set it to that unit's internal address.
   location /api/ {
-    proxy_pass http://backend:3000;
+    proxy_pass ${BACKEND_ORIGIN};
     proxy_http_version 1.1;
 
     proxy_set_header Host $host;

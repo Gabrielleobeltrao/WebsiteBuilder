@@ -20,6 +20,9 @@ services:
     environment:
       # Coolify reads this to route the domain to this service.
       SERVICE_FQDN_FRONTEND: ${PLATFORM_PUBLIC_ORIGIN}
+      # Inside this stack the API answers on its service name. A deployment that runs the API as a
+      # separate unit overrides this with that unit's internal address.
+      BACKEND_ORIGIN: ${BACKEND_ORIGIN:-http://backend:3000}
     depends_on:
       backend:
         condition: service_healthy

@@ -18,6 +18,10 @@ import { createGridFsStorage } from "./modules/media/storage";
 import { ProjectRepository } from "./modules/projects/repository";
 import { createProjectsRouter } from "./modules/projects/routes";
 import { WorkspaceRepository } from "./modules/workspaces/repository";
+import { COLLECTIONS } from "./db/indexes";
+import { createPublishingRouter } from "./modules/publishing/routes";
+import { ensurePublishingIndexes, PublishingRepository } from "./modules/publishing/repository";
+import { PublishingService } from "./modules/publishing/service";
 import { createWorkspacesRouter } from "./modules/workspaces/routes";
 
 async function buildDependencies(env: Env, logger: ReturnType<typeof createLogger>) {
@@ -37,12 +41,30 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
   const preferences = new PreferencesRepository(database.db);
   const media = new MediaRepository(database.db, createGridFsStorage(database.db));
   const blog = new BlogRepository(database.db);
+  const publishing = new PublishingRepository(database.db, database.db.collection(COLLECTIONS.projects));
   await ensureBlogIndexes(database.db);
+  await ensurePublishingIndexes(database.db);
 
   // Better Auth owns its own routes and needs the raw body, so it is mounted before the JSON
   // parser rather than behind it.
   mountAuth = (app: express.Express) => {
     app.all(`${env.BETTER_AUTH_BASE_PATH}/*splat`, toNodeHandler(auth));
+  };
+
+  const collectModuleFacts = async ({ workspaceId, projectId }: { workspaceId: string; projectId: string }) => {
+    const context = { workspaceId, userId: "" };
+    const settings = await blog.loadSettings(context, projectId);
+    const posts = await blog.list(context, projectId, { perPage: 1 });
+
+    return {
+      blog: {
+        hasRecords: posts.total > 0,
+        explicitlyActivated: settings.enabled,
+        // A blog turned on with no article template yet cannot render its routes.
+        blockingIssueCount: settings.enabled && settings.articleTemplateId === undefined ? 1 : 0,
+        warningCount: 0,
+      },
+    };
   };
 
   routers.push(
@@ -71,21 +93,17 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
         // Phase 13 tightens per operation once the member management UI exists.
         resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
         // Facts come from each module's own records, never from the request.
-        collectModuleFacts: async ({ workspaceId, projectId }) => {
-          const context = { workspaceId, userId: "" };
-          const settings = await blog.loadSettings(context, projectId);
-          const posts = await blog.list(context, projectId, { perPage: 1 });
-
-          return {
-            blog: {
-              hasRecords: posts.total > 0,
-              explicitlyActivated: settings.enabled,
-              // A blog turned on with no article template yet cannot render its routes.
-              blockingIssueCount: settings.enabled && settings.articleTemplateId === undefined ? 1 : 0,
-              warningCount: 0,
-            },
-          };
-        },
+        collectModuleFacts,
+      }),
+    },
+    {
+      path: "/workspaces/:workspaceId/projects/:projectId/publishing",
+      router: createPublishingRouter({
+        service: new PublishingService({ projects, publishing, blog, media, collectModuleFacts }),
+        repository: publishing,
+        resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
+        platformRootDomain: env.PLATFORM_ROOT_DOMAIN,
+        reservedSubdomains: env.reservedSubdomains,
       }),
     },
   );

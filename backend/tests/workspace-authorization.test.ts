@@ -67,12 +67,14 @@ function appAs(userId: string | null, permission: Permission = "project:read"): 
         path: "/workspaces/:workspaceId/projects",
         router: createProjectsRouter({
           repository: projects,
-          resolveWorkspace: async (req) => {
+          // Mirrors the real resolver: the router declares a base permission and each route may
+          // demand a stronger one.
+          resolveWorkspace: async (req, required = permission) => {
             if (userId === null) throw new ApiProblem("UNAUTHENTICATED", "Authentication is required");
             const workspaceId = String(req.params.workspaceId ?? "");
             const membership = await workspaces.findMembership(workspaceId, userId);
             if (membership === null) throw new ApiProblem("FORBIDDEN", "You do not have access to this workspace");
-            if (!can(membership.role, permission)) throw new ApiProblem("FORBIDDEN", "Role does not allow this");
+            if (!can(membership.role, required)) throw new ApiProblem("FORBIDDEN", "Role does not allow this");
             return { workspaceId, userId };
           },
         }),
@@ -181,5 +183,36 @@ describe("stale or forged workspace state", () => {
 
     await database.db.collection("member").deleteOne({ organizationId: workspaceA, userId: BOB });
     expect((await request(appAs(BOB)).get(base(workspaceA))).status).toBe(403);
+  });
+});
+
+describe("per-route permissions", () => {
+  /**
+   * The router is mounted with the permission its cheapest route needs. Every route that writes
+   * must demand its own, or read access silently becomes write access.
+   */
+  it("refuses a write to a member who may only read", async () => {
+    await addMember(workspaceB, ALICE, "viewer");
+    const app = appAs(ALICE);
+
+    const created = await request(app).post(base(workspaceB)).send({ name: "Theirs" });
+    expect(created.status).toBe(403);
+
+    const project = await projects.create({ workspaceId: workspaceB, userId: BOB }, { name: "Theirs" });
+    const renamed = await request(app).patch(`${base(workspaceB)}/${project.id}`).send({ name: "Mine" });
+    expect(renamed.status).toBe(403);
+
+    const deleted = await request(app).delete(`${base(workspaceB)}/${project.id}`);
+    expect(deleted.status).toBe(403);
+
+    // The read the router was mounted for still works, so this is a permission check and not an
+    // access failure.
+    expect((await request(app).get(base(workspaceB))).status).toBe(200);
+  });
+
+  it("allows the same writes to a designer", async () => {
+    await addMember(workspaceB, ALICE, "designer");
+    const created = await request(appAs(ALICE)).post(base(workspaceB)).send({ name: "Fine" });
+    expect(created.status).toBe(201);
   });
 });

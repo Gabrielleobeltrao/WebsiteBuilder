@@ -44,7 +44,7 @@ export function createBlogRouter(options: {
 
   router.put("/settings", async (req, res, next) => {
     try {
-      const context = await resolveWorkspace(req);
+      const context = await resolveWorkspace(req, "project:edit");
       const parsed = blogSettingsSchema.safeParse(req.body);
       if (!parsed.success) throw zodProblem(parsed.error);
 
@@ -75,7 +75,7 @@ export function createBlogRouter(options: {
 
   router.post("/posts", async (req, res, next) => {
     try {
-      const context = await resolveWorkspace(req);
+      const context = await resolveWorkspace(req, "project:edit");
       const parsed = blogPostInputSchema.safeParse(req.body);
       if (!parsed.success) throw zodProblem(parsed.error);
 
@@ -103,7 +103,7 @@ export function createBlogRouter(options: {
 
   router.put("/posts/:postId", async (req, res, next) => {
     try {
-      const context = await resolveWorkspace(req);
+      const context = await resolveWorkspace(req, "project:edit");
       const parsed = blogPostInputSchema.safeParse(req.body);
       if (!parsed.success) throw zodProblem(parsed.error);
 
@@ -126,7 +126,7 @@ export function createBlogRouter(options: {
   ] as const) {
     router.post(path, async (req, res, next) => {
       try {
-        const context = await resolveWorkspace(req);
+        const context = await resolveWorkspace(req, "project:edit");
         const updated = await repository.setStatus(
           context,
           parseProjectId(param(req, "projectId")),
@@ -143,7 +143,7 @@ export function createBlogRouter(options: {
 
   router.delete("/posts/:postId", async (req, res, next) => {
     try {
-      const context = await resolveWorkspace(req);
+      const context = await resolveWorkspace(req, "project:edit");
       const deleted = await repository.delete(
         context,
         parseProjectId(param(req, "projectId")),

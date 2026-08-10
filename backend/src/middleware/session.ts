@@ -31,6 +31,9 @@ function toHeaders(req: Request): Headers {
  * Order matters and is the whole point: authenticate, then read membership for the workspace named
  * in the URL, then check the permission the route needs. The workspace ID in the path is a request,
  * not a claim — nothing is trusted until the membership record is found in the database.
+ *
+ * A router declares the permission its cheapest route needs; any route that does more passes the
+ * stronger permission at call time. A read permission must never be enough to reach a write route.
  */
 export function createWorkspaceResolver(options: {
   auth: Auth;
@@ -39,7 +42,7 @@ export function createWorkspaceResolver(options: {
 }): WorkspaceResolver {
   const { auth, workspaces, permission } = options;
 
-  return async (req: Request): Promise<WorkspaceContext> => {
+  return async (req: Request, required: Permission = permission): Promise<WorkspaceContext> => {
     const user = await resolveSession(auth, req);
     if (user === null) throw new ApiProblem("UNAUTHENTICATED", "Authentication is required");
 
@@ -53,7 +56,7 @@ export function createWorkspaceResolver(options: {
     // probed by comparing responses.
     if (membership === null) throw new ApiProblem("FORBIDDEN", "You do not have access to this workspace");
 
-    if (!can(membership.role, permission)) {
+    if (!can(membership.role, required)) {
       throw new ApiProblem("FORBIDDEN", "Your role does not allow this action");
     }
 

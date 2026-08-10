@@ -34,7 +34,7 @@ export function createMediaRouter(options: {
     raw({ type: () => true, limit: MAX_UPLOAD_BYTES }),
     async (req, res, next) => {
       try {
-        const context = await resolveWorkspace(req);
+        const context = await resolveWorkspace(req, "media:upload");
         const data = req.body as Buffer;
 
         if (!Buffer.isBuffer(data) || data.length === 0) {
@@ -85,7 +85,7 @@ export function createMediaRouter(options: {
 
   router.delete("/:mediaId", async (req, res, next) => {
     try {
-      const context = await resolveWorkspace(req);
+      const context = await resolveWorkspace(req, "media:delete");
       const deleted = await repository.delete(context, String(req.params.mediaId));
       if (!deleted) throw new ApiProblem("NOT_FOUND", "Media not found");
       res.status(204).end();

@@ -9,6 +9,7 @@ import { Router, type RequestHandler } from "express";
 import { z } from "zod";
 
 import { ApiProblem, zodProblem } from "../../middleware/errors";
+import type { Permission } from "../workspaces/permissions";
 import type { WorkspaceContext } from "./repository";
 import { ProjectRepository, RevisionConflictError, SlugTakenError } from "./repository";
 import { reconcileSiteStatus, type ModuleFacts } from "./status";
@@ -19,7 +20,10 @@ import type { SiteFeatureKey } from "@websitebuilder/shared";
  * with Better Auth session plus organization membership; the route contract does not change,
  * because routes never read a workspace ID from the body or a header themselves.
  */
-export type WorkspaceResolver = (req: Parameters<RequestHandler>[0]) => Promise<WorkspaceContext>;
+export type WorkspaceResolver = (
+  req: Parameters<RequestHandler>[0],
+  required?: Permission,
+) => Promise<WorkspaceContext>;
 
 const saveDocumentBodySchema = z
   .object({ revision: z.number().int().nonnegative(), document: builderDocumentInputSchema })
@@ -61,7 +65,7 @@ export function createProjectsRouter(options: {
 
   router.post("/", async (req, res, next) => {
     try {
-      const context = await resolveWorkspace(req);
+      const context = await resolveWorkspace(req, "project:create");
       const parsed = createProjectInputSchema.safeParse(req.body);
       if (!parsed.success) throw zodProblem(parsed.error);
 
@@ -99,7 +103,7 @@ export function createProjectsRouter(options: {
 
   router.patch("/:projectId", async (req, res, next) => {
     try {
-      const context = await resolveWorkspace(req);
+      const context = await resolveWorkspace(req, "project:edit");
       const parsed = renameProjectInputSchema.safeParse(req.body);
       if (!parsed.success) throw zodProblem(parsed.error);
 
@@ -113,7 +117,7 @@ export function createProjectsRouter(options: {
 
   router.put("/:projectId/document", async (req, res, next) => {
     try {
-      const context = await resolveWorkspace(req);
+      const context = await resolveWorkspace(req, "project:edit");
       const parsed = saveDocumentBodySchema.safeParse(req.body);
       if (!parsed.success) throw zodProblem(parsed.error);
 
@@ -140,7 +144,7 @@ export function createProjectsRouter(options: {
 
   router.delete("/:projectId", async (req, res, next) => {
     try {
-      const context = await resolveWorkspace(req);
+      const context = await resolveWorkspace(req, "project:delete");
       const deleted = await repository.delete(context, parseProjectId(req.params.projectId));
       if (!deleted) throw new ApiProblem("NOT_FOUND", "Project not found");
       res.status(204).end();
