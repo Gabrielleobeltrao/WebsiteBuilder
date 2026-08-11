@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { createApp } from "../src/app";
 import { ApiProblem } from "../src/middleware/errors";
+import { PRIVATE_PROXY_RANGES } from "../src/config/env";
 import { testEnv, testLogger } from "./helpers";
 
 const app = () => createApp({ env: testEnv(), logger: testLogger() });
@@ -138,5 +139,71 @@ describe("cross-origin access", () => {
       .set("Origin", "https://app.example.com.evil.test");
 
     expect(response.headers["access-control-allow-origin"]).not.toBe("https://app.example.com.evil.test");
+  });
+});
+
+describe("client address behind the gateway", () => {
+  /**
+   * Better Auth rate-limits per client address. With the proxy untrusted, every request carried the
+   * gateway's own address instead, so one shared bucket served every visitor — one person hitting
+   * the limit locked out everybody else. This is what stops that.
+   */
+  const app = () => {
+    // Mounted through the same extension point the real routers use, so the request passes the
+    // whole middleware stack rather than a route bolted on after the 404 handler.
+    const probe = Router();
+    probe.get("/", (req, res) => {
+      res.json({ ip: req.ip });
+    });
+
+    // Supertest connects over loopback, which the production default does not include — nothing
+    // reaches the API from there. Naming it here exercises the mechanism without loosening the
+    // default, which is asserted separately below.
+    return createApp({
+      env: { ...testEnv(), trustedProxyCidrs: ["127.0.0.1/8", "::1/128", ...PRIVATE_PROXY_RANGES] },
+      logger: testLogger(),
+      routers: [{ path: "/whoami", router: probe }],
+    });
+  };
+
+  it("reads the visitor's address out of the forwarded chain", async () => {
+    const response = await request(app())
+      .get("/api/v1/whoami")
+      .set("X-Forwarded-For", "203.0.113.7");
+
+    expect(response.body.ip).toBe("203.0.113.7");
+  });
+
+  it("skips the proxies and keeps the address they were forwarding for", async () => {
+    const response = await request(app())
+      .get("/api/v1/whoami")
+      // Visitor, then Traefik, then the gateway — the shape this deployment produces.
+      .set("X-Forwarded-For", "203.0.113.7, 10.0.1.5, 172.18.0.4");
+
+    expect(response.body.ip).toBe("203.0.113.7");
+  });
+
+  it("does not count two visitors as one", async () => {
+    const instance = app();
+
+    const first = await request(instance).get("/api/v1/whoami").set("X-Forwarded-For", "203.0.113.7");
+    const second = await request(instance).get("/api/v1/whoami").set("X-Forwarded-For", "198.51.100.2");
+
+    expect(first.body.ip).not.toBe(second.body.ip);
+  });
+
+  it("defaults to the ranges a container gateway can occupy, and nothing wider", () => {
+    // `true` would believe any hop, including one a visitor controls.
+    expect([...PRIVATE_PROXY_RANGES]).toEqual(["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]);
+  });
+
+  it("trusts only private ranges, so a public hop is never skipped", async () => {
+    // A public address in the chain is a visitor's, not a proxy's. Skipping it would let whoever
+    // sent it choose whose bucket to spend.
+    const response = await request(app())
+      .get("/api/v1/whoami")
+      .set("X-Forwarded-For", "203.0.113.7, 198.51.100.99");
+
+    expect(response.body.ip).toBe("198.51.100.99");
   });
 });

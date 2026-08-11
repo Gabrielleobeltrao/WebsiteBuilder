@@ -118,6 +118,15 @@ export const KNOWN_VARIABLES = [
   "CLOUDFLARE_API_TOKEN",
 ] as const;
 
+/**
+ * The private ranges Docker allocates container addresses from.
+ *
+ * The API is reachable only through the gateway on a private network — it has no public route at
+ * all — so every request it sees arrives from one of these. Trusting them is what lets it read the
+ * visitor's address out of the forwarded chain instead of recording the gateway for everyone.
+ */
+export const PRIVATE_PROXY_RANGES = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"] as const;
+
 /** Which of the known variables arrived with a non-empty value. Names only. */
 export function presentVariables(source: NodeJS.ProcessEnv = process.env): string[] {
   return KNOWN_VARIABLES.filter((name) => (source[name] ?? "").trim() !== "");

@@ -4,7 +4,7 @@ import express, { type Express, type Router } from "express";
 import { pinoHttp } from "pino-http";
 import type { Logger } from "pino";
 
-import { loadEnv, type Env } from "./config/env";
+import { loadEnv, PRIVATE_PROXY_RANGES, type Env } from "./config/env";
 import { createLogger } from "./config/logger";
 import { createErrorHandler, notFoundHandler } from "./middleware/errors";
 import { createHealthRouter, type HealthProbe } from "./routes/health";
@@ -33,9 +33,14 @@ export function createApp(dependencies: AppDependencies = {}): Express {
 
   const app = express();
   app.disable("x-powered-by");
-  // Behind Coolify/Traefik the real client address arrives in a forwarded header. The exact proxy
-  // chain is configured in Phase 18; trusting nothing by default is the safe starting point.
-  app.set("trust proxy", false);
+  // The client address arrives in a forwarded header, and this service must read it: Better Auth
+  // rate-limits per address, and without this every request looked like it came from the gateway.
+  // One shared bucket for every visitor — one person hitting the limit locks out the rest.
+  //
+  // Trust is scoped to the private ranges the gateway can occupy rather than set to `true`, which
+  // believes any hop. Express then walks the chain from the right and stops at the first address
+  // outside them, which is the visitor.
+  app.set("trust proxy", env.trustedProxyCidrs.length > 0 ? env.trustedProxyCidrs : [...PRIVATE_PROXY_RANGES]);
 
   app.use(pinoHttp({ logger, autoLogging: !env.isTest }));
   // Same-origin in production: the browser reaches this API through the gateway on the platform

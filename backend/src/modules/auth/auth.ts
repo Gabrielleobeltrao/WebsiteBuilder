@@ -35,6 +35,13 @@ export function createAuth(options: { db: Db; env: Env }) {
       updateAge: 60 * 60 * 24,
     },
     advanced: {
+      // Rate limiting and session records are keyed by client address, so this has to name the
+      // header the gateway forwards it in. Without it every request counted against one bucket:
+      // the gateway's own address, shared by every visitor.
+      //
+      // Only `x-forwarded-for`. A longer list is a longer list of headers a client can set, and
+      // each one is a way to be counted as somebody else — or to make somebody else be counted.
+      ipAddress: { ipAddressHeaders: ["x-forwarded-for"] },
       // No `domain` attribute, so the cookie is host-only to the API. The browser still sends it
       // on credentialed requests to that host from the application, because the two share a
       // registrable domain — and it never reaches a published customer site, which is the whole

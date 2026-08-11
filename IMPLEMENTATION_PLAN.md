@@ -584,6 +584,10 @@ The original statements, for reference:
   only if a route already reaches the renderer. The hazard and the safe order are in
   `docs/CUSTOM_DOMAINS.md` §6.
 - **No backup restore has been rehearsed.** The procedure is written; the evidence is not.
+- **The forwarded-address chain depends on Traefik's own configuration.** Express walks the chain
+  and stops at the first address outside the private ranges, which is correct as long as Traefik
+  does not pass a client-supplied header through untouched. Set `forwardedHeaders.trustedIPs` on the
+  Coolify proxy to close that, and verify with a request carrying a fabricated `X-Forwarded-For`.
 - **Branch protection is not applied.** `main` can still be force-pushed by anyone with write
   access, which is the one operation a fast-forward cannot undo.
 
@@ -633,6 +637,7 @@ Append entries; do not erase history.
 | 2026-08-11 | P3-T3 (corrected) | (this branch) | 29 deployment-config tests | Coolify shows a domain field per Compose service, which the previous revision assumed it did not. The renderer's technical origin returns to its own field, and the router I had added by label for it is removed — two routers for one hostname is precisely the ambiguity this file warns about. The project-subdomain label stays, because a domain field names one hostname and that set is open-ended. Renderer traffic reaches the renderer directly rather than through the frontend container, which knows nothing about published sites. |
 | 2026-08-11 | P1-T3 (fix) | (this branch) | 27 env tests, including the exact shape Compose produces | A deployment platform sets a variable to `""` where a developer leaves it unset, and Zod's `.optional()` and `.default()` recognise only `undefined`. Every "leave it blank to disable" value was therefore validated as if someone had typed one deliberately, and the API refused to start in production over three Cloudflare variables it does not need. Blank now reads as absent, everywhere the Compose file uses `${VAR:-}`. A blank value that is genuinely required still fails — absent is exactly what those may not be. |
 | 2026-08-11 | P2-T3 (follow-up) | (this branch) | 4 auth-failure tests | A rate-limited sign-up (429) was falling into the generic "could not create the account, check the address" message. That advice cannot work — the address was never the problem — and following it means retrying immediately, which extends the block. 429 now says to wait; a rejected password length and a rejected address repeat what the server actually said. Verified against the live deployment, where the endpoint returns 200 for a valid signup, 422 for a duplicate, 400 for a short password and 429 under load. |
+| 2026-08-11 | P4-T4 (follow-up) | (this branch) | 5 client-address tests | The API ran with `trust proxy: false`, so every request carried the gateway's own address. Better Auth rate-limits per address, which made it one shared bucket for every visitor — one person reaching the limit locked out the rest, and it surfaced within minutes of a fresh deployment. Trust is now scoped to the private ranges a container gateway can occupy, never `true`, and Better Auth is told which header carries the address. A public hop in the chain is never skipped: it belongs to a visitor, and skipping it would let whoever sent it choose whose bucket to spend. |
 ## 14. Decision Log
 
 Append decisions that change implementation details while preserving the fixed architecture.
