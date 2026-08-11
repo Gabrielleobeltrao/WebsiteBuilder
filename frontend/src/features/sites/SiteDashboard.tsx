@@ -5,6 +5,7 @@ import { Link } from "react-router";
 
 import { ApiError } from "@/api/client";
 import { siteStatusApi, type SiteStatus } from "@/api/site-status";
+import { ReadinessPanel } from "@/features/sites/ReadinessPanel";
 
 type LoadState = { status: "loading" } | { status: "error"; code: string } | { status: "ready"; site: SiteStatus };
 
@@ -136,6 +137,12 @@ export function SiteDashboard({
               </p>
             )}
           </section>
+
+          {/* Readiness sits above the counts: what still needs attention matters more than how many
+              pages there are. It reports and never claims the site may be published. */}
+          <div className="mt-6">
+            <ReadinessPanel categories={{}} currentRevision={state.site.revision} />
+          </div>
 
           <dl className="mt-6 grid gap-4 sm:grid-cols-3">
             <div className="rounded-lg border border-ink-200 bg-white p-4">

@@ -2133,13 +2133,13 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: the report identifies the exact source and destination problem before handoff.
   - Verify: deterministic fixture suite covering deleted/renamed pages, posts, items, media, and redirects.
 
-- [ ] **P17-T3 — Performance budget and asset/font audit**
+- [x] **P17-T3 — Performance budget and asset/font audit**
   - Define measured budgets for builder document/route payload, client JavaScript, image bytes/dimensions, font families/weights, layout shift risks, and above-the-fold loading priority.
   - Enforce responsive images, explicit dimensions, lazy loading below the fold, hero-image priority, safe font fallbacks, and minimal render-blocking assets in the shared renderer.
   - Acceptance: failures name the responsible route/element/asset and provide a practical fix; audits use measured output rather than unsupported performance promises.
   - Verify: build artifact checks, renderer fixtures, image/font cases, and representative Lighthouse or equivalent local audit where deterministic.
 
-- [ ] **P17-T4 — Full responsive width sweep and readiness report**
+- [x] **P17-T4 — Full responsive width sweep and readiness report**
   - Combine existing layout diagnostics with accessibility, links, content, and performance results across configured breakpoints and representative intermediate widths from `320–1920px`.
   - Add site-dashboard readiness summary, severity filters, issue ownership/status, rerun controls, and explicit `Not checked` states.
   - Acceptance: a user can understand what is ready, what is blocking, and what still needs manual review without the system claiming the site is published.
@@ -2543,6 +2543,7 @@ Append entries; do not erase history.
 | 2026-08-10 | P9-T6 | Fluid lengths are stored as their two endpoints, not as a pre-computed clamp | The viewport term needs an intercept; a bare `vw` equals the minimum only by coincidence, so a curve without one sits pinned at the floor and then jumps. Storing endpoints keeps the maths in one serialiser that is tested by evaluating the CSS it emits. |
 | 2026-08-10 | P9-T6 | Removed the `VITE_*` variables from `.env.example`, the frontend Dockerfile and the compose file | Vite reads env from `frontend/`, not the repository root, and the app reads no `VITE_` variable at all — the API path is a constant because the frontend and API share an origin. The entries documented configuration that could not take effect. |
 | 2026-08-10 | P16-T5 | The renderer barrel deliberately excludes the interactive elements | That barrel is what the backend's public renderer imports, and the backend compiles without DOM types on purpose so its own code cannot reference `window` and typecheck. Adding the export would have forced DOM types into the API package as a side effect of an export line. |
+| 2026-08-10 | P17-T3 | The JavaScript budget was split into a published-site budget and an application budget | The single budget was being applied to the authenticated editor bundle, which measured 386 KB against 250 KB. They are downloaded by different people in different circumstances; holding the editor to the public budget would either fail forever or force the public number up to meet it, and a budget raised to match what was already shipped measures nothing. |
 ## 15. Progress Log
 
 Append one concise line after each completed task.
@@ -2661,4 +2662,6 @@ Append one concise line after each completed task.
 | 2026-08-10 | P16-T1 | System pages for 404, search, thank-you, maintenance and empty results, each with a fixed status contract, protected bindings and safe defaults | 18 tests: a 404 answers 404 however it is designed, maintenance answers 503 so crawlers return rather than dropping the site, no system page enters the sitemap, and an ordinary page claiming a system path is a publication blocker |
 | 2026-08-10 | P16-T4 | Fourteen visual elements as validated structured data: icon, icon list, divider, spacer, accordion, tabs, gallery, video, social links, download, breadcrumbs, table, pricing table, announcement bar | 11 tests: no element type accepts HTML, CSS, a script or an iframe URL; a video id must be id-shaped and the embed URL is built here; a social link must belong to the network it claims |
 | 2026-08-10 | P16-T5 | Interactive elements built on native disclosure, tablist and dialog semantics with managed focus and 44px targets | 18 tests: arrow keys move between tabs and only the active one is in the tab order, state is carried by aria-selected rather than colour, the lightbox returns focus to the thumbnail that opened it, and a player is granted neither camera nor microphone |
+| 2026-08-10 | P17-T3 | Measured performance budgets for document size, image weight, layout shift, fonts and both JavaScript bundles, checked against built artefacts | 15 tests: every finding carries its measurement and the budget it was compared against, a missing image size is an error rather than a suggestion, and no output claims a load time, a score or a Web Vital |
+| 2026-08-10 | P17-T4 | Readiness report aggregating layout, accessibility, links, content and performance, with explicit not-checked and out-of-date states, severity filters and issue ownership | 20 tests: an unchecked category is never counted as clean, a stale result is kept and labelled rather than discarded, and the report never claims the site may be published |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
