@@ -46,22 +46,12 @@ application's own hostname.
 
 ## 2. Deployment shapes
 
-### 2.1 One Compose resource (recommended)
+Three services, three hostnames, and no internal traffic between them: the browser calls each one
+directly. Nothing needs a shared Docker network, and the frontend is a static server with no
+upstream at all — which is why it cannot be taken down by the API being unavailable.
 
-Coolify → new resource → **Docker Compose**, base directory `/`, file
-`docker-compose.production.yml`. All three services land on one internal network and reach each
-other by service name. Nothing further is needed.
-
-### 2.2 Separate resources per service
-
-Also supported, with one mandatory extra step: the gateway reaches the API by name, and separate
-Coolify resources are on separate networks.
-
-1. Enable **Connect To Predefined Network** on the frontend and the API resources.
-2. On the **frontend** resource set `BACKEND_ORIGIN` to the API container's internal address
-   (`http://<container-name>:3000`, shown on the API resource's Configuration tab).
-
-Without this, every `/api/*` request returns 502.
+Either shape works: one Docker Compose resource from `docker-compose.production.yml`, or three
+separate resources. The settings are the same.
 
 | | Frontend | API | Renderer |
 |---|---|---|---|
@@ -124,7 +114,7 @@ Traefik must send the exact apex host to the gateway and everything else validat
   tenant.
 
 Inside the gateway, `/api/` is matched **before** the SPA fallback
-([frontend/nginx.conf.template](../frontend/nginx.conf.template)). This ordering is the point: if
+([frontend/nginx.conf](../frontend/nginx.conf)). This ordering is the point: if
 `index.html` were ever served for `/api/*`, a backend outage would return 200 with HTML and every
 client would parse a login page as JSON.
 
