@@ -228,3 +228,31 @@ export function breakpointInheritanceChain(
     .filter((breakpoint) => width <= breakpoint.maxWidth)
     .sort((a, b) => b.maxWidth - a.maxWidth);
 }
+
+/**
+ * The fields every element carries, wherever its type is declared.
+ *
+ * It lives here rather than beside the element union so a module that adds element types can use it
+ * without importing the union it is about to be part of. Every element gets breakpoint overrides
+ * for the same reason: responsiveness is not a property of some element types.
+ */
+export const elementBaseShape = {
+  id: z.string().min(1),
+  name: z.string().max(120),
+  geometry: geometrySchema,
+  responsiveLayout: responsiveElementLayoutSchema,
+  breakpointOverrides: z
+    .record(
+      z.string(),
+      z
+        .object({
+          layout: responsiveElementLayoutSchema.partial().optional(),
+          geometry: geometrySchema.partial().optional(),
+        })
+        .strict(),
+    )
+    .optional(),
+  zIndex: z.number().int(),
+  locked: z.boolean(),
+  hidden: z.boolean(),
+};

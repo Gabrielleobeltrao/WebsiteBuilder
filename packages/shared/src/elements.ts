@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { VISUAL_ELEMENT_SCHEMAS, type VisualElement } from "./visual-elements";
+
 import {
   artDirectionSourceSchema,
   focalPointSchema,
@@ -116,7 +118,12 @@ export type ContainerElement = BaseElement & {
   layoutByBreakpoint: Record<string, Record<string, unknown>>;
 };
 
-export type BuilderElement = TextElement | ImageElement | ButtonElement | ContainerElement;
+export type BuilderElement =
+  | TextElement
+  | ImageElement
+  | ButtonElement
+  | ContainerElement
+  | VisualElement;
 
 export const textElementSchema = z
   .object({
@@ -205,6 +212,9 @@ export const builderElementSchema: z.ZodType<BuilderElement> = z.discriminatedUn
   imageElementSchema,
   buttonElementSchema,
   containerElementSchema,
+  // The visual elements are part of the document, not a separate catalogue: they are saved,
+  // reloaded, validated and rendered through exactly the same path as a text box.
+  ...VISUAL_ELEMENT_SCHEMAS,
 ]) as unknown as z.ZodType<BuilderElement>;
 
 /** Returns the nesting depth of an element tree, where a leaf element is depth 1. */

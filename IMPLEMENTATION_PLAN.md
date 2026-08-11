@@ -2225,7 +2225,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: the remote, default branch, protections, pull-request path, and deployment sources match Section 3 with no direct-production shortcut.
   - Verify: GitHub rules/default branch inspection, one non-destructive pull-request/check dry run where practical, and Coolify source-branch configuration review.
 
-- [ ] **P19-T5 — Final quality gate**
+- [x] **P19-T5 — Final quality gate**
   - Remove dead code, debug logs, permanent mocks, warnings, and TODOs that block MVP behavior.
   - Do not expand scope during cleanup.
   - Acceptance: all MVP criteria pass, both locale catalogs are complete, branch/deployment protections are active or explicitly blocked, and known non-blocking limitations are documented.
@@ -2545,6 +2545,7 @@ Append entries; do not erase history.
 | 2026-08-10 | P16-T5 | The renderer barrel deliberately excludes the interactive elements | That barrel is what the backend's public renderer imports, and the backend compiles without DOM types on purpose so its own code cannot reference `window` and typecheck. Adding the export would have forced DOM types into the API package as a side effect of an export line. |
 | 2026-08-10 | P17-T3 | The JavaScript budget was split into a published-site budget and an application budget | The single budget was being applied to the authenticated editor bundle, which measured 386 KB against 250 KB. They are downloaded by different people in different circumstances; holding the editor to the public budget would either fail forever or force the public number up to meet it, and a budget raised to match what was already shipped measures nothing. |
 | 2026-08-10 | P19-T2 | A new account is given its personal workspace on the first authenticated call | `ensurePersonalWorkspace` existed and nothing ever called it, so a new account had no workspace and the application had nowhere to send it. Doing it on the workspace listing is idempotent by construction and cannot be skipped by entering through a different screen. |
+| 2026-08-10 | P19-T5 | The visual elements were merged into `BuilderElement` rather than kept as a separate union | They were implemented, tested and referenced by nothing but their own test, which is not the same as delivered. Merging them means they save, reload, validate and render through exactly the same path as a text box, and it moved the shared element base into `responsive.ts` so every element type carries breakpoint overrides. |
 ## 15. Progress Log
 
 Append one concise line after each completed task.
@@ -2669,4 +2670,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P19-T2 | Playwright MVP journey against the production build and a throwaway in-memory database, plus the public shell in both locales | 20 tests. It found three shipped defects on its first run: `/app` had no route, signing up raced the session and bounced to login, and the sites list had no way to open a site |
 | 2026-08-10 | P19-T3 | README, operations guide and per-service `.env.example` files completed | States plainly what has not been rehearsed rather than implying otherwise |
 | 2026-08-10 | P19-T4 | `[!]` Branch protection needs an authenticated GitHub session with admin rights, which this environment does not have | The checks the rules would require now exist in `.github/workflows/quality.yml`, and the exact ruleset configuration and the residual risk until it is applied are documented in docs/OPERATIONS.md |
+| 2026-08-10 | P19-T5 | Final gate: no TODOs, debug logs, skipped tests or unreferenced modules; the visual elements were integrated into the document union rather than left implemented but unreachable | typecheck, 1313 tests, build and 20 E2E all pass; the remaining limitations are written down rather than implied |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

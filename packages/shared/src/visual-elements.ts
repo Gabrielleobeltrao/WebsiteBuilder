@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { safeLinkSchema } from "./links";
-import { geometrySchema, responsiveElementLayoutSchema } from "./responsive";
+import { elementBaseShape } from "./responsive";
 
 /**
  * Essential visual elements.
@@ -12,15 +12,7 @@ import { geometrySchema, responsiveElementLayoutSchema } from "./responsive";
  * and no amount of sanitising afterwards fixes the shape of that hole.
  */
 
-const elementBase = {
-  id: z.string().min(1),
-  name: z.string().max(120),
-  geometry: geometrySchema,
-  responsiveLayout: responsiveElementLayoutSchema,
-  zIndex: z.number().int(),
-  locked: z.boolean(),
-  hidden: z.boolean(),
-};
+const elementBase = elementBaseShape;
 
 /** Icons come from one bundled set. A name outside it renders nothing rather than a broken glyph. */
 export const ICON_NAMES = [
@@ -116,7 +108,16 @@ export const downloadButtonElementSchema = z
   .strict();
 
 export const breadcrumbsElementSchema = z
-  .object({ ...elementBase, type: z.literal("breadcrumbs"), separator: z.enum(["chevron", "slash", "dot"]) })
+  .object({
+    ...elementBase,
+    type: z.literal("breadcrumbs"),
+    separator: z.enum(["chevron", "slash", "dot"]),
+    /**
+     * Announced by a screen reader on the published site, so it belongs to the site's language and
+     * not to the editor's. A Portuguese site should not say "Breadcrumb".
+     */
+    label: z.string().min(1).max(60),
+  })
   .strict();
 
 export const tableElementSchema = z
@@ -165,7 +166,8 @@ export const announcementBarElementSchema = z
   })
   .strict();
 
-export const visualElementSchema = z.discriminatedUnion("type", [
+/** The members, exported separately so the document union can spread them in. */
+export const VISUAL_ELEMENT_SCHEMAS = [
   iconElementSchema,
   iconListElementSchema,
   dividerElementSchema,
@@ -180,7 +182,9 @@ export const visualElementSchema = z.discriminatedUnion("type", [
   tableElementSchema,
   pricingTableElementSchema,
   announcementBarElementSchema,
-]);
+] as const;
+
+export const visualElementSchema = z.discriminatedUnion("type", [...VISUAL_ELEMENT_SCHEMAS]);
 
 export type VisualElement = z.infer<typeof visualElementSchema>;
 export type IconElement = z.infer<typeof iconElementSchema>;

@@ -342,7 +342,11 @@ export const useEditorStore = create<EditorState>((set, get) => {
           if (existing === undefined) return element;
 
           const { [key]: _removed, ...rest } = existing as Record<string, unknown>;
-          const overrides = { ...element.breakpointOverrides };
+          // Typed as a plain record here: the union's own type is the intersection of every
+          // element's, which narrows to nothing indexable once every element type carries it.
+          const overrides: Record<string, Record<string, unknown>> = {
+            ...(element.breakpointOverrides as Record<string, Record<string, unknown>> | undefined),
+          };
           const forBreakpoint = { ...overrides[breakpointId], [part]: rest };
 
           // An empty override object would keep reporting the value as overridden.

@@ -349,6 +349,13 @@ protection, because both require an authenticated GitHub session with admin scop
 
 ## Known limitations
 
+- The visual elements are part of the document and render on published pages, but the editor
+  library does not yet offer a control for creating each one. They can be authored through the
+  document, and adding the palette entries is mechanical.
+- Branch protection on GitHub is not applied: it needs a maintainer session with admin rights.
+  The exact ruleset and the residual risk are in [docs/OPERATIONS.md](docs/OPERATIONS.md).
+- No Docker image has been built and no staging deploy or restore has been rehearsed from this
+  machine. The manifests are written to the architecture and reviewed, nothing more.
 - **Publishing is not implemented yet.** The contracts, audits and snapshot model exist; the
   publish pipeline, custom domains and the Cloudflare adapter are Phase 18.
 - **The Docker images are unbuilt.** See the warning above.

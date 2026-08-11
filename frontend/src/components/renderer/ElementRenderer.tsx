@@ -11,6 +11,7 @@ import {
 import { createElement } from "react";
 
 import { useRendererContext } from "./RendererContext";
+import { VisualElementRenderer } from "./VisualElementRenderer";
 import { buttonStyle, freeGeometryStyle, imageStyle, isRenderable, textStyle } from "./styles";
 
 /**
@@ -141,8 +142,10 @@ export function ElementRenderer({ element, positioned = true }: { element: Build
       <ImageRenderer element={element} />
     ) : element.type === "button" ? (
       <ButtonRenderer element={element} />
-    ) : (
+    ) : element.type === "container" ? (
       <ContainerRenderer element={element} />
+    ) : (
+      <VisualElementRenderer element={element} />
     );
 
   if (!positioned) return inner;

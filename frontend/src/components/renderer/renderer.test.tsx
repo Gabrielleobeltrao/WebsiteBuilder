@@ -1,6 +1,7 @@
 import {
   createId,
   createPage,
+  type BuilderElement,
   type BuilderSection,
   type ButtonElement,
   type ImageElement,
@@ -409,5 +410,96 @@ describe("responsive images", () => {
   it("centres by default", () => {
     renderImage(image());
     expect(screen.getByAltText("A description").style.objectPosition).toBe("50% 50%");
+  });
+});
+
+describe("visual elements in the document", () => {
+  const visual = (overrides: Record<string, unknown>): BuilderElement =>
+    ({
+      id: "v1",
+      name: "Element",
+      geometry: { x: 0, y: 0, width: 320, height: 64, rotation: 0 },
+      responsiveLayout: {
+        width: { value: 320, unit: "px" },
+        height: { value: 64, unit: "px" },
+        horizontalConstraint: "left",
+        verticalConstraint: "top",
+        visible: true,
+      },
+      zIndex: 1,
+      locked: false,
+      hidden: false,
+      ...overrides,
+    }) as unknown as BuilderElement;
+
+  const renderOne = (element: BuilderElement) =>
+    render(
+      <RendererContext.Provider value={{ resolvePagePath: () => null, resolveMediaUrl: (id) => `/media/${id}` }}>
+        <ElementRenderer element={element} />
+      </RendererContext.Provider>,
+    );
+
+  it("renders a table the same renderer produces for a published page", () => {
+    renderOne(
+      visual({
+        type: "table",
+        headers: ["Plan", "Price"],
+        rows: [["Basic", "10"]],
+        hasHeaderRow: true,
+        caption: "Plans",
+      }),
+    );
+
+    expect(screen.getByRole("table", { name: "Plans" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Plan" })).toHaveAttribute("scope", "col");
+  });
+
+  it("renders an FAQ that works with no script at all", () => {
+    renderOne(visual({ type: "accordion", allowMultiple: true, items: [{ question: "Q", answer: "A" }] }));
+
+    // `<details>` is operable as served, which is what a published page must be.
+    expect(screen.getByText("Q").tagName).toBe("SUMMARY");
+  });
+
+  it("shows every tab panel without scripting rather than none", () => {
+    renderOne(
+      visual({
+        type: "tabs",
+        items: [
+          { label: "One", content: "First" },
+          { label: "Two", content: "Second" },
+        ],
+      }),
+    );
+
+    // Content a visitor cannot reach is worse than content shown all at once.
+    expect(screen.getByText("First")).toBeVisible();
+    expect(screen.getByText("Second")).toBeVisible();
+  });
+
+  it("names a breadcrumb landmark in the site's language, not the editor's", () => {
+    renderOne(visual({ type: "breadcrumbs", separator: "chevron", label: "Trilha" }));
+    expect(screen.getByRole("navigation", { name: "Trilha" })).toBeInTheDocument();
+  });
+
+  it("hides a spacer from assistive technology instead of announcing an empty region", () => {
+    const { container } = renderOne(visual({ type: "spacer" }));
+    expect(container.querySelector("[aria-hidden]")).not.toBeNull();
+  });
+
+  it("does not make a social link hand over the opener", () => {
+    renderOne(
+      visual({
+        type: "socialLinks",
+        items: [{ network: "instagram", url: "https://instagram.com/acme" }],
+        iconSize: 24,
+        gap: 8,
+      }),
+    );
+
+    expect(screen.getByRole("link", { name: "instagram" })).toHaveAttribute(
+      "rel",
+      expect.stringContaining("noopener"),
+    );
   });
 });
