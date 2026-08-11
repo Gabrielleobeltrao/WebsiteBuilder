@@ -2079,7 +2079,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: publishing a matching item adds it to every configured listing without editing those pages.
   - Verify: query resolver, card renderer, filters, pagination, responsiveness, empty-state, and E2E tests.
 
-- [ ] **P15-T4 — Dynamic detail templates and public routes**
+- [x] **P15-T4 — Dynamic detail templates and public routes**
   - Reuse the builder for one draft/published detail template per collection, with dynamic field bindings, shared header/footer, SEO inheritance, responsive behavior, and template impact report.
   - Resolve only published items at `/<collection-path>/<item-slug>`; keep template edits off the live/preview-published contract until explicit template publication.
   - Acceptance: one published template renders all existing and future items; drafts never resolve publicly; changes apply globally only after intentional publication.
@@ -2656,4 +2656,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P9-T8 | Continuous preview between 320–1920 with presets and an exact width, plus a width sweep reporting overflow, off-canvas, impossible sizes, overlaps, small text and tap targets, and missing responsive assets | 40 tests: findings merge into width ranges rather than one per width, a breakpoint override that fixes an overflow narrows the reported range, deliberate layering is not reported as an overlap, and running the diagnostics leaves the page byte-identical |
 | 2026-08-10 | P15-T2 | CMS repository, API and dashboard: collections, schema editor, item table with status and search, create/edit/duplicate/delete, and impact reporting for schema changes | 31 tests: a removed field's values survive and return if the field does, a newly required field is refused only when published items cannot satisfy it, a duplicate is always a draft, renaming a label never changes a field id, and an empty number stays undefined |
 | 2026-08-10 | P15-T3 | CMS collection element: structured query with filters, sorts and bounded limit, one reusable card sub-layout bound by immutable field id, grid/list layout, load-more and an editable empty state | 27 tests: publishing a matching item adds it to a list with no page edit, drafts never reach published output, a missing value renders nothing rather than "undefined", a non-http value never becomes clickable, and "show more" keeps the items already shown |
+| 2026-08-10 | P15-T4 | Detail templates with separate draft and published copies, SEO inheritance per part, impact reporting, and item routes gated on template publication | 16 tests: editing a draft leaves the live template untouched, no item route is claimed until a template has been published, a template naming only a title field still inherits the site description, and deleting a collection removes its template |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

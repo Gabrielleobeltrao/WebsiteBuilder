@@ -4,7 +4,12 @@ import {
   applyCmsQuery,
   cmsItemPath,
   DEFAULT_CMS_QUERY,
+  hasPublishedTemplate,
   orphanedCardFields,
+  resolveItemSeo,
+  templateHasUnpublishedChanges,
+  templateImpact,
+  type CmsDetailTemplate,
   type CmsQuery,
   type QueryableItem,
 } from "./cms-elements";
@@ -177,5 +182,82 @@ describe("paths and orphans", () => {
     };
 
     expect(orphanedCardFields(element, new Set(["f-kept"]))).toEqual(["f-gone"]);
+  });
+});
+
+describe("detail templates", () => {
+  const template = (overrides: Partial<CmsDetailTemplate> = {}): CmsDetailTemplate => ({
+    collectionId: "c1",
+    draftSections: [],
+    seo: {},
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  });
+
+  it("does not resolve item routes until a template has been published", () => {
+    expect(hasPublishedTemplate(undefined)).toBe(false);
+    expect(hasPublishedTemplate(template({ draftSections: [{}] }))).toBe(false);
+    expect(hasPublishedTemplate(template({ publishedSections: [{}], publishedAt: "2026-02-01" }))).toBe(true);
+  });
+
+  it("says plainly when the draft has moved past what is live", () => {
+    expect(templateHasUnpublishedChanges(undefined)).toBe(false);
+    expect(
+      templateHasUnpublishedChanges(
+        template({ draftSections: [{ id: "a" }], publishedSections: [{ id: "a" }], publishedAt: "x" }),
+      ),
+    ).toBe(false);
+    expect(
+      templateHasUnpublishedChanges(
+        template({ draftSections: [{ id: "b" }], publishedSections: [{ id: "a" }], publishedAt: "x" }),
+      ),
+    ).toBe(true);
+  });
+
+  it("reports the real scale of publishing a template", () => {
+    // A designer editing "the page" is editing every item's page at once.
+    const impact = templateImpact({
+      publishedItemCount: 240,
+      cardFieldIds: ["f-title", "f-gone"],
+      schemaFieldIds: new Set(["f-title"]),
+    });
+
+    expect(impact.affectedItemCount).toBe(240);
+    expect(impact.orphanedFieldIds).toEqual(["f-gone"]);
+  });
+});
+
+describe("item metadata", () => {
+  const base = {
+    template: { seo: { titleFieldId: "f-title", descriptionFieldId: "f-summary" } },
+    itemSlug: "acme",
+    siteDefaults: { title: "Site", description: "Site description" },
+  };
+
+  it("uses the item's own values when the template names them", () => {
+    const seo = resolveItemSeo({ ...base, values: { "f-title": "Acme", "f-summary": "A study" } });
+    expect(seo).toEqual({ title: "Acme", description: "A study" });
+  });
+
+  it("falls back part by part rather than all or nothing", () => {
+    // A template that names a title field but no description still inherits the site description.
+    const seo = resolveItemSeo({
+      template: { seo: { titleFieldId: "f-title" } },
+      values: { "f-title": "Acme" },
+      itemSlug: "acme",
+      siteDefaults: base.siteDefaults,
+    });
+
+    expect(seo).toEqual({ title: "Acme", description: "Site description" });
+  });
+
+  it("falls back to the slug before the site name, so pages stay distinguishable", () => {
+    const seo = resolveItemSeo({ ...base, values: {} });
+    expect(seo.title).toBe("acme");
+  });
+
+  it("ignores a value that is only whitespace", () => {
+    const seo = resolveItemSeo({ ...base, values: { "f-title": "   " } });
+    expect(seo.title).toBe("acme");
   });
 });

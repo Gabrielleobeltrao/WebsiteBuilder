@@ -7,6 +7,7 @@ import {
   type CmsCollectionInput,
   type CmsField,
   type CmsItemInput,
+  type CmsDetailTemplate,
   type CmsItemStatus,
   type CmsValidationError,
   type SchemaChangeIssue,
@@ -23,7 +24,11 @@ import type { WorkspaceContext } from "../projects/repository";
  * schema is an editing decision, and silently discarding content because someone reordered a form
  * is not recoverable.
  */
-export const CMS_COLLECTIONS = { collections: "cmsCollections", items: "cmsItems" } as const;
+export const CMS_COLLECTIONS = {
+  collections: "cmsCollections",
+  items: "cmsItems",
+  templates: "cmsDetailTemplates",
+} as const;
 
 export type CmsCollection = CmsCollectionInput & {
   id: string;
@@ -45,6 +50,8 @@ export type CmsItem = CmsItemInput & {
   updatedAt: string;
 };
 
+type TemplateDocument = CmsDetailTemplate & { _id: ObjectId; workspaceId: string; projectId: string };
+
 type CollectionDocument = Omit<CmsCollection, "id"> & { _id: ObjectId };
 type ItemDocument = Omit<CmsItem, "id"> & { _id: ObjectId };
 
@@ -63,6 +70,10 @@ export async function ensureCmsIndexes(db: Db): Promise<void> {
     { key: { projectId: 1, slug: 1 }, name: "project_slug_unique", unique: true },
     { key: { workspaceId: 1, projectId: 1 }, name: "project_collections" },
   ]);
+  await db.collection(CMS_COLLECTIONS.templates).createIndexes([
+    // One template per collection. Two would make "the template" ambiguous for every item.
+    { key: { collectionId: 1 }, name: "collection_template_unique", unique: true },
+  ]);
   await db.collection(CMS_COLLECTIONS.items).createIndexes([
     // Unique within a collection, not globally: two collections may each have an item called
     // "about" without colliding, because their public paths differ by collection slug.
@@ -74,10 +85,77 @@ export async function ensureCmsIndexes(db: Db): Promise<void> {
 export class CmsRepository {
   private readonly collections: Collection<CollectionDocument>;
   private readonly items: Collection<ItemDocument>;
+  private readonly templates: Collection<TemplateDocument>;
 
   constructor(db: Db) {
     this.collections = db.collection<CollectionDocument>(CMS_COLLECTIONS.collections);
     this.items = db.collection<ItemDocument>(CMS_COLLECTIONS.items);
+    this.templates = db.collection<TemplateDocument>(CMS_COLLECTIONS.templates);
+  }
+
+  async findTemplate(
+    context: WorkspaceContext,
+    projectId: string,
+    collectionId: string,
+  ): Promise<CmsDetailTemplate | null> {
+    const document = await this.templates.findOne({
+      workspaceId: context.workspaceId,
+      projectId,
+      collectionId,
+    });
+    return document === null ? null : toTemplate(document);
+  }
+
+  /** Saves the draft. Never touches what visitors are being served. */
+  async saveTemplateDraft(
+    context: WorkspaceContext,
+    projectId: string,
+    collectionId: string,
+    input: { draftSections: unknown[]; seo: CmsDetailTemplate["seo"] },
+  ): Promise<CmsDetailTemplate> {
+    const collection = await this.findCollection(context, projectId, collectionId);
+    if (collection === null) throw new CmsError("not-found");
+
+    const now = new Date().toISOString();
+    await this.templates.updateOne(
+      { workspaceId: context.workspaceId, projectId, collectionId },
+      {
+        $set: { draftSections: input.draftSections, seo: input.seo, updatedAt: now },
+        $setOnInsert: { workspaceId: context.workspaceId, projectId, collectionId },
+      },
+      { upsert: true },
+    );
+
+    return (await this.findTemplate(context, projectId, collectionId))!;
+  }
+
+  /**
+   * Copies the draft over the published copy.
+   *
+   * This is the only moment a template change reaches visitors, and it changes every item at once.
+   * Nothing else in the CMS has that reach, which is why it is a separate deliberate action.
+   */
+  async publishTemplate(
+    context: WorkspaceContext,
+    projectId: string,
+    collectionId: string,
+  ): Promise<CmsDetailTemplate> {
+    const template = await this.findTemplate(context, projectId, collectionId);
+    if (template === null) throw new CmsError("not-found");
+
+    const now = new Date().toISOString();
+    await this.templates.updateOne(
+      { workspaceId: context.workspaceId, projectId, collectionId },
+      { $set: { publishedSections: template.draftSections, publishedAt: now, updatedAt: now } },
+    );
+
+    return (await this.findTemplate(context, projectId, collectionId))!;
+  }
+
+  /** Templates for the publication compiler, which needs to know which collections can resolve. */
+  async listTemplatesForProject(projectId: string): Promise<CmsDetailTemplate[]> {
+    const documents = await this.templates.find({ projectId }).toArray();
+    return documents.map(toTemplate);
   }
 
   async listCollections(context: WorkspaceContext, projectId: string): Promise<CmsCollection[]> {
@@ -183,6 +261,7 @@ export class CmsRepository {
     if (existing === null) return false;
 
     await this.items.deleteMany({ collectionId, workspaceId: context.workspaceId });
+    await this.templates.deleteOne({ collectionId, workspaceId: context.workspaceId });
     await this.collections.deleteOne({ _id: new ObjectId(collectionId) });
     return true;
   }
@@ -362,6 +441,11 @@ export class CmsRepository {
 function toCollection(document: CollectionDocument): CmsCollection {
   const { _id, ...rest } = document;
   return { ...rest, id: _id.toHexString() };
+}
+
+function toTemplate(document: TemplateDocument): CmsDetailTemplate {
+  const { _id, workspaceId, projectId, ...rest } = document;
+  return rest;
 }
 
 function toItem(document: ItemDocument): CmsItem {

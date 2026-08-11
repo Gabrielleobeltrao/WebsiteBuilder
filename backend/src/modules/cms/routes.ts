@@ -25,6 +25,19 @@ function parseId(value: unknown, message: string): string {
 
 const collectionBodySchema = cmsCollectionInputSchema.extend({ hasDetailRoute: z.boolean().optional() });
 
+const templateBodySchema = z
+  .object({
+    draftSections: z.array(z.unknown()).max(50),
+    seo: z
+      .object({
+        titleFieldId: z.string().min(1).optional(),
+        descriptionFieldId: z.string().min(1).optional(),
+        imageFieldId: z.string().min(1).optional(),
+      })
+      .strict(),
+  })
+  .strict();
+
 export function createCmsRouter(options: {
   repository: CmsRepository;
   resolveWorkspace: WorkspaceResolver;
@@ -87,6 +100,57 @@ export function createCmsRouter(options: {
       if (!removed) throw new ApiProblem("NOT_FOUND", "Collection not found");
 
       res.status(204).end();
+    } catch (error) {
+      next(toProblem(error));
+    }
+  });
+
+  router.get("/collections/:collectionId/template", async (req, res, next) => {
+    try {
+      const context = await resolveWorkspace(req);
+      res.json({
+        data: await repository.findTemplate(
+          context,
+          projectOf(req),
+          parseId(param(req, "collectionId"), "Collection not found"),
+        ),
+      });
+    } catch (error) {
+      next(toProblem(error));
+    }
+  });
+
+  router.put("/collections/:collectionId/template", async (req, res, next) => {
+    try {
+      const context = await resolveWorkspace(req, "project:edit");
+      const parsed = templateBodySchema.safeParse(req.body);
+      if (!parsed.success) throw zodProblem(parsed.error);
+
+      res.json({
+        data: await repository.saveTemplateDraft(
+          context,
+          projectOf(req),
+          parseId(param(req, "collectionId"), "Collection not found"),
+          parsed.data,
+        ),
+      });
+    } catch (error) {
+      next(toProblem(error));
+    }
+  });
+
+  // Publishing a template is its own action because it changes every item at once. Nothing else in
+  // the CMS has that reach, and saving a draft must never do it by accident.
+  router.post("/collections/:collectionId/template/publish", async (req, res, next) => {
+    try {
+      const context = await resolveWorkspace(req, "publish:execute");
+      res.json({
+        data: await repository.publishTemplate(
+          context,
+          projectOf(req),
+          parseId(param(req, "collectionId"), "Collection not found"),
+        ),
+      });
     } catch (error) {
       next(toProblem(error));
     }

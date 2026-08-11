@@ -49,6 +49,11 @@ export type PublishableCollection = CmsCollectionInput & {
   id: string;
   /** A collection without a detail route holds data used by list elements only. */
   hasDetailRoute: boolean;
+  /**
+   * Item routes exist only once the collection's template has been published. Emitting them
+   * earlier would publish paths that resolve to nothing a designer ever approved.
+   */
+  hasPublishedTemplate: boolean;
 };
 
 export type CompileInput = {
@@ -171,6 +176,9 @@ export function buildRouteManifest(input: CompileInput): RouteManifestEntry[] {
       statusCode: 200,
       seo: { title: collection.name },
     });
+
+    // No published template means no page to render an item with, so no item route is claimed.
+    if (!collection.hasPublishedTemplate) continue;
 
     for (const item of input.cms.items) {
       if (item.collectionId !== collection.id || item.status !== "published") continue;

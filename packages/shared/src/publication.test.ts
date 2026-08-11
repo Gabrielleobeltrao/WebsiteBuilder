@@ -55,6 +55,7 @@ const collection = (overrides: Partial<PublishableCollection> = {}): Publishable
   slug: "projects",
   fields: [],
   hasDetailRoute: true,
+  hasPublishedTemplate: true,
   ...overrides,
 });
 
@@ -143,6 +144,20 @@ describe("route manifest", () => {
       input({ cms: { collections: [collection({ hasDetailRoute: false })], items } }),
     ).snapshot;
     expect(dataOnly?.routes.some((route) => route.kind === "cmsItem")).toBe(false);
+  });
+
+  it("claims no item route until the collection's template has been published", () => {
+    const items = [
+      { id: "item-1", collectionId: "collection-1", slug: "live", status: "published" as const, values: {}, updatedAt: "x" },
+    ];
+
+    const unpublished = compileSite(
+      input({ cms: { collections: [collection({ hasPublishedTemplate: false })], items } }),
+    ).snapshot;
+
+    // The list still exists; only the per-item pages wait for a template someone approved.
+    expect(unpublished?.routes.some((route) => route.kind === "cmsList")).toBe(true);
+    expect(unpublished?.routes.some((route) => route.kind === "cmsItem")).toBe(false);
   });
 
   it("blocks a route collision rather than publishing an ambiguous site", () => {

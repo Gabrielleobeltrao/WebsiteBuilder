@@ -189,3 +189,92 @@ export function orphanedCardFields(
 ): string[] {
   return element.cardFields.map((card) => card.fieldId).filter((fieldId) => !fieldIds.has(fieldId));
 }
+
+/**
+ * The detail template for one collection.
+ *
+ * Exactly one template per collection renders every item, existing and future. It carries its own
+ * draft and published copies: editing the draft must not change what visitors already see, because
+ * a template edit applies to every item at once and there is no way to preview that safely if it is
+ * live while being written.
+ */
+export const cmsDetailTemplateSchema = z
+  .object({
+    collectionId: z.string().min(1),
+    /** Sections are ordinary builder sections; the dynamic parts are card fields bound by id. */
+    draftSections: z.array(z.unknown()),
+    publishedSections: z.array(z.unknown()).optional(),
+    /** Falls back to the item's own values, then to the site defaults. */
+    seo: z
+      .object({
+        titleFieldId: z.string().min(1).optional(),
+        descriptionFieldId: z.string().min(1).optional(),
+        imageFieldId: z.string().min(1).optional(),
+      })
+      .strict(),
+    publishedAt: z.string().optional(),
+    updatedAt: z.string(),
+  })
+  .strict();
+
+export type CmsDetailTemplate = z.infer<typeof cmsDetailTemplateSchema>;
+
+/** A collection resolves item routes only once its template has been published at least once. */
+export function hasPublishedTemplate(template: CmsDetailTemplate | undefined): boolean {
+  return template?.publishedSections !== undefined && template.publishedAt !== undefined;
+}
+
+/** True when the draft has moved on from what is live, so the editor can say so plainly. */
+export function templateHasUnpublishedChanges(template: CmsDetailTemplate | undefined): boolean {
+  if (template === undefined) return false;
+  if (template.publishedSections === undefined) return template.draftSections.length > 0;
+  return JSON.stringify(template.draftSections) !== JSON.stringify(template.publishedSections);
+}
+
+export type TemplateImpact = {
+  /** Items that will be re-rendered by publishing this template. */
+  affectedItemCount: number;
+  /** Card fields pointing at fields the schema no longer declares. */
+  orphanedFieldIds: string[];
+};
+
+/**
+ * What publishing a template would do.
+ *
+ * One template renders every item, so the count is the honest scale of the change: a designer
+ * editing "the page" is editing hundreds of pages at once.
+ */
+export function templateImpact(input: {
+  publishedItemCount: number;
+  cardFieldIds: readonly string[];
+  schemaFieldIds: ReadonlySet<string>;
+}): TemplateImpact {
+  return {
+    affectedItemCount: input.publishedItemCount,
+    orphanedFieldIds: input.cardFieldIds.filter((fieldId) => !input.schemaFieldIds.has(fieldId)),
+  };
+}
+
+/**
+ * Resolves the metadata for one item's page.
+ *
+ * Each part falls back independently: a template that names a title field but no description field
+ * still inherits the site description rather than rendering an empty one.
+ */
+export function resolveItemSeo(input: {
+  template: Pick<CmsDetailTemplate, "seo">;
+  values: Record<string, unknown>;
+  itemSlug: string;
+  siteDefaults: { title: string; description: string };
+}): { title: string; description: string } {
+  const read = (fieldId: string | undefined): string => {
+    if (fieldId === undefined) return "";
+    const value = input.values[fieldId];
+    return typeof value === "string" ? value.trim() : "";
+  };
+
+  return {
+    title: read(input.template.seo.titleFieldId) || input.itemSlug || input.siteDefaults.title,
+    description: read(input.template.seo.descriptionFieldId) || input.siteDefaults.description,
+  };
+}

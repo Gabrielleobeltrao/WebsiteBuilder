@@ -228,3 +228,72 @@ describe("tenant isolation", () => {
     expect(await cms.listCollections(A, PROJECT)).toHaveLength(1);
   });
 });
+
+describe("detail templates", () => {
+  const setup = async () => cms.createCollection(A, PROJECT, collectionInput());
+
+  it("has no template until one is saved", async () => {
+    const collection = await setup();
+    expect(await cms.findTemplate(A, PROJECT, collection.id)).toBeNull();
+  });
+
+  it("saving a draft does not change what visitors see", async () => {
+    const collection = await setup();
+    const template = await cms.saveTemplateDraft(A, PROJECT, collection.id, {
+      draftSections: [{ id: "s1" }],
+      seo: {},
+    });
+
+    expect(template.draftSections).toHaveLength(1);
+    expect(template.publishedSections).toBeUndefined();
+    expect(template.publishedAt).toBeUndefined();
+  });
+
+  it("publishing copies the draft over the live copy", async () => {
+    const collection = await setup();
+    await cms.saveTemplateDraft(A, PROJECT, collection.id, { draftSections: [{ id: "s1" }], seo: {} });
+
+    const published = await cms.publishTemplate(A, PROJECT, collection.id);
+    expect(published.publishedSections).toEqual([{ id: "s1" }]);
+    expect(published.publishedAt).toBeDefined();
+  });
+
+  it("a later draft edit leaves the live template alone until it is published again", async () => {
+    const collection = await setup();
+    await cms.saveTemplateDraft(A, PROJECT, collection.id, { draftSections: [{ id: "s1" }], seo: {} });
+    await cms.publishTemplate(A, PROJECT, collection.id);
+
+    const edited = await cms.saveTemplateDraft(A, PROJECT, collection.id, {
+      draftSections: [{ id: "s1" }, { id: "s2" }],
+      seo: {},
+    });
+
+    // One template renders every item, so an in-progress edit reaching visitors would change
+    // hundreds of pages nobody approved.
+    expect(edited.publishedSections).toEqual([{ id: "s1" }]);
+  });
+
+  it("keeps one template per collection however often it is saved", async () => {
+    const collection = await setup();
+    await cms.saveTemplateDraft(A, PROJECT, collection.id, { draftSections: [], seo: {} });
+    await cms.saveTemplateDraft(A, PROJECT, collection.id, { draftSections: [{ id: "s1" }], seo: {} });
+
+    expect(await cms.listTemplatesForProject(PROJECT)).toHaveLength(1);
+  });
+
+  it("removes the template when its collection is deleted", async () => {
+    const collection = await setup();
+    await cms.saveTemplateDraft(A, PROJECT, collection.id, { draftSections: [], seo: {} });
+
+    await cms.deleteCollection(A, PROJECT, collection.id);
+    expect(await cms.listTemplatesForProject(PROJECT)).toEqual([]);
+  });
+
+  it("does not read or publish another workspace's template", async () => {
+    const collection = await setup();
+    await cms.saveTemplateDraft(A, PROJECT, collection.id, { draftSections: [{ id: "s1" }], seo: {} });
+
+    expect(await cms.findTemplate(B, PROJECT, collection.id)).toBeNull();
+    await expect(cms.publishTemplate(B, PROJECT, collection.id)).rejects.toBeInstanceOf(CmsError);
+  });
+});

@@ -19,6 +19,7 @@ import { ProjectRepository } from "./modules/projects/repository";
 import { createProjectsRouter } from "./modules/projects/routes";
 import { WorkspaceRepository } from "./modules/workspaces/repository";
 import { COLLECTIONS } from "./db/indexes";
+import { hasPublishedTemplate } from "@websitebuilder/shared";
 import { CmsRepository, ensureCmsIndexes } from "./modules/cms/repository";
 import { createCmsRouter } from "./modules/cms/routes";
 import { CloudflareHostnameProvider } from "./modules/domains/cloudflare";
@@ -142,14 +143,22 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
           blog,
           media,
           collectModuleFacts,
-          loadCmsCollections: async (context, projectId) =>
-            (await cms.listCollections(context, projectId)).map((collection) => ({
+          loadCmsCollections: async (context, projectId) => {
+            const [collections, templates] = await Promise.all([
+              cms.listCollections(context, projectId),
+              cms.listTemplatesForProject(projectId),
+            ]);
+            const byCollection = new Map(templates.map((template) => [template.collectionId, template]));
+
+            return collections.map((collection) => ({
               id: collection.id,
               name: collection.name,
               slug: collection.slug,
               fields: collection.fields,
               hasDetailRoute: collection.hasDetailRoute,
-            })),
+              hasPublishedTemplate: hasPublishedTemplate(byCollection.get(collection.id)),
+            }));
+          },
           loadCmsItems: async (_context, projectId) =>
             (await cms.listPublished(projectId)).map((item) => ({
               id: item.id,
