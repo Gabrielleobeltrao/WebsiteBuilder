@@ -12,6 +12,7 @@ npm run dev:renderer     # public renderer only
 npm run typecheck        # tsc --noEmit across every workspace
 npm run test             # Vitest across every workspace
 npm run build            # production build of every workspace
+npm run build:tracker    # rebuilds the published-site analytics tracker into its source constant
 npm run test:e2e         # Playwright
 npm run smoke:containers # builds the production images and exercises the running stack
 ```
