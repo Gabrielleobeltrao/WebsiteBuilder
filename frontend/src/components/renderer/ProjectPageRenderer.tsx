@@ -55,7 +55,13 @@ export function ProjectPageRenderer({
   width?: number;
 }) {
   return (
-    <div style={{ backgroundColor: page.canvas.backgroundColor, minHeight: page.canvas.minHeight }}>
+    // `data-page-id` is an overlay anchor and the coordinate origin a heatmap measures against, not
+    // an identity claim: analytics ingestion resolves the page server-side from the published route
+    // manifest and never reads this value back from a browser.
+    <div
+      style={{ backgroundColor: page.canvas.backgroundColor, minHeight: page.canvas.minHeight }}
+      data-page-id={page.id}
+    >
       {page.sections.map((section) => (
         <SectionRenderer key={section.id} section={section} breakpointId={breakpointId} width={width} />
       ))}

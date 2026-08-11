@@ -9,7 +9,7 @@ import { createGridFsStorage } from "../src/modules/media/storage";
 import { ProjectRepository, type WorkspaceContext } from "../src/modules/projects/repository";
 import { ensurePublishingIndexes, PublishingRepository } from "../src/modules/publishing/repository";
 import { PublishingService } from "../src/modules/publishing/service";
-import { createRendererApp, PUBLISHED_SITE_CSP } from "../src/renderer/app";
+import { createRendererApp, PUBLISHED_SITE_CSP, PUBLISHED_SITE_CSP_WITH_ANALYTICS } from "../src/renderer/app";
 import { SiteResolver } from "../src/renderer/resolver";
 import { testEnv, testLogger } from "./helpers";
 import { startTestDatabase, type TestDatabase } from "./mongo";
@@ -442,5 +442,111 @@ describe("view counting", () => {
 
     expect(counted.status).toBe(plain.status);
     expect(counted.text).toBe(plain.text);
+  });
+});
+
+describe("the analytics content-security policy", () => {
+  it("changes nothing for a site that does not carry the tracker", async () => {
+    // Analytics is disabled by default, so shipping the feature must not alter one byte of the
+    // policy every existing published site is served under.
+    await liveSite(A, "Alpha", "alpha.example.test");
+    const response = await request(renderer()).get("/").set("Host", "alpha.example.test");
+
+    expect(response.headers["content-security-policy"]).toBe(PUBLISHED_SITE_CSP);
+    expect(PUBLISHED_SITE_CSP).toContain("script-src 'none'");
+    expect(PUBLISHED_SITE_CSP).not.toContain("connect-src");
+  });
+
+  it("admits the tracker and its beacon, and nothing else", () => {
+    expect(PUBLISHED_SITE_CSP_WITH_ANALYTICS).toContain("script-src 'self'");
+    // Without this the tracker loads and then silently fails: `default-src 'none'` blocks fetch and
+    // sendBeacon whatever `script-src` permits.
+    expect(PUBLISHED_SITE_CSP_WITH_ANALYTICS).toContain("connect-src 'self'");
+  });
+
+  it("admits no inline script and no external origin", () => {
+    const scriptDirectives = PUBLISHED_SITE_CSP_WITH_ANALYTICS.split("; ").filter((directive) =>
+      directive.startsWith("script-src") || directive.startsWith("connect-src"),
+    );
+
+    for (const directive of scriptDirectives) {
+      expect(directive).not.toContain("unsafe-inline");
+      expect(directive).not.toContain("unsafe-eval");
+      expect(directive).not.toContain("http");
+      expect(directive).not.toContain("*");
+    }
+  });
+
+  it("keeps every other directive exactly as the default policy has them", () => {
+    const without = (policy: string) =>
+      policy
+        .split("; ")
+        .filter((directive) => !directive.startsWith("script-src") && !directive.startsWith("connect-src"));
+
+    expect(without(PUBLISHED_SITE_CSP_WITH_ANALYTICS)).toEqual(without(PUBLISHED_SITE_CSP));
+    // Named explicitly because heatmaps were specified to frame the published page, and do not.
+    expect(PUBLISHED_SITE_CSP_WITH_ANALYTICS).toContain("frame-ancestors 'none'");
+  });
+});
+
+describe("analytics identity in published markup", () => {
+  it("identifies the page, every section, and every button", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+    const response = await request(renderer()).get("/").set("Host", "alpha.example.test");
+
+    expect(response.text).toContain("data-page-id=");
+    expect(response.text).toContain("data-section-id=");
+  });
+
+  it("carries an element id in a section that is not free-positioned", async () => {
+    // The regression this guards: the id used to live on the free-layout positioning wrapper, so a
+    // button in a flex or grid section rendered anonymously and its clicks could not be attributed.
+    const projectId = await liveSite(A, "Alpha", "alpha.example.test");
+    const project = await projects.findById(A, projectId);
+    if (project === null) throw new Error("the fixture project disappeared");
+
+    const { id, workspaceId, createdByUserId, revision, createdAt, updatedAt, ...document } = project;
+    const page = document.pages[0]!;
+    page.sections[0]!.layoutMode = "flex";
+    page.sections[0]!.elements = [
+      {
+        id: "button-in-flow",
+        name: "Call to action",
+        type: "button",
+        text: "Read more",
+        link: { kind: "external", url: "https://example.test/" },
+        geometry: { x: 0, y: 0, width: 200, height: 48, rotation: 0 },
+        responsiveLayout: {
+          width: { value: 200, unit: "px" },
+          height: { value: 48, unit: "px" },
+          horizontalConstraint: "left",
+          verticalConstraint: "top",
+          visible: true,
+        },
+        zIndex: 1,
+        locked: false,
+        hidden: false,
+        style: {
+          fontSize: { value: 16, unit: "px" },
+          fontWeight: 600,
+          textColor: "#ffffff",
+          backgroundColor: "#2f6df6",
+          borderRadius: 8,
+          horizontalAlign: "center",
+        },
+      } as never,
+    ];
+
+    const saved = await projects.saveDocument(A, projectId, revision, document as never);
+    if (saved === null) throw new Error("saveDocument rejected the flex-section fixture");
+    const published = await service.publish(A, projectId);
+    if (published.status !== "published") throw new Error(`publishing returned ${published.status}`);
+    resolver.invalidateAll();
+
+    const response = await request(renderer()).get("/").set("Host", "alpha.example.test");
+
+    expect(response.text).toContain('data-element-id="button-in-flow"');
+    // Exactly one carrier, so a click is counted once rather than by both a wrapper and its child.
+    expect(response.text.match(/data-element-id="button-in-flow"/g)).toHaveLength(1);
   });
 });

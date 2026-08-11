@@ -96,7 +96,7 @@ export function ButtonRenderer({ element }: { element: ButtonElement }) {
   // the wrong place, and no unsafe href can ever be produced.
   if (resolved === null) {
     return (
-      <button type="button" style={buttonStyle(element)} disabled>
+      <button type="button" style={buttonStyle(element)} disabled data-element-id={element.id}>
         {content}
       </button>
     );
@@ -108,6 +108,7 @@ export function ButtonRenderer({ element }: { element: ButtonElement }) {
       {...(resolved.target ? { target: resolved.target } : {})}
       {...(resolved.rel ? { rel: resolved.rel } : {})}
       style={buttonStyle(element)}
+      data-element-id={element.id}
     >
       {content}
     </a>
@@ -150,9 +151,12 @@ export function ElementRenderer({ element, positioned = true }: { element: Build
 
   if (!positioned) return inner;
 
+  // The positioning wrapper carries no `data-element-id`. It used to, which meant an element's id
+  // appeared only in free-layout sections — every flow and stack section rendered anonymous
+  // elements, and a click there could not be attributed. The id now lives on the rendered control
+  // itself (see `ButtonRenderer`), where it is emitted in every layout, and putting it on the
+  // wrapper as well would nest two carriers of the same id and count one click twice.
   return (
-    <div style={{ ...freeGeometryStyle(element.geometry), zIndex: element.zIndex }} data-element-id={element.id}>
-      {inner}
-    </div>
+    <div style={{ ...freeGeometryStyle(element.geometry), zIndex: element.zIndex }}>{inner}</div>
   );
 }

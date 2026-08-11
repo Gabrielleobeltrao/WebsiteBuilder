@@ -10,10 +10,14 @@ import { normalizePath, resolveRoute, SiteResolver } from "./resolver";
 /**
  * The policy a published page is served under.
  *
- * `script-src 'none'` is the important one and it costs nothing here: published pages are server
- * HTML and ship no JavaScript at all, so a policy that forbids it entirely is simply the truth
- * written down. If a script is ever added to public output, this line is what will refuse it until
- * someone argues for the change.
+ * The directives every published page shares, whatever else it carries. A page's script policy is
+ * appended by whichever constant below applies, because the two cases differ in exactly that.
+ *
+ * Until analytics existed this list carried `script-src 'none'` unconditionally, and the comment
+ * here said that a script added to public output would be refused "until someone argues for the
+ * change". The argument is `docs/adr/analytics-first-party.md`, and the outcome is narrower than
+ * the request: the relaxation applies only to a page that actually carries the tracker. A site with
+ * analytics disabled — which is every existing site — still ships no JavaScript and still says so.
  *
  * `style-src` allows inline because every element carries a serialised `style` attribute and
  * container rules are emitted as a `<style>` block. Those are structured values written by the
@@ -23,17 +27,41 @@ import { normalizePath, resolveRoute, SiteResolver } from "./resolver";
  *
  * Frames are limited to the two video providers whose embed URLs this code builds from an id.
  */
-export const PUBLISHED_SITE_CSP = [
-  "default-src 'none'",
-  "script-src 'none'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' https: data:",
-  "font-src 'self' https:",
-  "frame-src https://www.youtube-nocookie.com https://player.vimeo.com",
-  "form-action 'self'",
-  "base-uri 'none'",
-  "frame-ancestors 'none'",
-].join("; ");
+const publishedSiteCsp = (scriptDirectives: string[]) =>
+  [
+    "default-src 'none'",
+    ...scriptDirectives,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' https: data:",
+    "font-src 'self' https:",
+    "frame-src https://www.youtube-nocookie.com https://player.vimeo.com",
+    "form-action 'self'",
+    "base-uri 'none'",
+    "frame-ancestors 'none'",
+  ].join("; ");
+
+export const PUBLISHED_SITE_CSP = publishedSiteCsp(["script-src 'none'"]);
+
+/**
+ * The policy for a page that carries the analytics tracker.
+ *
+ * Two constants rather than one changed constant, because analytics is disabled by default: a site
+ * that has not enabled it receives the policy above, byte for byte, and shipping this feature
+ * changes nothing for a customer who does not use it.
+ *
+ * `script-src 'self'` admits exactly one file — the tracker, served by this renderer on the site's
+ * own hostname, including custom domains. No external origin and no `'unsafe-inline'`: an inline
+ * allowance would readmit the injection class that `default-src 'none'` exists to close, and it is
+ * not needed, because the tracker is a file rather than a snippet.
+ *
+ * `connect-src 'self'` is required and is easy to forget: `default-src 'none'` blocks fetch and
+ * sendBeacon regardless of what `script-src` permits, so without this line the tracker would load
+ * and then silently fail to deliver anything.
+ *
+ * `frame-ancestors 'none'` is unchanged. Heatmaps render their snapshot inside the dashboard using
+ * the same component that produced the page, so nothing here needs to be framable.
+ */
+export const PUBLISHED_SITE_CSP_WITH_ANALYTICS = publishedSiteCsp(["script-src 'self'", "connect-src 'self'"]);
 
 /**
  * The public multi-tenant renderer. One stateless process serves every published site: it resolves

@@ -495,7 +495,7 @@ they are listed as P1-T0a through P1-T0e below.
 
 ### Phase 1 — Shared analytics contracts
 
-- [ ] **P1-T0a — Emit element identity on buttons and links**
+- [x] **P1-T0a — Emit element identity on buttons and links**
   - `data-element-id` is currently emitted only for elements in `free`-layout sections, so most
     sections render anonymous elements. Wrapping is not available: a plain wrapper changes every
     flex/grid item, and `display: contents` removes the element from its parent's layout.
@@ -505,27 +505,27 @@ they are listed as P1-T0a through P1-T0e below.
   - Acceptance: SSR tests prove a button carries its id in both `free` and non-`free` sections, and
     that no element carries two.
 
-- [ ] **P1-T0b — Emit page identity**
+- [x] **P1-T0b — Emit page identity**
   - Nothing identifies a page in published HTML today. Add `data-page-id` to the page root as an
     overlay anchor and coordinate origin. It is not an identity claim: ingestion resolves the page
     server-side from the published route manifest.
   - Acceptance: SSR test asserts the attribute, and ingestion tests prove the value is not trusted.
 
-- [ ] **P1-T0c — Split the published-site CSP**
+- [x] **P1-T0c — Split the published-site CSP**
   - Keep the current policy for pages without the tracker and add a second policy with
     `script-src 'self'` and `connect-src 'self'` for pages that carry it.
   - Acceptance: a site with analytics disabled receives the original policy byte for byte; the
     analytics policy contains no `'unsafe-inline'` and no external origin, and keeps
     `frame-ancestors 'none'`.
 
-- [ ] **P1-T0d — Make published pages reachable from browser tests**
+- [x] **P1-T0d — Make published pages reachable from browser tests**
   - The E2E harness boots the API and the built frontend only; nothing serves published HTML, which
     blocks every browser test of the tracker, consent and accuracy.
   - Hoist the in-memory database into a shared setup both processes read, add a renderer web server,
     add a browser project that resolves `*.localhost` to loopback, and seed a published site.
   - Acceptance: a browser test loads a published page over the renderer and asserts its content.
 
-- [ ] **P1-T0e — Add the tracker size budget**
+- [x] **P1-T0e — Add the tracker size budget**
   - Add the tracker ceiling to the shared performance budgets and measure the built artefact.
   - Acceptance: the budget fails the build when exceeded, rather than living in prose.
 
@@ -790,6 +790,7 @@ Append entries; do not erase history.
 | 2026-08-11 | P0-T1 baseline | n/a | `npm run typecheck && npm run test` on `development@3223c7f` | Green: 495 shared, 448 backend, 486 frontend. One intermittent failure recorded: `backend/tests/media-api.test.ts` "accepts an image and returns WebP variants" fails occasionally under full-suite load and passes in isolation (Sharp under memory pressure). Pre-existing, unrelated to analytics. Production tag and live topology are `[!]` — no production access. |
 | 2026-08-11 | P0-T2 ADR | n/a | `docs/adr/analytics-first-party.md` written | Eight decisions recorded; four privacy/legal choices left explicitly open |
 | 2026-08-11 | P0-T3 budgets | n/a | `docs/ANALYTICS_OPERATIONS.md` written | Budgets, per-page-view event count, storage formula with a worked example, alert threshold, scale ceiling and its replacement |
+| 2026-08-11 | P1-T0a..e prerequisites | n/a | `npm run typecheck && npm run test && npm run build && npm run test:e2e` | 1436 unit tests and 28 E2E green, including a new `published-site` browser project. Two pre-existing defects found and fixed: elements outside free-layout sections carried no id at all, and the renderer could not run under `tsx` because the frontend components it renders were outside the backend tsconfig's `include` — so `npm run dev:renderer` had never served a page. |
 
 ## 19. Decision Log
 
