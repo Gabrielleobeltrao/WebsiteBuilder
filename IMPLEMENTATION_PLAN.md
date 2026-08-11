@@ -2162,7 +2162,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: the same valid source revision produces the same normalized content hash/manifest; drafts are excluded; failures leave the active version untouched.
   - Verify: deterministic fixtures, concurrency, route collision, draft exclusion, media ownership, size limit, and failure-atomicity tests.
 
-- [ ] **P18-T3 — Publish, history, rollback, and dashboard UI**
+- [x] **P18-T3 — Publish, history, rollback, and dashboard UI**
   - Implement publication API/UI with preflight report, explicit confirmation, progress, success/failure, permanent platform URL, active version, source revision, `Unpublished changes`, paginated history, and rollback confirmation. Feed the persistent Site status pill from this same state machine so status-center blockers and publish-screen blockers cannot disagree.
   - Write snapshot first and atomically change the active pointer; invalidate renderer caches only after commit. Retain the configured number of versions without deleting active/referenced versions.
   - Acceptance: publish/republish/rollback are atomic, authorized, auditable, idempotent on retry, and never expose half-built output.
@@ -2180,7 +2180,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: provider outages do not affect already active rendered sites; new activation remains pending/retryable; duplicate requests cannot create conflicting mappings.
   - Verify: fake provider contract, recorded response fixtures within allowed copyright/security limits, retry/backoff, timeout, outage, idempotency, and secret-redaction tests.
 
-- [ ] **P18-T6 — Custom-domain onboarding UI and lifecycle**
+- [x] **P18-T6 — Custom-domain onboarding UI and lifecycle**
   - Add `Site -> Settings -> Domains`: platform URL, add customer subdomain, normalized preview, exact CNAME/TXT/HTTP instructions returned by provider, hostname/SSL status, last checked, refresh, primary selection, failure guidance, and disconnect confirmation.
   - Officially support `www.customer.com`/other subdomains first. Explain apex requirements honestly and do not mark active until local association, provider hostname, SSL, and DNS are all active.
   - Acceptance: an authorized user can connect a disposable test subdomain, watch status transitions, make it primary, redirect secondary domains, and disconnect it without deleting the site.
@@ -2637,4 +2637,6 @@ Append one concise line after each completed task.
 | 2026-08-10 | Security | Per-route permissions: a router declares its weakest permission and every writing route demands its own | Found while wiring publishing — `media:read` had been enough to upload and delete media, and `project:read` enough to create, rename and delete projects. A viewer now gets 403 on each, asserted in workspace-authorization |
 | 2026-08-10 | P18-T4 | Multi-tenant public renderer: hostname-only tenant resolution, per-host snapshot cache, route/redirect/404 resolution and server HTML from the same renderer the editor uses | 11 tests with two tenants sharing one process: a query parameter, a custom header and an untrusted X-Forwarded-Host all fail to reach the other tenant; an unknown host and a non-live host answer identically; metadata is present with no script tag in the response |
 | 2026-08-10 | P18-T5 | Cloudflare for SaaS adapter behind a provider-neutral interface, plus an in-memory fake and the custom-domain lifecycle | 27 tests, none touching a real API: a retried create returns the existing registration instead of a competing one, an unauthorized reply is not retried and its message never carries the token, and a provider outage leaves a live customer domain serving traffic |
+| 2026-08-10 | P18-T3 | Publish screen with preflight blockers, explicit confirmation, live version and source revision, version history and confirmed rollback | 10 tests: opening the confirmation sends nothing, blockers are shown in the customer's words and disable the button, republishing unchanged content says so instead of claiming a new publication |
+| 2026-08-10 | P18-T6 | Site → Settings → Domains: normalised preview, exact DNS record from the provider, separate hostname and certificate status, primary selection, disconnect | 9 tests: a pending domain never reads as working, only a live address can be promoted to primary, disconnect states plainly that the site is not deleted |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
