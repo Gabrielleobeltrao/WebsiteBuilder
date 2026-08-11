@@ -7,7 +7,9 @@ import { createLogger } from "./config/logger";
 import { connectDatabase, createDatabaseHealthProbe, type Database } from "./db/client";
 import { installGracefulShutdown } from "./lifecycle";
 import { createWorkspaceResolver } from "./middleware/session";
+import { AnalyticsQueries } from "./modules/analytics/queries";
 import { AnalyticsRepository, ensureAnalyticsIndexes } from "./modules/analytics/repository";
+import { createAnalyticsRouter } from "./modules/analytics/routes";
 import { createAuth } from "./modules/auth/auth";
 import { PreferencesRepository } from "./modules/preferences/repository";
 import { createPreferencesRouter } from "./modules/preferences/routes";
@@ -146,6 +148,21 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
         resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
         // Facts come from each module's own records, never from the request.
         collectModuleFacts,
+      }),
+    },
+    {
+      path: "/workspaces/:workspaceId/projects/:projectId/analytics",
+      router: createAnalyticsRouter({
+        repository: analytics,
+        queries: new AnalyticsQueries(database.db, async (context, projectId) => {
+          // Page identifiers come from the published manifest, which is also the only place that
+          // knows what path each one answers on. A page deleted since keeps its history and loses
+          // its name rather than being given an invented one.
+          const version = await publishing.findActiveForProject(projectId);
+          if (version === null || version.workspaceId !== context.workspaceId) return new Map();
+          return new Map(version.routes.map((route) => [route.resourceId, route.path]));
+        }),
+        resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
       }),
     },
     {

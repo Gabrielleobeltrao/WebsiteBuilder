@@ -164,6 +164,7 @@ export function createRendererApp(options: {
               endpoint: ANALYTICS_EVENTS_PATH,
               versionId: site.version.id,
               consentRequired: settings.consentRequired,
+              ...(settings.privacyPolicyUrl === "" ? {} : { privacyPolicyUrl: settings.privacyPolicyUrl }),
               honorPrivacySignals: settings.honorPrivacySignals,
               sampleRate: settings.sampleRate,
               categories: settings.categories,

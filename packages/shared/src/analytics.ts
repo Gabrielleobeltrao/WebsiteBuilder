@@ -358,3 +358,33 @@ export type HeatmapFilter = z.infer<typeof heatmapFilterSchema>;
  * is worse than no badge, because someone will stop looking.
  */
 export const WEB_VITAL_MIN_SAMPLES = 50;
+
+/**
+ * Consent copy for a published site.
+ *
+ * Deliberately outside the application's translation catalogues. Those are loaded by i18next in the
+ * dashboard; a published page loads nothing, and its language is the one its owner chose for the
+ * site, not the one the visitor's dashboard is in. Both locales are defined here together so
+ * neither can be added without the other.
+ */
+export const CONSENT_COPY = {
+  "pt-BR": {
+    message: "Este site mede acessos anônimos para entender o que as pessoas procuram.",
+    accept: "Aceitar",
+    decline: "Recusar",
+    policy: "Política de privacidade",
+  },
+  "en-US": {
+    message: "This site measures anonymous visits to understand what people are looking for.",
+    accept: "Accept",
+    decline: "Decline",
+    policy: "Privacy policy",
+  },
+} as const;
+
+export type ConsentCopy = { message: string; accept: string; decline: string; policy: string };
+
+/** The copy for a site's locale, falling back to English for any locale not translated. */
+export function consentCopyFor(locale: string): ConsentCopy {
+  return locale.toLowerCase().startsWith("pt") ? CONSENT_COPY["pt-BR"] : CONSENT_COPY["en-US"];
+}

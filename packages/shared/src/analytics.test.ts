@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   analyticsBatchSchema,
+  consentCopyFor,
+  CONSENT_COPY,
   analyticsEventSchema,
   analyticsSettingsSchema,
   ANALYTICS_BATCH_MAX_EVENTS,
@@ -246,6 +248,31 @@ describe("heatmap filters", () => {
       const partial: Record<string, unknown> = { ...filter };
       delete partial[missing];
       expect(heatmapFilterSchema.safeParse(partial).success, `${missing} was optional`).toBe(false);
+    }
+  });
+});
+
+describe("consent copy", () => {
+  it("says the same things in both languages", () => {
+    // The published-site copy is outside i18next, so nothing else would catch a locale that gained
+    // a string the other did not.
+    expect(Object.keys(CONSENT_COPY["pt-BR"]).sort()).toEqual(Object.keys(CONSENT_COPY["en-US"]).sort());
+    for (const copy of Object.values(CONSENT_COPY)) {
+      for (const value of Object.values(copy)) expect(value.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("follows the site's language, not the visitor's", () => {
+    expect(consentCopyFor("pt-BR").accept).toBe("Aceitar");
+    expect(consentCopyFor("en-US").accept).toBe("Accept");
+    // A site published in a language nobody translated still gets a working prompt.
+    expect(consentCopyFor("de-DE").accept).toBe("Accept");
+  });
+
+  it("offers declining exactly as prominently as accepting", () => {
+    // Not a style question: a choice that is harder to decline than to accept is not a choice.
+    for (const copy of Object.values(CONSENT_COPY)) {
+      expect(copy.decline.length).toBeLessThanOrEqual(copy.accept.length + 4);
     }
   });
 });

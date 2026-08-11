@@ -162,6 +162,7 @@ test.describe("a site that asks first", () => {
     await page.waitForTimeout(2_500);
 
     expect(batches).toEqual([]);
+    await expect(page.locator("#wb-consent")).toBeVisible();
     // Nor is anything stored: a visitor who has not answered leaves no trace at all.
     const stored = await page.evaluate(() => ({
       session: window.sessionStorage.length,
@@ -170,12 +171,35 @@ test.describe("a site that asks first", () => {
     expect(stored).toEqual({ session: 0, local: 0 });
   });
 
-  test("starts once consent is granted and stops when it is withdrawn", async ({ page }) => {
+  test("shows a prompt whose two answers are equally easy to give", async ({ page }) => {
+    await page.goto(CONSENT);
+
+    const prompt = page.locator("#wb-consent");
+    await expect(prompt).toBeVisible();
+    const accept = prompt.locator('[data-wb-consent="accept"]');
+    const decline = prompt.locator('[data-wb-consent="decline"]');
+
+    // Same element, same treatment. A prompt where declining is a link and accepting is a button is
+    // not offering a choice.
+    await expect(accept).toBeVisible();
+    await expect(decline).toBeVisible();
+    expect(await accept.evaluate((node) => node.tagName)).toBe(await decline.evaluate((node) => node.tagName));
+  });
+
+  test("does not move the page to ask", async ({ page }) => {
+    await page.goto(CONSENT);
+    await expect(page.locator("#wb-consent")).toBeVisible();
+
+    // Fixed to the viewport rather than inserted into the flow: asking a question on the product's
+    // own behalf must not shift a customer's content under their visitor's finger.
+    const position = await page.locator("#wb-consent").evaluate((node) => getComputedStyle(node).position);
+    expect(position).toBe("fixed");
+  });
+
+  test("collects once the prompt is accepted, and stops when it is withdrawn", async ({ page }) => {
     const batches = collectBatches(page);
     await page.goto(CONSENT);
-    await page.waitForTimeout(500);
-
-    await page.evaluate(() => (window as unknown as { wbAnalytics: { grant: () => void } }).wbAnalytics.grant());
+    await page.locator('[data-wb-consent="accept"]').click();
     expect(await waitForBatch(batches, (types) => types.includes("page_view"))).toBe(true);
 
     await page.evaluate(() => (window as unknown as { wbAnalytics: { deny: () => void } }).wbAnalytics.deny());
@@ -185,9 +209,27 @@ test.describe("a site that asks first", () => {
 
     expect(batches.length).toBe(afterDeny);
   });
+
+  test("remembers a refusal across page loads", async ({ page }) => {
+    await page.goto(CONSENT);
+    await page.locator('[data-wb-consent="decline"]').click();
+
+    const batches = collectBatches(page);
+    await page.goto(CONSENT);
+    await page.waitForTimeout(2_000);
+
+    // Asking again after someone said no is asking until they say yes.
+    expect(batches).toEqual([]);
+    await expect(page.locator("#wb-consent")).toBeHidden();
+  });
 });
 
 test.describe("a site that does not measure", () => {
+  test("shows no consent prompt, because there is nothing to consent to", async ({ page }) => {
+    await page.goto(UNTRACKED);
+    await expect(page.locator("#wb-consent")).toHaveCount(0);
+  });
+
   test("loads no tracker and requests nothing", async ({ page }) => {
     const requests: string[] = [];
     page.on("request", (request) => requests.push(request.url()));

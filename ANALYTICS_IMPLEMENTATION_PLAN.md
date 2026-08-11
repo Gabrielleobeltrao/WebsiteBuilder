@@ -595,17 +595,17 @@ they are listed as P1-T0a through P1-T0e below.
 
 ### Phase 4 — Privacy controls
 
-- [ ] **P4-T1 — Implement site analytics settings**
+- [x] **P4-T1 — Implement site analytics settings**
   - Add disabled-by-default settings, collection categories, retention, consent mode, policy link, and conversion configuration.
   - Acceptance: settings are tenant-scoped, audited, validated, and reflected in newly published output.
 
-- [ ] **P4-T2 — Implement consent behavior**
+- [x] **P4-T2 — Implement consent behavior**
   - Add accessible bilingual accept/decline/manage controls when required.
   - Ensure zero pre-consent events/storage beyond the essential consent preference.
   - Respect decline, withdrawal, GPC, and the documented DNT policy.
   - Acceptance: browser tests verify each consent state and withdrawal stops future collection.
 
-- [ ] **P4-T3 — Add deletion and export**
+- [x] **P4-T3 — Add deletion and export**
   - Export aggregated analytics as CSV with filters and metadata definitions.
   - Delete all project analytics using a typed confirmation. Deletion is synchronous and
     tenant-scoped: there is no background infrastructure, and adding one for a delete would be a
@@ -614,16 +614,16 @@ they are listed as P1-T0a through P1-T0e below.
 
 ### Phase 5 — Authenticated analytics API
 
-- [ ] **P5-T1 — Implement overview and timeseries queries**
+- [x] **P5-T1 — Implement overview and timeseries queries**
   - Add bounded date filters, page multi-select, comparison period, device, hostname, source, and version filters.
   - Acceptance: queries use indexes, enforce membership, and meet the latency budget on seeded scale data.
 
-- [ ] **P5-T2 — Implement page, section, click, and heatmap queries**
+- [x] **P5-T2 — Implement page, section, click, and heatmap queries**
   - Return aggregate bins and stable element/section metadata, never raw visitor trails.
   - Require one page/version/device for visual heatmaps.
   - Acceptance: incompatible filters produce a typed validation response rather than misleading data.
 
-- [ ] **P5-T3 — Implement Web Vitals queries and ratings**
+- [x] **P5-T3 — Implement Web Vitals queries and ratings**
   - Calculate p50/p75/p95 and current threshold ratings by page/device.
   - Enforce a documented minimum sample threshold.
   - Acceptance: percentile tests use deterministic fixtures and insufficient samples are explicit.
@@ -803,6 +803,7 @@ Append entries; do not erase history.
 | 2026-08-11 | P2-T3 version lifetime | n/a | `npx vitest run backend/tests/publishing-{repository,service}.test.ts` | Pruning now reports the ids it removed instead of a count, and publishing deletes the matching bins through an injected hook — awaited so state stays consistent, swallowed so a failed cleanup cannot fail a publish |
 | 2026-08-11 | P3-T4 ingestion | n/a | `npx vitest run backend/tests/analytics-ingestion.test.ts` | 20 tests against the real renderer: forged tenant fields, unpublished paths, another tenant's version, non-JSON bodies, oversize bodies, over-long batches, unknown hosts, replays, crawlers, both rate-limit buckets, and a disabled site |
 | 2026-08-11 | P3-T1..T3 tracker | n/a | `npm run build:tracker`, `npx vitest run backend/tests/{bundle-budget,analytics-ingestion}.test.ts`, `npx playwright test --project=published-site` | 4,224 bytes Brotli against a 15,000 ceiling and an 8,000 target. 18 browser tests on real published pages: origin isolation, scroll depth reported once each, click attribution, Web Vitals, silence while hidden, consent before/after/withdrawn, JavaScript disabled, tracker blocked, ingestion failing |
+| 2026-08-11 | P4 privacy, P5 queries | n/a | `npx vitest run backend/tests/analytics-api.test.ts`, `npx playwright test --project=published-site` | 25 API tests and 22 browser tests. Consent is server-rendered and revealed only when there is a question to ask — a browser test caught that an inline `display` would have shown it to everyone, including people who had declined. Legal wording, jurisdictions and the GPC/DNT policy remain `[!]`: they are decisions, and the implementation carries whatever is decided. |
 | 2026-08-11 | P1-T0a..e prerequisites | n/a | `npm run typecheck && npm run test && npm run build && npm run test:e2e` | 1436 unit tests and 28 E2E green, including a new `published-site` browser project. Two pre-existing defects found and fixed: elements outside free-layout sections carried no id at all, and the renderer could not run under `tsx` because the frontend components it renders were outside the backend tsconfig's `include` — so `npm run dev:renderer` had never served a page. |
 
 ## 19. Decision Log

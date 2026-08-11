@@ -217,17 +217,54 @@ function privacySignalRefuses(): boolean {
 }
 
 function start(config: Config): void {
+  // A browser-level refusal is an answer, and the product treats it as one: nothing is collected,
+  // nothing is stored, and the visitor is not asked again by a prompt.
   if (config.honorPrivacySignals && privacySignalRefuses()) return;
-  if (config.consentRequired && store.get(CONSENT_KEY) !== "granted") {
-    // Nothing is collected and nothing is stored before an affirmative choice. The consent UI is
-    // rendered by the page, not by the tracker, and calls back through the global below.
-    exposeConsentApi(config);
-    return;
-  }
-  if (!sampled(config.sampleRate)) return;
 
   exposeConsentApi(config);
+
+  if (config.consentRequired) {
+    const decision = store.get(CONSENT_KEY);
+    if (decision !== "granted") {
+      // Nothing is collected and nothing is stored before an affirmative answer — not a session
+      // identifier, not a sampling decision, nothing.
+      if (decision !== "denied") showConsentPrompt(config);
+      return;
+    }
+  }
+
+  if (!sampled(config.sampleRate)) return;
   collect(config);
+}
+
+/**
+ * Reveals the prompt the page already contains and wires its two buttons.
+ *
+ * The markup is server-rendered and starts hidden, so a visitor who has already answered never sees
+ * it flash, one with JavaScript disabled never sees a prompt for measurement that cannot happen,
+ * and nothing this script does moves the page.
+ */
+function showConsentPrompt(config: Config): void {
+  const prompt = document.getElementById("wb-consent");
+  if (prompt === null) return;
+
+  const answer = (accepted: boolean) =>
+    guard(() => {
+      prompt.hidden = true;
+      prompt.style.display = "none";
+      const api = (window as unknown as Record<string, { grant: () => void; deny: () => void }>)["wbAnalytics"];
+      if (accepted) api?.grant();
+      else api?.deny();
+    });
+
+  for (const button of prompt.querySelectorAll("[data-wb-consent]")) {
+    button.addEventListener("click", answer(button.getAttribute("data-wb-consent") === "accept"));
+  }
+
+  // `display` is set here rather than in the served markup: an inline `display` would outrank the
+  // `hidden` attribute and show the prompt to everyone, answered or not.
+  prompt.style.display = "flex";
+  prompt.hidden = false;
 }
 
 /**
