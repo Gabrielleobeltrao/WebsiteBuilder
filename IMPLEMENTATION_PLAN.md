@@ -220,8 +220,8 @@ The public roadmap is a product communication page, not a copy of this technical
 ### Repository
 
 - Canonical remote: `https://github.com/Gabrielleobeltrao/WebsiteBuilder.git` using the remote name `origin`.
-- Exactly two long-lived branches: `main` for reviewed production-ready code and `development` for ongoing integration.
-- Normal work starts from and merges into `development`. Promote `development` to `main` only through a reviewed pull request after all required checks pass; never commit or force-push directly to `main`.
+- Exactly two long-lived branches: `main` for production-ready code and `development` for ongoing integration.
+- Normal work starts from and merges into `development`. Promote `development` to `main` by fast-forward, only after `npm run typecheck && npm run test && npm run build && npm run test:e2e` pass on the commit being promoted. A pull request is not required: the repository has a single maintainer, and a review they grant themselves is not a control. Never commit to `main` directly and never force-push it — a fast-forward moves `main` to a commit that already exists and was already tested on `development`.
 - Short-lived `task/Px-Ty-short-description` branches and isolated worktrees are allowed only for bounded concurrent or high-risk work. They must branch from and merge back into `development`, then be deleted. They do not count as long-lived branches.
 - Production deployment tracks `main`. A staging/preview deployment may track `development`, but it must use isolated environment values and data.
 - npm workspaces.
@@ -1500,7 +1500,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Verify authenticated access to `https://github.com/Gabrielleobeltrao/WebsiteBuilder.git`, inspect remote branches/history, local Git status, remotes, divergence, and the repository's default branch before changing anything. Treat the remote as possibly private or empty until this check succeeds.
   - Clone the repository when starting outside it, or set/repair `origin` when already inside the intended working tree. Never replace an unrelated remote, discard local/user work, rewrite remote history, or use a force push to make the state match this plan.
   - Preserve or create `main` from the latest verified production baseline. Create `development` from the reconciled `main`, push both when authorized, and make `development` the default collaboration branch when repository permissions allow it. If the default branch or protections require a manual GitHub setting, record the exact step as a blocker instead of pretending it succeeded.
-  - Configure the documented flow: work and short-lived task branches target `development`; only a reviewed, green `development -> main` pull request promotes production. Delete merged task branches/worktrees and keep only `main` and `development` long-lived.
+  - Configure the documented flow: work and short-lived task branches target `development`; production is promoted by fast-forwarding `main` from a green `development`. Delete merged task branches/worktrees and keep only `main` and `development` long-lived.
   - Acceptance: `origin` resolves to the exact canonical URL; local/remote `main` and `development` have known ancestry; no existing commit is lost; the branch and deployment policy is documented in English.
   - Verify: `git remote -v`, `git fetch --all --prune`, `git branch -vv`, `git ls-remote --heads origin`, clean/understood `git status --short`, and GitHub default-branch/protection inspection where authorized.
 
@@ -2266,7 +2266,7 @@ When blocked, mark `[!]`, record the exact blocker, and continue with other task
 The implementation is not complete unless:
 
 - TypeScript strict checks pass.
-- `origin` is exactly `https://github.com/Gabrielleobeltrao/WebsiteBuilder.git`; `main` and `development` are the only long-lived branches; work integrates through `development`; and production promotion/deployment occurs only from reviewed, green `main`.
+- `origin` is exactly `https://github.com/Gabrielleobeltrao/WebsiteBuilder.git`; `main` and `development` are the only long-lived branches; work integrates through `development`; and production deploys only from `main`, which is advanced by fast-forward from a green `development`.
 - Claude's user-facing communication is in Brazilian Portuguese while committed technical artifacts remain in English, as defined in Section 0.
 - The complete platform UI is available in `pt-BR` and `en-US`; both locale catalogs have key parity; user-facing strings are not hardcoded; and every UI task updates both languages.
 - An authenticated language choice persists per user across reload, relogin, device, and workspace switch; unauthenticated explicit choice persists locally; `document.lang` and `Intl` formatting match the active locale.
@@ -2548,6 +2548,7 @@ Append entries; do not erase history.
 | 2026-08-10 | P19-T5 | The visual elements were merged into `BuilderElement` rather than kept as a separate union | They were implemented, tested and referenced by nothing but their own test, which is not the same as delivered. Merging them means they save, reload, validate and render through exactly the same path as a text box, and it moved the shared element base into `responsive.ts` so every element type carries breakpoint overrides. |
 | 2026-08-10 | Architecture | The application and the API are separate hosts on one registrable domain | Requested, and safe here without widening anything: the session cookie is host-only to the API, so the browser sends it on credentialed requests from the application and never to a published customer site. CORS answers exactly one origin. An earlier answer in this session claimed the cookie would have to be domain-wide; that was wrong for this topology. |
 | 2026-08-10 | i18n | A preference read that resolves late no longer overwrites a language chosen since | Changing the language shortly after a page loaded flipped back on its own when the in-flight read landed, which reads as the product refusing the choice. Found by an intermittent E2E failure. |
+| 2026-08-10 | P19-T4 | `main` is promoted by fast-forward from `development` rather than through a pull request | The repository owner's decision, taken after the trade-off was raised. With one maintainer, a required review is approved by the person who wrote the change, which is process rather than protection. The gates that do catch things are unchanged and must pass on the promoted commit; force-push and direct commits to `main` remain refused, because those are what a fast-forward preserves and a mistake destroys. |
 ## 15. Progress Log
 
 Append one concise line after each completed task.

@@ -1,16 +1,18 @@
 # The checks branch protection requires before `development` may merge into `main`.
 #
-# Every one of these is the same command a developer runs locally, so a green pull request means
-# what it appears to mean. Nothing here reaches a real database, DNS, Cloudflare or Coolify: the
+# Every one of these is the same command a developer runs locally, so a green run means what it
+# appears to mean. Nothing here reaches a real database, DNS, Cloudflare or Coolify: the
 # backend suite starts its own in-memory MongoDB per file and the E2E suite starts one for itself.
 
 name: Quality
 
 on:
+  # `main` is advanced by fast-forward rather than through a pull request, so the push to it has to
+  # be checked directly — a workflow that only ran on pull requests would never see a promotion.
+  push:
+    branches: [main, development]
   pull_request:
     branches: [main, development]
-  push:
-    branches: [development]
 
 # A superseded run has nothing to say about the commit that replaced it.
 concurrency:

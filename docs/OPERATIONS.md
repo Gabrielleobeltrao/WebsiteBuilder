@@ -262,9 +262,8 @@ GitHub → Settings → Branches → Add branch ruleset.
 |---|---|
 | Restrict deletions | on |
 | Block force pushes | on |
-| Require a pull request before merging | on, 1 approval |
+| Require a pull request before merging | **off** |
 | Require status checks to pass | on — `verify` and `audit` |
-| Require branches to be up to date before merging | on |
 | Allow bypass | nobody, including administrators |
 
 **Ruleset `development`** — target branch `development`:
@@ -276,12 +275,17 @@ GitHub → Settings → Branches → Add branch ruleset.
 | Require status checks to pass | on — `verify` |
 | Require a pull request | **off** |
 
-Pull requests are deliberately not required on `development`. Task branches merge back into it
-constantly, and a review gate there would either be rubber-stamped or worked around — neither of
-which is a control. The gate that matters is the one on `main`.
+Pull requests are not required on either branch. With a single maintainer, a required review is
+granted by the person who wrote the change — that is process, not protection, and it gets clicked
+through. What does catch things is the check suite, which is required on both.
 
-Also set the default branch to `development` (Settings → General → Default branch), so a clone and
-a new pull request start where work belongs.
+Promotion is a fast-forward: `main` is moved to a commit that already exists on `development` and
+already passed there. That is why blocking force-push and deletion still matters even without a
+review gate — a fast-forward is always recoverable, and the two operations these rules refuse are
+the ones that are not.
+
+Also set the default branch to `development` (Settings → General → Default branch), so a clone
+starts where work belongs.
 
 ### Deployment sources
 
@@ -296,10 +300,11 @@ Coolify upgrade.
 
 ### Residual risk until the rules are applied
 
-- `main` can be force-pushed or deleted by anyone with write access.
-- `development` can be merged into `main` without the checks having passed.
-- The checks in `.github/workflows/quality.yml` still run on every pull request and their failure is
-  visible; nothing prevents merging past a red one.
+- `main` can be force-pushed or deleted by anyone with write access. This is the one that has no
+  undo, and the one the rules exist for.
+- `main` can be advanced to a commit whose checks never ran or failed.
+- The checks in `.github/workflows/quality.yml` still run and their result is visible; nothing yet
+  prevents promoting past a red one.
 
 The local gates are unchanged and unweakened: `npm run typecheck && npm run test && npm run build &&
 npm run test:e2e` is the same command the workflow runs.

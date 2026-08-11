@@ -55,5 +55,13 @@ npm run test:e2e
 ## Git
 
 `origin` is `https://github.com/Gabrielleobeltrao/WebsiteBuilder.git`. Only `main` and `development`
-are long-lived. Work integrates into `development`; `main` is promoted only by a reviewed, green
-pull request. Never force-push or commit directly to `main`.
+are long-lived. Work integrates into `development`.
+
+`main` is promoted by fast-forwarding it from `development`, and only when `npm run typecheck && npm
+run test && npm run build && npm run test:e2e` all pass on the commit being promoted. A pull request
+is not required — the repository has one maintainer, and a review gate they approve themselves is
+paperwork, not a control.
+
+Two things still hold, because they are what a fast-forward preserves and what a mistake destroys:
+never force-push `main`, and never commit to it directly. Promotion moves `main` to a commit that
+already exists on `development` and was already tested there.

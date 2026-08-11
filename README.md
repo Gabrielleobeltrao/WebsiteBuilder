@@ -335,8 +335,16 @@ and every API error will masquerade as a successful page load.
 
 ## Branch and release workflow
 
-Two long-lived branches. Work integrates into `development`; `main` is production and is only ever
-updated through a reviewed, green pull request. Never force-push or commit directly to `main`.
+Two long-lived branches. Work integrates into `development`; `main` is what production deploys from.
+
+`main` is advanced by fast-forward from `development`, and only when `npm run typecheck && npm run
+test && npm run build && npm run test:e2e` all pass on the commit being promoted. A pull request is
+not required — with one maintainer, a review they approve themselves is process rather than
+protection, and the check suite is what actually catches things.
+
+Never force-push `main` and never commit to it directly. A fast-forward only ever moves it to a
+commit that already exists and was already tested on `development`, which is what makes every
+promotion recoverable; those two operations are the ones that are not.
 
 Short-lived `task/Px-Ty-description` branches are fine for isolated work and are deleted after
 merge.
