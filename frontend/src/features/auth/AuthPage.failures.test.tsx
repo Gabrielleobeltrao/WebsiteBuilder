@@ -98,3 +98,44 @@ describe("unreachable server", () => {
     );
   });
 });
+
+describe("rate limiting", () => {
+  it("says to wait, not to check the address", async () => {
+    // The generic failure told someone to check an address that was never the problem, and acting
+    // on that advice means retrying immediately — the one thing that extends the block.
+    vi.mocked(signUp.email).mockResolvedValue({
+      error: { status: 429, message: "Too many requests. Please try again later." },
+    } as never);
+    await submit("signup");
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Too many attempts"));
+    expect(screen.getByRole("alert")).not.toHaveTextContent("Check the address");
+  });
+
+  it("says the same when signing in, because the limit is not about which form was used", async () => {
+    vi.mocked(signIn.email).mockResolvedValue({ error: { status: 429, message: "Too many requests" } } as never);
+    await submit("login");
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Too many attempts"));
+  });
+});
+
+describe("what the server can explain itself", () => {
+  it("repeats a password-length rejection instead of guessing", async () => {
+    vi.mocked(signUp.email).mockResolvedValue({
+      error: { status: 400, message: "Password too short" },
+    } as never);
+    await submit("signup");
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("at least 12 characters"));
+  });
+
+  it("points at the address when the address is what was refused", async () => {
+    vi.mocked(signUp.email).mockResolvedValue({
+      error: { status: 400, message: "[body.email] Invalid email address" },
+    } as never);
+    await submit("signup");
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("does not look right"));
+  });
+});

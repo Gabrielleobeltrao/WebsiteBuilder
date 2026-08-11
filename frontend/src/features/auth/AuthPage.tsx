@@ -142,6 +142,10 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
  * password" wastes their time on the wrong thing entirely.
  */
 function failureKey(mode: "login" | "signup", error: { status?: number; message?: string }): string {
+  // Rate limiting deserves its own message: "check the address" is advice that cannot work, and
+  // acting on it means trying again immediately, which is the one thing that extends the block.
+  if (error.status === 429) return "tooManyAttempts";
+
   // Positive evidence only. An absent status is not proof the request never landed — the provider
   // omits it on some rejections too — and calling a mistyped password a server outage is the worse
   // of the two mistakes: it tells someone nothing they do will help, when retyping would have.
@@ -153,9 +157,12 @@ function failureKey(mode: "login" | "signup", error: { status?: number; message?
   if (unreachable) return "unreachable";
 
   if (mode === "signup") {
-    return error.status === 422 || /exist|taken|already/i.test(error.message ?? "")
-      ? "emailTaken"
-      : "signupFailed";
+    if (error.status === 422 || /exist|taken|already/i.test(error.message ?? "")) return "emailTaken";
+    // The server states its own reason for these two, and both are actionable by the person
+    // reading them, unlike a generic failure.
+    if (/password.*short|too short/i.test(error.message ?? "")) return "passwordTooShort";
+    if (/invalid email|body\.email/i.test(error.message ?? "")) return "invalidEmail";
+    return "signupFailed";
   }
 
   return "failed";
