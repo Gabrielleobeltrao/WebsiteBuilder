@@ -132,6 +132,11 @@ export default {
     "displayName": "Display name"
   },
   "options": {
+    "autoMode": {
+      "fixed": "Fixed number of columns",
+      "auto-fit": "Fit — collapse empty columns",
+      "auto-fill": "Fill — keep empty columns"
+    },
     "tag": {
       "h1": "Heading 1",
       "h2": "Heading 2",
@@ -194,7 +199,7 @@ export default {
       "flex": "Flex"
     },
     "columns": "Columns",
-    "autoFit": "Adapt columns automatically",
+    "autoMode": "Column behaviour",
     "minColumnWidth": "Minimum column width",
     "rowGap": "Row gap",
     "columnGap": "Column gap",

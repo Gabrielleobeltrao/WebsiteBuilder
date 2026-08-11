@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import { serializeLength, type ResponsiveLength } from "./responsive";
+import {
+  breakpointInheritanceChain,
+  serializeLength,
+  type BreakpointDefinition,
+  type ResponsiveLength,
+} from "./responsive";
 
 /**
  * Structured grid and flex configuration.
@@ -21,8 +26,12 @@ export const FLEX_WRAPS = ["nowrap", "wrap", "wrap-reverse"] as const;
 export const gridLayoutSchema = z
   .object({
     columns: z.number().int().min(1).max(12),
-    /** Enables `repeat(auto-fit, minmax(...))` so columns adapt without an override per width. */
-    autoFit: z.boolean(),
+    /**
+     * `fixed` keeps the declared column count at every width. `auto-fit` collapses empty tracks so
+     * the remaining items stretch; `auto-fill` keeps the empty tracks, which holds alignment across
+     * rows with differing item counts. Both adapt without an override at every width.
+     */
+    autoMode: z.enum(["fixed", "auto-fit", "auto-fill"]),
     minColumnWidth: z.number().int().min(40).max(2000),
     rowGap: spacing,
     columnGap: spacing,
@@ -51,7 +60,7 @@ export type FlexLayout = z.infer<typeof flexLayoutSchema>;
 
 export const DEFAULT_GRID_LAYOUT: GridLayout = {
   columns: 3,
-  autoFit: true,
+  autoMode: "auto-fit",
   minColumnWidth: 240,
   rowGap: 24,
   columnGap: 24,
@@ -79,9 +88,10 @@ export const DEFAULT_FLEX_LAYOUT: FlexLayout = {
 export function serializeGridLayout(layout: GridLayout): Record<string, string> {
   return {
     display: "grid",
-    gridTemplateColumns: layout.autoFit
-      ? `repeat(auto-fit, minmax(min(${layout.minColumnWidth}px, 100%), 1fr))`
-      : `repeat(${layout.columns}, minmax(0, 1fr))`,
+    gridTemplateColumns:
+      layout.autoMode === "fixed"
+        ? `repeat(${layout.columns}, minmax(0, 1fr))`
+        : `repeat(${layout.autoMode}, minmax(min(${layout.minColumnWidth}px, 100%), 1fr))`,
     rowGap: `${layout.rowGap}px`,
     columnGap: `${layout.columnGap}px`,
     padding: `${layout.paddingY}px ${layout.paddingX}px`,
@@ -139,20 +149,65 @@ export function serializeFlexChild(child: FlexChild): Record<string, string | nu
 
 export function serializeGridChild(child: GridChild): Record<string, string> {
   return {
+    // `min(span, 100%)` is not valid for grid-column, so the span is clamped where it is read.
+    // Without `minWidth: 0` a grid item refuses to shrink below its content and forces the whole
+    // row to overflow horizontally.
     gridColumn: `span ${child.columnSpan}`,
     gridRow: `span ${child.rowSpan}`,
     order: String(child.order),
+    minWidth: "0",
   };
+}
+
+/**
+ * Resolves a section's layout for a width by walking the breakpoint chain.
+ *
+ * A value set on desktop applies to tablet and mobile unless one of them overrides it, which is
+ * what stops a design from needing an entry at every breakpoint for every property.
+ */
+export function resolveSectionLayout(input: {
+  layoutMode: "free" | "grid" | "flex";
+  layoutByBreakpoint: Record<string, Record<string, unknown>>;
+  width: number;
+  breakpoints: readonly BreakpointDefinition[];
+}): { grid: GridLayout; flex: FlexLayout; appliedFrom: string[] } {
+  // Already widest first, which is the order values must be applied in: the narrowest matching
+  // breakpoint is applied last and therefore wins.
+  const chain = breakpointInheritanceChain(input.width, input.breakpoints);
+
+  const merged: Record<string, unknown> = {};
+  const appliedFrom: string[] = [];
+
+  for (const breakpoint of chain) {
+    const values = input.layoutByBreakpoint[breakpoint.id];
+    if (values === undefined) continue;
+    Object.assign(merged, values);
+    appliedFrom.push(breakpoint.id);
+  }
+
+  return { grid: readGridLayout(merged), flex: readFlexLayout(merged), appliedFrom };
+}
+
+/**
+ * A grid item may never claim more columns than the grid has, whatever the document says.
+ *
+ * A stored span of 6 in a 2-column grid pushes the item onto its own implicit row and breaks the
+ * layout; clamping keeps a stale value harmless rather than visibly broken.
+ */
+export function clampGridChild(child: GridChild, columns: number): GridChild {
+  return { ...child, columnSpan: Math.min(child.columnSpan, Math.max(1, columns)) };
 }
 
 /** Reads a section's stored layout for a breakpoint, falling back to the defaults. */
 export function readGridLayout(stored: Record<string, unknown> | undefined): GridLayout {
-  const parsed = gridLayoutSchema.safeParse(stored);
+  // Merged with the defaults first: a partial override for one breakpoint is the normal case, and
+  // it must not fall all the way back to the defaults for the properties it did set.
+  const parsed = gridLayoutSchema.safeParse({ ...DEFAULT_GRID_LAYOUT, ...(stored ?? {}) });
   return parsed.success ? parsed.data : DEFAULT_GRID_LAYOUT;
 }
 
 export function readFlexLayout(stored: Record<string, unknown> | undefined): FlexLayout {
-  const parsed = flexLayoutSchema.safeParse(stored);
+  const parsed = flexLayoutSchema.safeParse({ ...DEFAULT_FLEX_LAYOUT, ...(stored ?? {}) });
   return parsed.success ? parsed.data : DEFAULT_FLEX_LAYOUT;
 }
 

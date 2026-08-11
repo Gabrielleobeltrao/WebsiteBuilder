@@ -1,6 +1,7 @@
 import {
   createId,
   createPage,
+  type BuilderSection,
   type ButtonElement,
   type ImageElement,
   type TextElement,
@@ -11,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import { ElementRenderer } from "./ElementRenderer";
 import { ProjectPageRenderer } from "./ProjectPageRenderer";
 import { RendererContext, type RendererContextValue } from "./RendererContext";
+import { sectionStyle } from "./styles";
 
 const context: RendererContextValue = {
   resolvePagePath: (pageId) => (pageId === "about" ? "/about" : null),
@@ -216,5 +218,60 @@ describe("renderer purity", () => {
   it("respects z-order from the document", () => {
     const { container } = renderElement(text({ zIndex: 7 }));
     expect(container.firstElementChild).toHaveStyle({ zIndex: "7" });
+  });
+});
+
+describe("responsive section layout", () => {
+  const breakpoints = [
+    { id: "desktop", name: "Desktop", maxWidth: 4000, order: 0, preset: "desktop" as const },
+    { id: "mobile", name: "Mobile", maxWidth: 640, order: 1, preset: "mobile" as const },
+  ];
+
+  const gridSection = (): BuilderSection => ({
+    id: "section-1",
+    name: "Grid",
+    role: "content",
+    layoutMode: "grid",
+    heightByBreakpoint: {},
+    layoutByBreakpoint: {
+      desktop: { columns: 4, autoMode: "fixed" },
+      mobile: { columns: 1 },
+    },
+    elements: [],
+    backgroundColor: "#ffffff",
+    hidden: false,
+  });
+
+  it("applies the desktop layout at every width above the mobile boundary", () => {
+    for (const width of [1920, 1440, 1280, 1024, 768, 641]) {
+      const style = sectionStyle(gridSection(), "desktop", { width, breakpoints });
+      expect(style.gridTemplateColumns).toBe("repeat(4, minmax(0, 1fr))");
+    }
+  });
+
+  it("applies the mobile override at and below its boundary", () => {
+    for (const width of [640, 390, 375, 320]) {
+      const style = sectionStyle(gridSection(), "desktop", { width, breakpoints });
+      expect(style.gridTemplateColumns).toBe("repeat(1, minmax(0, 1fr))");
+    }
+  });
+
+  it("never emits a column minimum that could force horizontal overflow", () => {
+    const section = gridSection();
+    section.layoutByBreakpoint = { desktop: { autoMode: "auto-fit", minColumnWidth: 900 } };
+
+    const style = sectionStyle(section, "desktop", { width: 320, breakpoints });
+    // The min() guard is what keeps a 900px minimum from overflowing a 320px screen.
+    expect(style.gridTemplateColumns).toContain("min(900px, 100%)");
+  });
+
+  it("shows the editor exactly what a visitor at that breakpoint receives", () => {
+    // No explicit width: the breakpoint's own maximum is used, so the canvas resolves through the
+    // same chain as the published site rather than reading one breakpoint's stored values.
+    const canvas = sectionStyle(gridSection(), "mobile", { breakpoints });
+    const visitor = sectionStyle(gridSection(), "mobile", { width: 640, breakpoints });
+
+    expect(canvas.gridTemplateColumns).toBe(visitor.gridTemplateColumns);
+    expect(canvas.gridTemplateColumns).toBe("repeat(1, minmax(0, 1fr))");
   });
 });

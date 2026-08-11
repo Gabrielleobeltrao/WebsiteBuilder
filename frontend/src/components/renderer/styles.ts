@@ -1,10 +1,12 @@
 import {
-  readFlexLayout,
-  readGridLayout,
+  DEFAULT_BREAKPOINTS,
+  DESIGN_WIDTH,
+  resolveSectionLayout,
   serializeFlexLayout,
   serializeGridLayout,
   serializeLength,
   type BuilderElement,
+  type BreakpointDefinition,
   type BuilderSection,
   type ButtonElement,
   type Geometry,
@@ -82,7 +84,11 @@ export function buttonStyle(element: ButtonElement): CSSProperties {
   };
 }
 
-export function sectionStyle(section: BuilderSection, breakpointId = "desktop"): CSSProperties {
+export function sectionStyle(
+  section: BuilderSection,
+  breakpointId = "desktop",
+  options: { width?: number; breakpoints?: readonly BreakpointDefinition[] } = {},
+): CSSProperties {
   const height = section.heightByBreakpoint[breakpointId];
   const base: CSSProperties = {
     backgroundColor: section.backgroundColor,
@@ -90,15 +96,28 @@ export function sectionStyle(section: BuilderSection, breakpointId = "desktop"):
     ...(height ? { minHeight: serializeLength(height) } : {}),
   };
 
-  // Stored layout is untrusted input like any other document value: it is parsed, and anything
-  // that fails validation falls back to the defaults rather than reaching the style object.
-  const stored = section.layoutByBreakpoint[breakpointId];
+  // Always resolved through the breakpoint chain, so a desktop value applies at every narrower
+  // width unless something overrides it. With no explicit width the named breakpoint's own maximum
+  // is used, which keeps the editor canvas showing exactly what a visitor at that width receives —
+  // reading a single breakpoint's stored values here is how a canvas starts disagreeing with the
+  // published site. Stored values are untrusted document input: they are parsed, and anything that
+  // fails validation falls back to the defaults rather than reaching the style object.
+  const breakpoints = options.breakpoints ?? DEFAULT_BREAKPOINTS;
+  const width =
+    options.width ?? breakpoints.find((breakpoint) => breakpoint.id === breakpointId)?.maxWidth ?? DESIGN_WIDTH;
+
+  const resolved = resolveSectionLayout({
+    layoutMode: section.layoutMode,
+    layoutByBreakpoint: section.layoutByBreakpoint,
+    width,
+    breakpoints,
+  });
 
   if (section.layoutMode === "grid") {
-    return { ...base, ...(serializeGridLayout(readGridLayout(stored)) as CSSProperties) };
+    return { ...base, ...(serializeGridLayout(resolved.grid) as CSSProperties) };
   }
   if (section.layoutMode === "flex") {
-    return { ...base, ...(serializeFlexLayout(readFlexLayout(stored)) as CSSProperties) };
+    return { ...base, ...(serializeFlexLayout(resolved.flex) as CSSProperties) };
   }
   return base;
 }

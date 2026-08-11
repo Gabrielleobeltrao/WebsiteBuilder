@@ -92,12 +92,22 @@ export function SectionInspector({ section }: { section: BuilderSection }) {
 
         {section.layoutMode === "grid" && (
           <>
-            <ToggleField
-              label={t("section.autoFit")}
-              checked={grid.autoFit}
-              onChange={(autoFit) => patchLayout({ ...DEFAULT_GRID_LAYOUT, ...grid, autoFit })}
+            <SelectField
+              label={t("section.autoMode")}
+              value={grid.autoMode}
+              options={(["fixed", "auto-fit", "auto-fill"] as const).map((mode) => ({
+                value: mode,
+                label: t(`options.autoMode.${mode}`),
+              }))}
+              onChange={(value) =>
+                patchLayout({
+                  ...DEFAULT_GRID_LAYOUT,
+                  ...grid,
+                  autoMode: value as typeof grid.autoMode,
+                })
+              }
             />
-            {grid.autoFit ? (
+            {grid.autoMode !== "fixed" ? (
               <NumberField
                 label={t("section.minColumnWidth")}
                 value={grid.minColumnWidth}

@@ -123,12 +123,12 @@ describe("section inspector", () => {
     const id = setupSection(0);
 
     await user.selectOptions(screen.getByLabelText("Layout mode"), "grid");
-    await user.click(screen.getByLabelText("Adapt columns automatically"));
+    await user.selectOptions(screen.getByLabelText("Column behaviour"), "fixed");
     await user.clear(screen.getByLabelText("Columns"));
     await user.type(screen.getByLabelText("Columns"), "4");
 
     const stored = readGridLayout(currentSection(id)?.layoutByBreakpoint.desktop);
-    expect(stored.autoFit).toBe(false);
+    expect(stored.autoMode).toBe("fixed");
     expect(stored.columns).toBe(4);
   });
 

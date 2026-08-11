@@ -132,6 +132,11 @@ export default {
     "displayName": "Nome de exibição"
   },
   "options": {
+    "autoMode": {
+      "fixed": "Número fixo de colunas",
+      "auto-fit": "Ajustar — recolher colunas vazias",
+      "auto-fill": "Preencher — manter colunas vazias"
+    },
     "tag": {
       "h1": "Título 1",
       "h2": "Título 2",
@@ -194,7 +199,7 @@ export default {
       "flex": "Flex"
     },
     "columns": "Colunas",
-    "autoFit": "Adaptar colunas automaticamente",
+    "autoMode": "Comportamento das colunas",
     "minColumnWidth": "Largura mínima da coluna",
     "rowGap": "Espaço entre linhas",
     "columnGap": "Espaço entre colunas",

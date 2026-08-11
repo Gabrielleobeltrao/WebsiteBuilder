@@ -1798,7 +1798,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: free elements remain intentionally positioned from `320–1920px`; mobile adjustments preserve desktop/base geometry.
   - Verify: constraint matrix, arbitrary-width drag/resize, save/reload, overflow, and history tests.
 
-- [ ] **P9-T4 — Intrinsic responsive grid and flex**
+- [x] **P9-T4 — Intrinsic responsive grid and flex**
   - Add responsive columns/spans/direction/wrap/gap/padding/alignment/order/sizing plus grid `auto-fit`, `auto-fill`, `minmax`, and overflow-safe child minimums.
   - Acceptance: layouts adapt between breakpoints without requiring an override at every pixel and never force accidental horizontal overflow.
   - Verify: grid/flex renderer and inspector tests across boundary/intermediate widths.
@@ -2539,6 +2539,7 @@ Append entries; do not erase history.
 | 2026-08-10 | P18-T4 | The renderer server-renders the frontend's React components rather than emitting its own HTML | A second implementation is how a preview starts disagreeing with what crawlers receive. The frontend is a build-time dependency only, so the editor's dependency tree never reaches the production image. |
 | 2026-08-10 | P18-T8 | The renderer reads the active-version pointer on every request instead of caching it | The API and the renderer are separate processes, so "invalidate the renderer cache after publish" has no channel to travel on. Host mappings and snapshots are immutable and stay cached; only the pointer, which is the one thing publish and rollback move, is read fresh. One indexed `_id` lookup per request buys a rollback that takes effect immediately. |
 | 2026-08-10 | P18-T7 | The gateway's API upstream is substituted at container start | It was the Compose service name, which does not resolve when the API runs as a separate Coolify resource — the shape this deployment actually uses. Every `/api/*` request returned 502 with no indication why. |
+| 2026-08-10 | P9-T4 | `sectionStyle` always resolves through the breakpoint chain, including in the editor | Reading a single breakpoint's stored values in the canvas and the chain everywhere else meant a section set to four fixed columns on desktop showed auto-fit while editing mobile. One resolution path is the whole reason the renderer is shared. |
 ## 15. Progress Log
 
 Append one concise line after each completed task.
@@ -2646,4 +2647,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P18-T6 | Site → Settings → Domains: normalised preview, exact DNS record from the provider, separate hostname and certificate status, primary selection, disconnect | 9 tests: a pending domain never reads as working, only a live address can be promoted to primary, disconnect states plainly that the site is not deleted |
 | 2026-08-10 | P18-T7 | Completed environment schema, `.env.example` and Coolify manifests; gateway upstream is now configurable so the API may run as its own resource; operator guide added | 12 env tests plus a scan of the built frontend bundle that fails if a backend variable name or connection string appears in code the browser downloads |
 | 2026-08-10 | P18-T8 | Operational hardening: renderer reads the active-version pointer per request so publish and rollback take effect at once across processes, retention wired to the configured count, backup/restore, monitoring and smoke procedures documented | A restarted renderer with an empty cache still serves published sites; retention keeps the configured count and never the version being served; a provider outage leaves live domains serving |
+| 2026-08-10 | P9-T4 | Section grid/flex resolved through the breakpoint chain, `auto-fit` and `auto-fill`, span clamping and shrink-safe children | 25 tests across 320/375/390/640/641/768/1024/1280/1440/1920: a desktop value applies at every narrower width, a narrower breakpoint overrides only what it sets, a 900px column minimum cannot overflow a 320px screen, and the editor canvas resolves identically to the published site |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
