@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation, useParams, useSearchParams } from
 
 import { AuthenticatedAppShell } from "@/app/shells/AuthenticatedAppShell";
 import { PublicShell } from "@/app/shells/PublicShell";
+import { AnalyticsRoute } from "@/features/analytics/AnalyticsRoute";
 import { AuthPage } from "@/features/auth/AuthPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { SettingsPage } from "@/features/auth/SettingsPage";
@@ -85,6 +86,7 @@ export function AppRoutes({
           <Route path="sites" element={<SitesRoute />} />
           <Route path="sites/:projectId/dashboard" element={<SiteDashboardRoute />} />
           <Route path="sites/:projectId/cms" element={<CmsRoute />} />
+          <Route path="sites/:projectId/analytics" element={<AnalyticsRoute />} />
           <Route path="sites/:projectId/publish" element={<PublishRoute />} />
           <Route path="sites/:projectId/settings/domains" element={<DomainsRoute />} />
           <Route path="sites/:projectId/blog" element={<BlogRoute />} />

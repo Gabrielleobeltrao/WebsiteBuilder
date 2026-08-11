@@ -630,16 +630,16 @@ they are listed as P1-T0a through P1-T0e below.
 
 ### Phase 6 — Dashboard UI
 
-- [ ] **P6-T1 — Add the route and contextual navigation**
+- [x] **P6-T1 — Add the route and contextual navigation**
   - Add the analytics route and an Analytics/Desempenho core-site link.
   - Do not add it as a global workspace module.
   - Acceptance: authorized deep links work, unauthorized access fails, and mobile navigation remains usable.
 
-- [ ] **P6-T2 — Build shared filters and overview**
+- [x] **P6-T2 — Build shared filters and overview**
   - Implement URL-synchronized filters, KPI definitions, comparison states, time-series charts, device/source breakdowns, and truthful empty states.
   - Acceptance: one/multiple/all-page filtering and date comparison work in unit and E2E tests.
 
-- [ ] **P6-T3 — Build page and section analysis**
+- [x] **P6-T3 — Build page and section analysis**
   - Add sortable page table, scroll distribution, section attention, CTA clicks, form success, and conversion indicators.
   - Acceptance: labels resolve stable IDs to the selected published-version names without leaking deleted draft content.
 
@@ -648,11 +648,11 @@ they are listed as P1-T0a through P1-T0e below.
   - Provide accessible table fallback and mobile read-only inspection.
   - Acceptance: changing page/version/device reloads compatible bins; layout alignment tests pass at supported breakpoints.
 
-- [ ] **P6-T5 — Build technical performance**
+- [x] **P6-T5 — Build technical performance**
   - Show p75 Core Web Vitals, thresholds, trends, device split, sample size, and pages needing attention.
   - Acceptance: no unsupported or insufficient metric is shown as zero or passing.
 
-- [ ] **P6-T6 — Build analytics settings**
+- [x] **P6-T6 — Build analytics settings**
   - Implement enable/disable, consent, disclosure, retention, conversions, export, and destructive deletion flows.
   - Acceptance: destructive actions require typed confirmation and settings are fully bilingual.
 
@@ -804,6 +804,7 @@ Append entries; do not erase history.
 | 2026-08-11 | P3-T4 ingestion | n/a | `npx vitest run backend/tests/analytics-ingestion.test.ts` | 20 tests against the real renderer: forged tenant fields, unpublished paths, another tenant's version, non-JSON bodies, oversize bodies, over-long batches, unknown hosts, replays, crawlers, both rate-limit buckets, and a disabled site |
 | 2026-08-11 | P3-T1..T3 tracker | n/a | `npm run build:tracker`, `npx vitest run backend/tests/{bundle-budget,analytics-ingestion}.test.ts`, `npx playwright test --project=published-site` | 4,224 bytes Brotli against a 15,000 ceiling and an 8,000 target. 18 browser tests on real published pages: origin isolation, scroll depth reported once each, click attribution, Web Vitals, silence while hidden, consent before/after/withdrawn, JavaScript disabled, tracker blocked, ingestion failing |
 | 2026-08-11 | P4 privacy, P5 queries | n/a | `npx vitest run backend/tests/analytics-api.test.ts`, `npx playwright test --project=published-site` | 25 API tests and 22 browser tests. Consent is server-rendered and revealed only when there is a question to ask — a browser test caught that an inline `display` would have shown it to everyone, including people who had declined. Legal wording, jurisdictions and the GPC/DNT policy remain `[!]`: they are decisions, and the implementation carries whatever is decided. |
+| 2026-08-11 | P6 dashboard (except T4) | n/a | `npm run typecheck && npm run test && npm run build && npm run test:e2e` | 1577 unit tests and 45 E2E. Filters live in the URL; a site that is not collecting explains itself instead of drawing an empty chart; a Web Vital below the sample threshold reports its count and no rating. Two defects the tests caught: the settings hints were folded into their controls' accessible names, and a toggle had no `htmlFor`. |
 | 2026-08-11 | P1-T0a..e prerequisites | n/a | `npm run typecheck && npm run test && npm run build && npm run test:e2e` | 1436 unit tests and 28 E2E green, including a new `published-site` browser project. Two pre-existing defects found and fixed: elements outside free-layout sections carried no id at all, and the renderer could not run under `tsx` because the frontend components it renders were outside the backend tsconfig's `include` — so `npm run dev:renderer` had never served a page. |
 
 ## 19. Decision Log
