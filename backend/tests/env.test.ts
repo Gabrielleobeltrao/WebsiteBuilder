@@ -91,15 +91,36 @@ describe("production safety", () => {
       }
     })();
 
-    expect(error?.missing).toContain("BETTER_AUTH_SECRET");
+    // Names the variable and says which mistake it is: an operator reading a container log has
+    // nothing else to go on, and "not set" and "too short" need different fixes.
+    expect(error?.missing).toContain("BETTER_AUTH_SECRET is not set");
     // A message that quotes the value is a secret printed into every log collector.
     expect(error?.message).not.toContain("x".repeat(32));
   });
 
-  it("refuses a secret shorter than the signing key needs", () => {
-    expect(() => loadEnv({ ...production, BETTER_AUTH_SECRET: "too-short" } as NodeJS.ProcessEnv)).toThrow(
-      EnvironmentError,
-    );
+  it("distinguishes a secret that is too short from one that is absent", () => {
+    const failure = (secret: string | undefined) => {
+      try {
+        loadEnv({ ...production, BETTER_AUTH_SECRET: secret } as NodeJS.ProcessEnv);
+        return null;
+      } catch (thrown) {
+        return (thrown as EnvironmentError).missing.join(" ");
+      }
+    };
+
+    // Two different mistakes needing two different fixes, and an operator reading a container log
+    // has only this line to tell them apart.
+    expect(failure(undefined)).toContain("is not set");
+    expect(failure("too-short")).toContain("32");
+    expect(failure("too-short")).not.toContain("is not set");
+
+    // Neither ever quotes the value.
+    expect(failure("too-short")).not.toContain("too-short");
+  });
+
+  it("treats whitespace as absent rather than as a value", () => {
+    // A variable set to an empty string in a deployment UI is the same mistake as not setting it.
+    expect(() => loadEnv({ ...production, MONGODB_DB_NAME: "   " } as NodeJS.ProcessEnv)).toThrow(EnvironmentError);
   });
 
   it("trusts no proxy until a range is configured", () => {

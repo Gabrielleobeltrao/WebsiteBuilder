@@ -67,9 +67,24 @@ export type Env = z.infer<typeof baseSchema> & {
 
 export class EnvironmentError extends Error {
   constructor(public readonly missing: string[]) {
-    super(`Invalid environment configuration: ${missing.join(", ")}`);
+    super(`Invalid environment configuration:\n  ${missing.join("\n  ")}`);
     this.name = "EnvironmentError";
   }
+}
+
+/**
+ * What is wrong with a required variable, without ever quoting it.
+ *
+ * A bare variable name cannot distinguish "not set" from "set but too short", and an operator
+ * reading a container log has nothing else to go on. The constraint is safe to state; the value
+ * never is, which is why the length is described rather than measured out loud.
+ */
+function describeRequired(name: string, value: string | undefined, minimum?: number): string | null {
+  if (value === undefined || value.trim() === "") return `${name} is not set`;
+  if (minimum !== undefined && value.length < minimum) {
+    return `${name} is shorter than the required ${minimum} characters`;
+  }
+  return null;
 }
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
@@ -79,15 +94,17 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   }
   const env = parsed.data;
 
-  // Values that may default in development but must be explicit in production.
-  const requiredInProduction: Array<keyof typeof env> = [
-    "MONGODB_URI",
-    "MONGODB_DB_NAME",
-    "BETTER_AUTH_SECRET",
-  ];
+  // Values that may default in development but must be explicit in production. The secret carries
+  // its minimum length here as well as in the schema: an optional field with a `min` reports
+  // nothing when it is simply absent, which is the more common mistake.
   if (env.NODE_ENV === "production") {
-    const missing = requiredInProduction.filter((key) => !env[key]);
-    if (missing.length > 0) throw new EnvironmentError(missing.map(String));
+    const problems = [
+      describeRequired("MONGODB_URI", env.MONGODB_URI),
+      describeRequired("MONGODB_DB_NAME", env.MONGODB_DB_NAME),
+      describeRequired("BETTER_AUTH_SECRET", env.BETTER_AUTH_SECRET, 32),
+    ].filter((problem): problem is string => problem !== null);
+
+    if (problems.length > 0) throw new EnvironmentError(problems);
   }
 
   return {
