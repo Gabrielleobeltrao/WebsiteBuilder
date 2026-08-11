@@ -70,17 +70,19 @@ describe("the API is private", () => {
     expect((compose.networks.proxy as { external?: boolean }).external).toBe(true);
   });
 
-  it("declares no Coolify domain field for any service", () => {
-    // Exactly one domain is configured by hand on the resource, and Coolify generates its router.
-    // A SERVICE_FQDN here would produce a second router for the same hostname and leave which one
-    // wins to rule-length arithmetic.
+  it("leaves every domain to Coolify's per-service field", () => {
+    // Two of the three services carry a domain there; the backend carries none. Declaring one here
+    // as well would produce two routers for the same hostname and leave which wins to rule-length
+    // arithmetic.
     for (const service of Object.values(compose.services)) {
       const environment = (service.environment ?? {}) as Record<string, string>;
       expect(Object.keys(environment).some((key) => key.startsWith("SERVICE_FQDN"))).toBe(false);
     }
   });
 
-  it("routes only the renderer by label, and never the backend", () => {
+  it("adds routing labels to the renderer alone", () => {
+    // The frontend and the renderer are both public, but only the renderer needs a rule a domain
+    // field cannot express. The backend needs neither and gets neither.
     expect(compose.services.frontend?.labels).toBeUndefined();
     expect(compose.services.backend?.labels).toBeUndefined();
     expect(Array.isArray(compose.services.renderer?.labels)).toBe(true);
@@ -125,7 +127,6 @@ describe("required configuration stops a deployment rather than defaulting", () 
       "MONGODB_DB_NAME",
       "BETTER_AUTH_SECRET",
       "PLATFORM_ROOT_DOMAIN",
-      "PUBLIC_RENDERER_HOST",
       "PLATFORM_ROOT_DOMAIN_REGEX",
     ]) {
       expect(raw).toMatch(new RegExp(`\\$\\{${variable}:\\?`));
@@ -219,10 +220,10 @@ describe("renderer routing", () => {
     expect(label("traefik.http.services.wb-renderer.loadbalancer.server.port")).toBe("3001");
   });
 
-  it("gives the technical origin an exact host rule", () => {
-    // Exact, and above the wildcard, so the Cloudflare fallback origin is never swallowed by it.
-    expect(label("traefik.http.routers.wb-renderer-origin.rule")).toContain("Host(`");
-    expect(label("traefik.http.routers.wb-renderer-origin.priority")).toBe("100");
+  it("adds no router for the technical origin, which is the renderer's own domain field", () => {
+    // Coolify generates that router. A second one for the same hostname is the ambiguity this file
+    // exists to prevent.
+    expect(labels.some((entry) => entry.includes("wb-renderer-origin"))).toBe(false);
   });
 
   it("matches project subdomains but never the application's own apex", () => {
@@ -235,11 +236,10 @@ describe("renderer routing", () => {
   });
 
   it("ranks the wildcard below every exact-host router on the machine", () => {
-    // Traefik defaults to rule length, under which a long regexp outranks a short exact host. That
-    // default is how a catch-all takes another application's traffic.
+    // Traefik defaults to rule length, under which a long regexp outranks a short exact host. Under
+    // that default the project wildcard would outrank both of this platform's own domains — and any
+    // other application's on the same VPS.
     const priority = Number(label("traefik.http.routers.wb-renderer-projects.priority"));
-
-    expect(priority).toBeLessThan(Number(label("traefik.http.routers.wb-renderer-origin.priority")));
     expect(priority).toBeLessThanOrEqual(10);
   });
 

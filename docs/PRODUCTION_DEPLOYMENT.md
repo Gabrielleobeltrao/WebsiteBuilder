@@ -51,16 +51,26 @@ Create **one** resource. Not three.
 | Branch | `main` |
 | Base Directory | `/` |
 | Docker Compose Location | `/docker-compose.production.yml` |
-| Domains | `https://websitebuilder.oneplataforma.com:8080` |
 
-**One domain field, one value, and the `:8080` matters.** It is how Coolify names the container port
-behind that hostname — the frontend listens on 8080 inside its container. It never appears in the
-public URL; visitors reach `https://websitebuilder.oneplataforma.com`.
+Coolify then shows a domain field per Compose service. Fill two of the three:
 
-Do not add the renderer's hostnames here. They are routed by labels in the Compose file, described
-in §6, because they are open-ended: every project gets a subdomain and every customer may bring
-their own hostname. A domain field cannot express that, and a Coolify application per customer site
-would mean a build, a container and a certificate for each.
+| Service | Domain |
+|---|---|
+| `frontend` | `https://websitebuilder.oneplataforma.com:8080` |
+| `backend` | *(leave empty)* |
+| `renderer` | `https://origin.websitebuilder.oneplataforma.com:3001` |
+
+**The port suffix matters.** It is how Coolify names the container port behind each hostname — the
+frontend listens on 8080 inside its container, the renderer on 3001. Neither appears in a public
+URL; visitors reach `https://websitebuilder.oneplataforma.com` and
+`https://origin.websitebuilder.oneplataforma.com`.
+
+**The backend's field stays empty.** That is what keeps it private: reachable as `backend:3000` on
+the Compose network and from nowhere else. It is also not attached to the proxy network, so filling
+that field by mistake would not be enough to publish it.
+
+Project subdomains do not go here. A domain field names one hostname, and that set is open-ended —
+every project gets one. It is a Traefik label instead, described in §6.
 
 `Base Directory` is `/` and not `/backend`. It sets the Docker build context — what the build can
 see — and both images need the root lockfile and `packages/shared`, which live above those folders.
@@ -153,26 +163,30 @@ the cost of latency on that first hit.
 
 ## 6. Routing
 
-Two sources, and only two.
+Two sources.
 
-**The application's domain** comes from the single Coolify field in §3. Coolify generates its
-Traefik router.
+**The two exact hostnames** come from the Coolify domain fields in §3. Coolify generates a Traefik
+router for each: the application to `frontend:8080`, the technical origin to `renderer:3001`.
 
-**Everything else** comes from labels on the `renderer` service in the Compose file:
+**Project subdomains** come from one label on the `renderer` service, because a domain field names
+one hostname and this set is open-ended:
 
 | Router | Rule | Priority | Goes to |
 |---|---|---|---|
-| `wb-renderer-origin` | exact `origin.websitebuilder.oneplataforma.com` | 100 | `renderer:3001` |
 | `wb-renderer-projects` | any single label under the root domain | 10 | `renderer:3001` |
 
-Nothing routes to `backend`. It is not even on the proxy network, so a stray label could not publish
-it by accident.
+Renderer traffic never passes through the frontend container. It reaches the renderer directly, on
+its own port — the frontend is a static gateway for the application and knows nothing about
+published sites.
 
-**Why the priorities are written down.** Traefik ranks routers by rule length when priority is
-unset, and a long regexp outranks a short exact host. Left to the default, the project wildcard
-would outrank the application's own domain and the dashboard would be served by the renderer. The
-wildcard sits at 10 so every exact-host router on the machine — including other applications' —
-wins against it.
+Nothing routes to `backend`. It is not on the proxy network, so a stray label could not publish it
+by accident.
+
+**Why the priority is written down.** Traefik ranks routers by rule length when priority is unset,
+and a long regexp outranks a short exact host. Left to the default, the project wildcard would
+outrank both domain fields — the dashboard would be served by the renderer, and so would the
+technical origin. At 10 it loses to every exact-host router on the machine, including the ones other
+applications create.
 
 The project pattern requires a label before the root domain, so the apex itself never matches. The
 renderer answers 404 for any hostname without an active record, including every reserved label, so

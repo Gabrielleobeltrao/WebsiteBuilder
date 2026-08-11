@@ -282,10 +282,12 @@ application serves the SPA and proxies `/api/*` to a backend with no public rout
 renderer has its own hostnames because it serves customer content and must not share an origin with
 the authenticated dashboard.
 
-Exactly one domain is configured by hand, on the resource:
-`https://websitebuilder.oneplataforma.com:8080`. Project subdomains and the technical renderer
-origin are routed by Traefik labels in the Compose file, because they are open-ended — a Coolify
-application per customer site would mean a build, a container and a certificate for each.
+Coolify shows a domain field per Compose service. The frontend takes
+`https://websitebuilder.oneplataforma.com:8080` and the renderer
+`https://origin.websitebuilder.oneplataforma.com:3001`; the backend's stays empty, which is what
+keeps it private. Project subdomains are a Traefik label rather than a field, because that set is
+open-ended — a Coolify application per customer site would mean a build, a container and a
+certificate for each.
 
 Everything an operator needs is in `docs/`:
 

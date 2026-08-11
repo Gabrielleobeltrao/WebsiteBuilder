@@ -10,17 +10,19 @@
 #
 # ROUTING
 #
-# Exactly one domain is configured by hand, in Coolify, on this resource:
+# Coolify shows a domain field per service. Two of the three carry one:
 #
-#     https://websitebuilder.oneplataforma.com:8080
+#     frontend   https://websitebuilder.oneplataforma.com:8080
+#     backend    (empty — private at backend:3000)
+#     renderer   https://origin.websitebuilder.oneplataforma.com:3001
 #
-# The `:8080` is Coolify's way of naming the container port behind that hostname; it is not part of
-# the public URL. Coolify generates the Traefik router for it.
+# The `:8080` and `:3001` name the container port behind each hostname; neither appears in a public
+# URL. Coolify generates the Traefik router for each field.
 #
-# Every other public hostname — the technical renderer origin, project subdomains and verified
-# customer domains — is routed by the labels on the `renderer` service below. They are not separate
-# Coolify applications: a resource per customer site would mean a build, a container and a
-# certificate for each, which is the thing this architecture exists to avoid.
+# What a domain field cannot express is a set of hostnames that does not exist yet: every project
+# gets a subdomain, and every customer may bring their own. Those route to the renderer through the
+# label below — not through additional Coolify applications, and never through the frontend
+# container, which knows nothing about published sites.
 #
 # Required variables have no default on purpose: `${VAR:?message}` stops the deployment rather than
 # starting a service configured with an empty string.
@@ -105,10 +107,10 @@ services:
       dockerfile: backend/Dockerfile
       target: renderer
     restart: unless-stopped
-    # Routed by label rather than by a Coolify domain field, because these hostnames are open-ended:
-    # every project gets one and every customer may bring their own. Priorities are explicit and
-    # deliberately low — Traefik defaults to rule length, under which a long regexp outranks a short
-    # exact host, and the application's own domain would lose to the project wildcard.
+    # The renderer's own hostname comes from its Coolify domain field. This label adds the one thing
+    # that field cannot express: the open-ended set of project subdomains. Its priority is explicit
+    # and deliberately low — Traefik defaults to rule length, under which a long regexp outranks a
+    # short exact host, and both this platform's domains would lose to the project wildcard.
     #
     # Verify the generated routers after the first deploy rather than trusting this comment:
     #   docker inspect <renderer container> --format '{{json .Config.Labels}}' | jq
@@ -117,14 +119,9 @@ services:
       - traefik.docker.network=${COOLIFY_PROXY_NETWORK:-coolify}
       - traefik.http.services.wb-renderer.loadbalancer.server.port=3001
 
-      # The technical origin: an exact host, and the Cloudflare fallback origin. Highest of the
-      # renderer's routers so it is never swallowed by the wildcard below.
-      - traefik.http.routers.wb-renderer-origin.rule=Host(`${PUBLIC_RENDERER_HOST:?set the technical renderer hostname, without a scheme}`)
-      - traefik.http.routers.wb-renderer-origin.entrypoints=https
-      - traefik.http.routers.wb-renderer-origin.tls=true
-      - traefik.http.routers.wb-renderer-origin.tls.certresolver=letsencrypt
-      - traefik.http.routers.wb-renderer-origin.service=wb-renderer
-      - traefik.http.routers.wb-renderer-origin.priority=100
+      # No router for the technical origin: that hostname is the renderer's Coolify domain field,
+      # and Coolify generates its router. Declaring it here as well would produce two routers for
+      # one hostname and leave which one wins to rule-length arithmetic.
 
       # Project subdomains. The pattern requires a label before the root domain, so the application's
       # own apex does not match it — that hostname belongs to the frontend and must never reach here.
@@ -133,7 +130,8 @@ services:
       - traefik.http.routers.wb-renderer-projects.tls=true
       - traefik.http.routers.wb-renderer-projects.tls.certresolver=letsencrypt
       - traefik.http.routers.wb-renderer-projects.service=wb-renderer
-      # Below any exact-host router, including every other application on this VPS.
+      # Below any exact-host router: this platform's own two domain fields, and every other
+      # application on this VPS.
       - traefik.http.routers.wb-renderer-projects.priority=10
     environment:
       NODE_ENV: production
@@ -142,6 +140,9 @@ services:
       MONGODB_URI: ${MONGODB_URI}
       MONGODB_DB_NAME: ${MONGODB_DB_NAME}
       PLATFORM_ROOT_DOMAIN: ${PLATFORM_ROOT_DOMAIN}
+      # Its own hostname, used as the Cloudflare fallback origin and the CNAME target customers are
+      # told to point at. A hostname, not an origin: neither use accepts a scheme.
+      PUBLIC_RENDERER_HOST: ${PUBLIC_RENDERER_HOST:?set the technical renderer hostname, without a scheme}
       # Published pages reference media at this origin, which is where the API answers.
       PLATFORM_PUBLIC_ORIGIN: ${PLATFORM_PUBLIC_ORIGIN}
       PUBLIC_SITE_CACHE_TTL_SECONDS: ${PUBLIC_SITE_CACHE_TTL_SECONDS:-60}
