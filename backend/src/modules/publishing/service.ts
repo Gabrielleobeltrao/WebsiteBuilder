@@ -40,10 +40,13 @@ export class PublishingService {
       maxDocumentBytes?: number;
       /** Versions kept per project. The active one is never pruned regardless of this number. */
       retentionCount?: number;
-      /** Not yet backed by repositories; wired in when the CMS and redirect stores land. */
-      loadCmsCollections?: (projectId: string) => Promise<PublishableCollection[]>;
-      loadCmsItems?: (projectId: string) => Promise<PublishableCmsItem[]>;
-      loadRedirects?: (projectId: string) => Promise<Redirect[]>;
+      /**
+       * Workspace-scoped so a compiler run can never read another tenant's content. The redirect
+       * store does not exist yet; its loader is wired in when it lands.
+       */
+      loadCmsCollections?: (context: WorkspaceContext, projectId: string) => Promise<PublishableCollection[]>;
+      loadCmsItems?: (context: WorkspaceContext, projectId: string) => Promise<PublishableCmsItem[]>;
+      loadRedirects?: (context: WorkspaceContext, projectId: string) => Promise<Redirect[]>;
       collectModuleFacts?: (input: {
         workspaceId: string;
         projectId: string;
@@ -101,9 +104,9 @@ export class PublishingService {
       this.deps.blog.loadSettings(context, projectId),
       this.deps.blog.list(context, projectId, { perPage: 500 }),
       this.deps.media.list(context, 1000),
-      this.deps.loadCmsCollections?.(projectId) ?? Promise.resolve([]),
-      this.deps.loadCmsItems?.(projectId) ?? Promise.resolve([]),
-      this.deps.loadRedirects?.(projectId) ?? Promise.resolve([]),
+      this.deps.loadCmsCollections?.(context, projectId) ?? Promise.resolve([]),
+      this.deps.loadCmsItems?.(context, projectId) ?? Promise.resolve([]),
+      this.deps.loadRedirects?.(context, projectId) ?? Promise.resolve([]),
       this.deps.collectModuleFacts?.({ workspaceId: context.workspaceId, projectId }) ?? Promise.resolve({}),
     ]);
 

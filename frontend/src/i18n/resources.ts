@@ -1,6 +1,7 @@
 import enAuth from "./locales/en-US/auth";
 import enBlog from "./locales/en-US/blog";
 import enBuilder from "./locales/en-US/builder";
+import enCms from "./locales/en-US/cms";
 import enCommon from "./locales/en-US/common";
 import enDashboard from "./locales/en-US/dashboard";
 import enErrors from "./locales/en-US/errors";
@@ -9,6 +10,7 @@ import enPublishing from "./locales/en-US/publishing";
 import ptAuth from "./locales/pt-BR/auth";
 import ptBlog from "./locales/pt-BR/blog";
 import ptBuilder from "./locales/pt-BR/builder";
+import ptCms from "./locales/pt-BR/cms";
 import ptCommon from "./locales/pt-BR/common";
 import ptDashboard from "./locales/pt-BR/dashboard";
 import ptErrors from "./locales/pt-BR/errors";
@@ -21,10 +23,10 @@ import ptPublishing from "./locales/pt-BR/publishing";
  * error rather than an English string leaking into a Portuguese screen.
  */
 export const resources = {
-  "en-US": { common: enCommon, public: enPublic, dashboard: enDashboard, builder: enBuilder, auth: enAuth, blog: enBlog, publishing: enPublishing, errors: enErrors },
-  "pt-BR": { common: ptCommon, public: ptPublic, dashboard: ptDashboard, builder: ptBuilder, auth: ptAuth, blog: ptBlog, publishing: ptPublishing, errors: ptErrors },
+  "en-US": { common: enCommon, public: enPublic, dashboard: enDashboard, builder: enBuilder, auth: enAuth, blog: enBlog, cms: enCms, publishing: enPublishing, errors: enErrors },
+  "pt-BR": { common: ptCommon, public: ptPublic, dashboard: ptDashboard, builder: ptBuilder, auth: ptAuth, blog: ptBlog, cms: ptCms, publishing: ptPublishing, errors: ptErrors },
 } as const;
 
-export const NAMESPACES = ["common", "public", "dashboard", "builder", "auth", "blog", "publishing", "errors"] as const;
+export const NAMESPACES = ["common", "public", "dashboard", "builder", "auth", "blog", "cms", "publishing", "errors"] as const;
 export type Namespace = (typeof NAMESPACES)[number];
 export const DEFAULT_NAMESPACE: Namespace = "common";

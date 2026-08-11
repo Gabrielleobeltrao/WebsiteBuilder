@@ -8,6 +8,7 @@ import { BlogRoute } from "@/features/blog/BlogRoute";
 import { PostEditorRoute } from "@/features/blog/PostEditorRoute";
 import { EditorRoute } from "@/features/editor/EditorRoute";
 import { MediaRoute } from "@/features/media/MediaRoute";
+import { CmsRoute } from "@/features/cms/CmsRoute";
 import { DomainsRoute } from "@/features/publishing/DomainsRoute";
 import { PublishRoute } from "@/features/publishing/PublishRoute";
 import { SiteDashboardRoute } from "@/features/sites/SiteDashboardRoute";
@@ -60,6 +61,7 @@ export function AppRoutes({
           <Route index element={<Navigate to="sites" replace />} />
           <Route path="sites" element={<SitesRoute />} />
           <Route path="sites/:projectId/dashboard" element={<SiteDashboardRoute />} />
+          <Route path="sites/:projectId/cms" element={<CmsRoute />} />
           <Route path="sites/:projectId/publish" element={<PublishRoute />} />
           <Route path="sites/:projectId/settings/domains" element={<DomainsRoute />} />
           <Route path="sites/:projectId/blog" element={<BlogRoute />} />

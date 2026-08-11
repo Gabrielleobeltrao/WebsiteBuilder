@@ -19,6 +19,8 @@ import { ProjectRepository } from "./modules/projects/repository";
 import { createProjectsRouter } from "./modules/projects/routes";
 import { WorkspaceRepository } from "./modules/workspaces/repository";
 import { COLLECTIONS } from "./db/indexes";
+import { CmsRepository, ensureCmsIndexes } from "./modules/cms/repository";
+import { createCmsRouter } from "./modules/cms/routes";
 import { CloudflareHostnameProvider } from "./modules/domains/cloudflare";
 import { FakeHostnameProvider } from "./modules/domains/fakeProvider";
 import { DomainService } from "./modules/domains/service";
@@ -66,10 +68,12 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
   const preferences = new PreferencesRepository(database.db);
   const media = new MediaRepository(database.db, createGridFsStorage(database.db));
   const blog = new BlogRepository(database.db);
+  const cms = new CmsRepository(database.db);
   const publishing = new PublishingRepository(database.db, database.db.collection(COLLECTIONS.projects));
   const domains = new DomainService(database.db, createHostnameProvider(env, logger), env.PLATFORM_ROOT_DOMAIN);
   await ensureBlogIndexes(database.db);
   await ensurePublishingIndexes(database.db);
+  await ensureCmsIndexes(database.db);
 
   // Better Auth owns its own routes and needs the raw body, so it is mounted before the JSON
   // parser rather than behind it.
@@ -123,6 +127,13 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
       }),
     },
     {
+      path: "/workspaces/:workspaceId/projects/:projectId/cms",
+      router: createCmsRouter({
+        repository: cms,
+        resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
+      }),
+    },
+    {
       path: "/workspaces/:workspaceId/projects/:projectId/publishing",
       router: createPublishingRouter({
         service: new PublishingService({
@@ -131,6 +142,23 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
           blog,
           media,
           collectModuleFacts,
+          loadCmsCollections: async (context, projectId) =>
+            (await cms.listCollections(context, projectId)).map((collection) => ({
+              id: collection.id,
+              name: collection.name,
+              slug: collection.slug,
+              fields: collection.fields,
+              hasDetailRoute: collection.hasDetailRoute,
+            })),
+          loadCmsItems: async (_context, projectId) =>
+            (await cms.listPublished(projectId)).map((item) => ({
+              id: item.id,
+              collectionId: item.collectionId,
+              slug: item.slug,
+              status: item.status,
+              values: item.values,
+              updatedAt: item.updatedAt,
+            })),
           maxDocumentBytes: env.PUBLISH_MAX_DOCUMENT_BYTES,
           retentionCount: env.PUBLISHED_VERSION_RETENTION_COUNT,
         }),

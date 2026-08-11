@@ -2067,7 +2067,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: presets create ordinary editable collections; field renames preserve values; cross-project references and draft public reads are blocked.
   - Verify: schema, migration, repository, API, reference-integrity, authorization, and pagination tests.
 
-- [ ] **P15-T2 — CMS dashboard and item editor**
+- [x] **P15-T2 — CMS dashboard and item editor**
   - Add site-level `CMS` navigation with collections, schema editor, item table, search/filter/status, create/edit/duplicate, publish/unpublish/delete, media selection, validation, and impact warnings for field changes/removal.
   - Preserve orphaned values until explicit cleanup and block destructive required/type changes that invalidate published items unless resolved.
   - Acceptance: business content can be managed without opening the visual builder and schema changes never silently discard data.
@@ -2654,4 +2654,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P9-T6 | Fluid typography and spacing as structured endpoints serialised to `clamp()` with a real intercept, plus a readability floor; navigation collapse and drawer already met the task | 12 tests evaluate the generated CSS the way a browser would: it passes through both endpoints exactly, grows monotonically across 320–1920, and reversed endpoints describe the same curve rather than shrinking as the screen grows |
 | 2026-08-10 | P9-T7 | Responsive images: `srcset` from the stored WebP variants, a `sizes` description, explicit dimensions, focal-point `object-position`, aspect ratio and per-width source overrides | 18 tests: an unresolvable variant is dropped rather than offered, a mobile crop cannot leak into wider screens, an asset with no variants falls back to a plain source, and a degenerate size returns null instead of invalid CSS |
 | 2026-08-10 | P9-T8 | Continuous preview between 320–1920 with presets and an exact width, plus a width sweep reporting overflow, off-canvas, impossible sizes, overlaps, small text and tap targets, and missing responsive assets | 40 tests: findings merge into width ranges rather than one per width, a breakpoint override that fixes an overflow narrows the reported range, deliberate layering is not reported as an overlap, and running the diagnostics leaves the page byte-identical |
+| 2026-08-10 | P15-T2 | CMS repository, API and dashboard: collections, schema editor, item table with status and search, create/edit/duplicate/delete, and impact reporting for schema changes | 31 tests: a removed field's values survive and return if the field does, a newly required field is refused only when published items cannot satisfy it, a duplicate is always a draft, renaming a label never changes a field id, and an empty number stays undefined |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
