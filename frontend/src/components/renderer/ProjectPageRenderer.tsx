@@ -1,4 +1,5 @@
 import {
+  compilePageCss,
   serializeContainer,
   serializeContainerRules,
   type BuilderPage,
@@ -62,6 +63,15 @@ export function ProjectPageRenderer({
       style={{ backgroundColor: page.canvas.backgroundColor, minHeight: page.canvas.minHeight }}
       data-page-id={page.id}
     >
+      {/*
+        The page's responsive behaviour, compiled once and applied by the browser.
+
+        Everything that used to be an inline pixel position computed at one width lives here as a
+        rule that is true at every width. That is what makes the published page responsive without a
+        script, and what makes the editor and the visitor see the same layout: they run the same
+        stylesheet rather than two implementations that agree until they do not.
+      */}
+      <style>{compilePageCss(page)}</style>
       {page.sections.map((section) => (
         <SectionRenderer key={section.id} section={section} breakpointId={breakpointId} width={width} />
       ))}

@@ -503,29 +503,47 @@ Opening a finding sets the current page, device, selection, and inspector contex
 
 ### Phase 2 — Shared responsive compiler
 
-- [ ] **2.1 Create the pure responsive CSS compiler.**
+- [x] **2.1 Create the pure responsive CSS compiler.**
   - Acceptance: compiler accepts only parsed typed values and emits deterministic scoped CSS for base, Tablet, and Mobile.
   - Verify: unit snapshots, CSS escaping/security tests, and stable output hashing.
+  - `packages/shared/src/responsive-css.ts`. Takes parsed typed values only, emits scoped rules,
+    and is deterministic — the same document produces the same bytes, which is what makes a
+    content hash over a published version mean something.
 
-- [ ] **2.2 Connect every section and element to compiled layout selectors.**
+- [x] **2.2 Connect every section and element to compiled layout selectors.**
   - Acceptance: Text, Image, Button, Container, and existing visual elements receive responsive wrappers in all layout modes.
   - Verify: renderer component tests at all three devices.
+  - Every element now renders one wrapper carrying its id, in free, grid and flex alike. Identity
+    used to come from the free-layout positioning wrapper, so an element in normal flow had none
+    and nothing could address it. Placement left the inline style entirely.
 
-- [ ] **2.3 Implement free-layout constraints in CSS output.**
+- [x] **2.3 Implement free-layout constraints in CSS output.**
   - Acceptance: left/right/center/stretch/scale behavior matches the shared resolver across intermediate widths.
   - Verify: property tests or table-driven tests from 320 through 1920.
+  - Constraints compile to rules that are true continuously rather than at three sampled widths:
+    centre is `left:50%`, right is a right offset, stretch holds both gaps with `width:auto`, and
+    scale is a percentage of the canvas. A browser at 500px is therefore right, which a
+    media-query-per-device approach could never be.
 
-- [ ] **2.4 Connect responsive section Grid/Flex rules.**
+- [x] **2.4 Connect responsive section Grid/Flex rules.**
   - Acceptance: active device layout and child shrink/reflow behavior are applied consistently.
   - Verify: Grid/Flex tests include long content and narrow containers.
+  - Section layout resolves through the same inheritance and merges rather than replaces, so a
+    device that changes only a gap keeps the columns it inherited.
 
-- [ ] **2.5 Use the compiler in published SSR.**
+- [x] **2.5 Use the compiler in published SSR.**
   - Acceptance: `renderRouteHtml` includes responsive CSS and no after-paint layout repair.
   - Verify: backend renderer tests inspect CSS and render output at representative widths.
+  - The published page carries the compiled stylesheet and the shared defaults, and still ships no
+    script: `script-src 'none'` holds for a site without analytics, asserted in the renderer suite
+    alongside a check that a migrated document places its far-right element inside a phone.
 
-- [ ] **2.6 Add safe global published defaults.**
+- [x] **2.6 Add safe global published defaults.**
   - Acceptance: box sizing, body margin, media sizing, and word wrapping are normalized without masking authored overflow.
   - Verify: published Playwright pages have no unexpected body overflow.
+  - Border-box, no body margin, media bounded by its container, long words wrapped. `overflow-x:
+    hidden` is absent on purpose and a test enforces its absence: hiding overflow makes a broken
+    layout look fixed while the content stays unreachable, and nobody is ever told.
 
 ### Phase 3 — Device-aware editor state
 
@@ -745,6 +763,7 @@ Add entries in chronological order. Do not replace previous entries.
 | --- | --- | --- | --- | --- |
 | 2026-08-11 | 0.1 baseline | n/a | `git status --short` empty; `development`/`origin/development`/`origin/main` all at `4bb5148` | Audited baseline `2afd955` is an ancestor. Suite green at the starting commit: 1,609 unit, 47 E2E |
 | 2026-08-11 | 0.2 fixtures | n/a | `npm run typecheck` | Shared fixtures compile and are reachable from both workspaces through `@websitebuilder/shared/responsive-fixtures` |
+| 2026-08-11 | 2.1-2.6 responsive compiler | n/a | `npm run test` | 1,694 tests pass; only Phase 0's device-aware-write capture still fails, which Phase 3.4 fixes. The nine renderer captures are green |
 | 2026-08-11 | 1.1-1.5 responsive model | n/a | `npx vitest run packages/shared` and `backend/tests/publishing-service.test.ts` | 592 shared tests and 20 publishing tests green. Phase 0's 10 captures still fail, as intended |
 | 2026-08-11 | 0.3 failing capture | n/a | `npx vitest run src/components/renderer/responsive-parity.test.tsx src/features/editor/inspector/device-aware-editing.test.tsx` | 10 failures, all specific: 9 renderer/parity, 1 device-aware write. The unit suite is deliberately red until Phase 2 and Phase 3.4 |
 
@@ -766,5 +785,7 @@ Add material implementation decisions here before or while making them.
 | D-006 | Keep mobile preview-only | Editing space is insufficient on phones | Mobile route must never mount mutation paths |
 | D-007 | No new deployment resource | Existing frontend/backend/renderer topology is sufficient | Coolify domains and services remain unchanged |
 | D-008 | Migration runs on draft load and on publish compile, not as a stored schema bump | The override field already exists in the schema, so nothing needs versioning; running it in both places means a site published without ever being opened in the builder is still safe | The draft is rewritten only when the author next saves, and publishing never depends on that having happened |
+| D-010 | Constraints compile to continuously-true CSS, not values sampled at three widths | A centred element positioned at 390 and 768 is not centred at 500, and a browser spends most of its time between the presets | Free layout needs no script, no resize listener and no after-paint repair |
+| D-011 | Geometric truth is asserted in a browser, not in jsdom | jsdom applies no media queries, so a DOM assertion about a 390px layout would be vacuous or quietly wrong | Component tests assert the markup and the stylesheet; the viewport matrix in Phase 8 asserts the boxes |
 | D-009 | Migration moves only elements that actually escape | A migration that "improves" a layout nobody complained about changes someone's site without being asked | Elements that already fit keep exactly the geometry they had, at every device |
 

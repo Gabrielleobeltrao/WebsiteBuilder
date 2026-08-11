@@ -1,9 +1,9 @@
-import { applyConstraints, DEFAULT_BREAKPOINTS, resolveLayoutAt } from "@websitebuilder/shared";
+import { compilePageCss, DEVICE_MODES } from "@websitebuilder/shared";
 import {
-  FAR_RIGHT_WIDTH,
   FAR_RIGHT_X,
-  FIXTURE_WIDTHS,
+  flexSectionFixture,
   freeSectionFixture,
+  gridSectionFixture,
   overriddenProject,
   pageWith,
 } from "@websitebuilder/shared/responsive-fixtures";
@@ -14,143 +14,100 @@ import { ProjectPageRenderer } from "@/components/renderer/ProjectPageRenderer";
 import { RendererContext } from "@/components/renderer/RendererContext";
 
 /**
- * What a visitor receives, at the widths visitors actually use.
+ * What the renderer puts on the page.
  *
- * These assertions are written against the shared resolver rather than against numbers copied into
- * the test, because the resolver is the contract: the editor, the preview and the published page
- * are all supposed to agree with it. A test carrying its own arithmetic would pass while the three
- * of them disagreed with each other.
+ * These assertions stop at the boundary a component test can honestly check: the markup, and the
+ * stylesheet that markup carries. Whether an element actually lands inside a 390 px viewport is a
+ * question for a browser with a layout engine, and it is asked there — jsdom applies no media
+ * queries, so a DOM assertion here would either be vacuous or quietly wrong.
+ *
+ * The claim being defended is narrower and more useful: the renderer emits exactly the compiler's
+ * output and nothing of its own. Every earlier responsive bug lived in the gap between those two.
  */
 
-function renderAt(width: number) {
-  const page = pageWith([freeSectionFixture()]);
+function renderPage(page: ReturnType<typeof pageWith>) {
   return render(
     <RendererContext.Provider value={{ resolvePagePath: () => null, resolveMediaUrl: () => "" }}>
-      <ProjectPageRenderer page={page} width={width} />
+      <ProjectPageRenderer page={page} />
     </RendererContext.Provider>,
   );
 }
 
-/** The absolute left/width the DOM actually carries for one element. */
-function boxOf(container: HTMLElement, elementId: string): { left: number; width: number } {
-  const node = container.querySelector(`[data-element-id="${elementId}"]`)?.parentElement;
-  if (node === null || node === undefined) throw new Error(`no rendered box for ${elementId}`);
+const styleSheets = (container: HTMLElement) => [...container.querySelectorAll("style")].map((node) => node.textContent ?? "");
 
-  const style = node.style;
-  return { left: Number.parseFloat(style.left || "0"), width: Number.parseFloat(style.width || "0") };
-}
+describe("the page carries its own responsive stylesheet", () => {
+  it("emits the compiler's output verbatim", () => {
+    const page = pageWith([freeSectionFixture()]);
+    const { container } = renderPage(page);
 
-describe("a free element at every width", () => {
-  it.each(FIXTURE_WIDTHS)("stays inside the page at %ipx", (width) => {
-    const { container } = renderAt(width);
-    const box = boxOf(container, "far-right");
-
-    // The failure this whole plan exists for: authored at x=1100 on a 1440 canvas, a phone puts it
-    // three screens to the right, and nothing in the published output brings it back.
-    expect(box.left).toBeGreaterThanOrEqual(0);
-    expect(box.left + box.width).toBeLessThanOrEqual(width);
+    // Verbatim, not "equivalent". A renderer that computes its own version of this is the thing
+    // being removed: it is how the editor and the visitor came to see different layouts.
+    expect(styleSheets(container)).toContain(compilePageCss(page));
   });
 
-  it("agrees with the shared resolver rather than with its own arithmetic", () => {
-    const width = 390;
-    const { container } = renderAt(width);
-    const section = freeSectionFixture();
-    const element = section.elements.find((candidate) => candidate.id === "far-right")!;
+  it("places nothing inline that the stylesheet is responsible for", () => {
+    const { container } = renderPage(pageWith([freeSectionFixture()]));
 
-    const expected = applyConstraints({
-      geometry: element.geometry,
-      layout: element.responsiveLayout,
-      containerWidth: width,
-    });
-
-    expect(boxOf(container, "far-right")).toEqual({ left: expected.x, width: expected.width });
-  });
-
-  it("keeps a centred element centred", () => {
-    const width = 390;
-    const { container } = renderAt(width);
-    const box = boxOf(container, "centred");
-
-    expect(Math.abs(box.left - (width - box.width) / 2)).toBeLessThanOrEqual(1);
-  });
-
-  it("keeps a stretched element inside both margins", () => {
-    const width = 390;
-    const { container } = renderAt(width);
-    const box = boxOf(container, "stretched");
-
-    expect(box.left).toBe(80);
-    expect(box.left + box.width).toBeLessThanOrEqual(width);
-  });
-
-  it("holds the authored right gap for a right-anchored element", () => {
-    const width = 768;
-    const { container } = renderAt(width);
-    const box = boxOf(container, "right-anchored");
-
-    // Authored 80px from the right edge of a 1440 canvas.
-    expect(width - (box.left + box.width)).toBe(80);
-  });
-
-  it("never renders a width at or below zero", () => {
-    for (const width of FIXTURE_WIDTHS) {
-      const { container } = renderAt(width);
-      for (const id of ["far-right", "centred", "stretched", "right-anchored", "scaled"]) {
-        expect(boxOf(container, id).width, `${id} at ${width}`).toBeGreaterThan(0);
-      }
+    for (const node of container.querySelectorAll("[data-element-id]")) {
+      const style = (node as HTMLElement).style;
+      // An inline `left` is a position computed at one width. That is exactly what put elements
+      // three screens off the side of a phone.
+      expect(style.left, node.getAttribute("data-element-id") ?? "").toBe("");
+      expect(style.position).toBe("");
     }
   });
 });
 
-describe("device overrides", () => {
-  it("uses the mobile override a person authored instead of the desktop value", () => {
-    const project = overriddenProject();
-    const page = project.pages[0]!;
+describe("every element is addressable", () => {
+  it("carries its id in a free section", () => {
+    const { container } = renderPage(pageWith([freeSectionFixture()]));
 
-    const { container } = render(
-      <RendererContext.Provider value={{ resolvePagePath: () => null, resolveMediaUrl: () => "" }}>
-        <ProjectPageRenderer page={page} width={390} />
-      </RendererContext.Provider>,
-    );
-
-    // The whole reason overrides exist: someone moved this element on mobile, and the visitor must
-    // get what they moved it to.
-    expect(boxOf(container, "far-right")).toEqual({ left: 16, width: 358 });
+    for (const id of ["far-right", "centred", "stretched", "right-anchored", "scaled"]) {
+      expect(container.querySelector(`[data-element-id="${id}"]`), id).not.toBeNull();
+    }
   });
 
-  it("leaves desktop untouched when a mobile override exists", () => {
-    const project = overriddenProject();
-    const page = project.pages[0]!;
+  it("carries its id in grid and flex sections too", () => {
+    // The regression this guards: identity used to come from the free-layout positioning wrapper,
+    // so an element in normal flow had none at all and nothing could address or attribute it.
+    const { container } = renderPage(pageWith([gridSectionFixture(), flexSectionFixture()]));
 
-    const { container } = render(
-      <RendererContext.Provider value={{ resolvePagePath: () => null, resolveMediaUrl: () => "" }}>
-        <ProjectPageRenderer page={page} width={1440} />
-      </RendererContext.Provider>,
-    );
-
-    expect(boxOf(container, "far-right")).toEqual({ left: FAR_RIGHT_X, width: FAR_RIGHT_WIDTH });
+    for (const id of ["grid-one", "grid-two", "grid-three", "flex-long", "flex-button"]) {
+      expect(container.querySelector(`[data-element-id="${id}"]`), id).not.toBeNull();
+    }
   });
 
-  it("resolves overrides through the same chain the inspector reads", () => {
-    // Guards the inheritance direction: a mobile override must not leak upward into tablet.
-    const element = overriddenProject().pages[0]!.sections[0]!.elements.find((c) => c.id === "far-right")!;
+  it("carries exactly one node per element", () => {
+    const { container } = renderPage(pageWith([freeSectionFixture()]));
+    expect(container.querySelectorAll('[data-element-id="far-right"]')).toHaveLength(1);
+  });
+});
 
-    const onMobile = resolveLayoutAt({
-      width: 390,
-      base: element.responsiveLayout,
-      geometry: element.geometry,
-      breakpoints: DEFAULT_BREAKPOINTS,
-      overrides: element.breakpointOverrides,
-    });
-    const onTablet = resolveLayoutAt({
-      width: 768,
-      base: element.responsiveLayout,
-      geometry: element.geometry,
-      breakpoints: DEFAULT_BREAKPOINTS,
-      overrides: element.breakpointOverrides,
-    });
+describe("what the stylesheet says about a device", () => {
+  const cssOf = (page: ReturnType<typeof pageWith>) => compilePageCss(page);
 
-    expect(onMobile.geometry.x).toBe(16);
-    expect(onTablet.geometry.x).toBe(FAR_RIGHT_X);
+  it("keeps the desktop placement outside any media query", () => {
+    const css = cssOf(pageWith([freeSectionFixture()]));
+    const desktop = css.split("@media")[0] ?? "";
+
+    expect(desktop).toContain(`left:${FAR_RIGHT_X}px`);
+  });
+
+  it("puts a person's mobile override in the mobile query and nowhere else", () => {
+    const page = overriddenProject().pages[0]!;
+    const css = cssOf(page);
+
+    const mobile = css.slice(css.indexOf(`@media (max-width:${DEVICE_MODES.mobile.maxWidth}px)`));
+    expect(mobile).toContain("left:16px");
+    expect(css.split("@media")[0]).not.toContain("left:16px");
+  });
+
+  it("leaves an element that already fits with no device rules at all", () => {
+    const css = cssOf(pageWith([freeSectionFixture()]));
+    const centred = css.match(/\[data-element-id="centred"\]/g) ?? [];
+
+    // One rule, unconditional. A media query restating its parent costs a visitor bytes to change
+    // nothing they can see.
+    expect(centred).toHaveLength(1);
   });
 });

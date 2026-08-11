@@ -1,5 +1,6 @@
 import {
   consentCopyFor,
+  PUBLISHED_BASE_CSS,
   resolveSafeLinkHref,
   type BuilderProject,
   type RouteManifestEntry,
@@ -152,6 +153,10 @@ function headTags(input: {
   const followable = seo.robots?.follow !== false;
 
   const tags = [
+    // The defaults every page needs before its own rules: border-box sizing, no body margin, media
+    // that cannot exceed its container, and long words that wrap instead of widening the page.
+    // Nothing here hides overflow — a layout that is broken must look broken, or nobody fixes it.
+    `<style>${PUBLISHED_BASE_CSS}</style>`,
     `<title>${escapeHtml(title)}</title>`,
     `<meta name="description" content="${escapeHtml(description)}">`,
     `<meta name="robots" content="${indexable ? "index" : "noindex"},${followable ? "follow" : "nofollow"}">`,

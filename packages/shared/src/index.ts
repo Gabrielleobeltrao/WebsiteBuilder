@@ -25,6 +25,7 @@ export * from "./resolve";
 export * from "./readiness";
 export * from "./redirects";
 export * from "./responsive";
+export * from "./responsive-css";
 export * from "./responsive-migration";
 export * from "./visual-elements";
 export * from "./schema-version";

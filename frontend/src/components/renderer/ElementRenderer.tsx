@@ -12,7 +12,7 @@ import { createElement } from "react";
 
 import { useRendererContext } from "./RendererContext";
 import { VisualElementRenderer } from "./VisualElementRenderer";
-import { buttonStyle, freeGeometryStyle, imageStyle, isRenderable, textStyle } from "./styles";
+import { buttonStyle, imageStyle, isRenderable, textStyle } from "./styles";
 
 /**
  * Pure presentational renderers. No selection logic, no store access, no editor chrome — the editor
@@ -96,7 +96,7 @@ export function ButtonRenderer({ element }: { element: ButtonElement }) {
   // the wrong place, and no unsafe href can ever be produced.
   if (resolved === null) {
     return (
-      <button type="button" style={buttonStyle(element)} disabled data-element-id={element.id}>
+      <button type="button" style={buttonStyle(element)} disabled>
         {content}
       </button>
     );
@@ -108,7 +108,6 @@ export function ButtonRenderer({ element }: { element: ButtonElement }) {
       {...(resolved.target ? { target: resolved.target } : {})}
       {...(resolved.rel ? { rel: resolved.rel } : {})}
       style={buttonStyle(element)}
-      data-element-id={element.id}
     >
       {content}
     </a>
@@ -149,14 +148,15 @@ export function ElementRenderer({ element, positioned = true }: { element: Build
       <VisualElementRenderer element={element} />
     );
 
-  if (!positioned) return inner;
-
-  // The positioning wrapper carries no `data-element-id`. It used to, which meant an element's id
-  // appeared only in free-layout sections — every flow and stack section rendered anonymous
-  // elements, and a click there could not be attributed. The id now lives on the rendered control
-  // itself (see `ButtonRenderer`), where it is emitted in every layout, and putting it on the
-  // wrapper as well would nest two carriers of the same id and count one click twice.
+  // One wrapper in every layout mode, carrying the id the compiled stylesheet addresses and the
+  // heatmap overlay anchors to. Placement is not inline any more: the compiler emits it, because
+  // an inline `left` computed at one width is exactly what sent elements off the side of a phone.
+  //
+  // The z-index stays inline. It is a single authored number with no responsive behaviour, and a
+  // rule per element for it would double the stylesheet to say what an attribute already says.
   return (
-    <div style={{ ...freeGeometryStyle(element.geometry), zIndex: element.zIndex }}>{inner}</div>
+    <div data-element-id={element.id} style={positioned ? { zIndex: element.zIndex } : undefined}>
+      {inner}
+    </div>
   );
 }

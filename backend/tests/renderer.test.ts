@@ -1,4 +1,5 @@
 import { createProjectDocument } from "@websitebuilder/shared";
+import { fixtureButton } from "@websitebuilder/shared/responsive-fixtures";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -548,5 +549,62 @@ describe("analytics identity in published markup", () => {
     expect(response.text).toContain('data-element-id="button-in-flow"');
     // Exactly one carrier, so a click is counted once rather than by both a wrapper and its child.
     expect(response.text.match(/data-element-id="button-in-flow"/g)).toHaveLength(1);
+  });
+});
+
+describe("responsive published output", () => {
+  it("carries the page's compiled stylesheet, not positions computed at one width", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+    const response = await request(renderer()).get("/").set("Host", "alpha.example.test");
+
+    // The rules that make the page respond. Their absence is what used to send elements off the
+    // side of a phone with nothing to bring them back.
+    expect(response.text).toContain("data-page-id=");
+    expect(response.text).toContain("box-sizing:border-box");
+    expect(response.text).toContain("body{margin:0}");
+  });
+
+  it("ships no script to repair the layout after paint", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+    const response = await request(renderer()).get("/").set("Host", "alpha.example.test");
+
+    // Responsiveness is in the first bytes the browser reads. A page that measures itself and moves
+    // things afterwards is a page that visibly jumps, and one that does nothing at all without
+    // JavaScript.
+    expect(response.text).not.toContain("<script");
+    expect(response.headers["content-security-policy"]).toContain("script-src 'none'");
+  });
+
+  it("never hides overflow to make a broken layout look fixed", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+    const response = await request(renderer()).get("/").set("Host", "alpha.example.test");
+
+    expect(response.text).not.toContain("overflow-x:hidden");
+    expect(response.text).not.toContain("overflow:hidden");
+  });
+
+  it("places a far-right element inside a phone once the document has been migrated", async () => {
+    const projectId = await liveSite(A, "Alpha", "alpha.example.test");
+    const project = await projects.findById(A, projectId);
+    if (project === null) throw new Error("the fixture project disappeared");
+
+    const { id, workspaceId, createdByUserId, revision, createdAt, updatedAt, ...document } = project;
+    document.pages[0]!.sections[0] = {
+      ...document.pages[0]!.sections[0]!,
+      layoutMode: "free",
+      elements: [fixtureButton({ id: "far-right", x: 1100, y: 40, width: 280 }) as never],
+    };
+
+    const saved = await projects.saveDocument(A, projectId, revision, document as never);
+    if (saved === null) throw new Error("saveDocument rejected the responsive fixture");
+    const published = await service.publish(A, projectId);
+    if (published.status !== "published") throw new Error(`publishing returned ${published.status}`);
+    resolver.invalidateAll();
+
+    const response = await request(renderer()).get("/").set("Host", "alpha.example.test");
+
+    // Desktop keeps what the author drew, and the phone gets a rule that brings it back on screen.
+    expect(response.text).toContain("left:1100px");
+    expect(response.text).toMatch(/@media \(max-width:640px\)\{[^}]*left:16px/);
   });
 });
