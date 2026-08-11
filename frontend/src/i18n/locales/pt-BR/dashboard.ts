@@ -1,4 +1,43 @@
 export default {
+  overview: {
+    title: "Painel",
+    description: "O que existe nesta conta e o que ela recebeu.",
+    loading: "Carregando o painel…",
+    error: {
+      title: "Não conseguimos carregar o painel",
+      retry: "Tentar novamente",
+    },
+    filters: {
+      site: "Site",
+      allSites: "Todos os sites",
+      period: "Período",
+      lastDays_one: "Último dia",
+      lastDays_other: "Últimos {{count}} dias",
+    },
+    metrics: {
+      views: "Acessos",
+      sites: "Sites",
+      pages: "Páginas",
+      submissions: "Formulários",
+      unread_one: "{{count}} não lido",
+      unread_other: "{{count}} não lidos",
+      noForms: "Nenhum formulário criado ainda",
+    },
+    chart: {
+      title: "Acessos por dia",
+      summary: "Pico de {{peak}} em um dia, ao longo de {{days}} dias.",
+    },
+    pages: {
+      title: "Páginas mais acessadas",
+      page: "Página",
+      site: "Site",
+      empty: "Nenhum acesso registrado neste período.",
+    },
+    sites: {
+      title: "Sites recentes",
+    },
+  },
+
   sites: {
     title: "Sites",
     description: "Todos os sites deste espaço de trabalho.",

@@ -31,6 +31,7 @@ function Brand({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 const NAV_ITEMS = [
+  { segment: "overview", labelKey: "dashboard:overview.title" },
   { segment: "sites", labelKey: "dashboard:sites.title" },
   { segment: "media", labelKey: "dashboard:media.title" },
   { segment: "settings", labelKey: "auth:settings" },
@@ -58,7 +59,7 @@ export function AuthenticatedAppShell() {
           <select
             value={workspaceId}
             onChange={(event) => {
-              globalThis.location.assign(`/app/${event.target.value}/sites`);
+              globalThis.location.assign(`/app/${event.target.value}/overview`);
             }}
             className="mt-1 w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm text-ink-900"
           >

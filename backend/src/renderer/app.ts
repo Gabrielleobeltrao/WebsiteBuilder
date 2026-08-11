@@ -3,6 +3,7 @@ import { pinoHttp } from "pino-http";
 import type { Logger } from "pino";
 
 import type { Env } from "../config/env";
+import { isLikelyBot } from "../modules/analytics/repository";
 import { renderRouteHtml } from "./html";
 import { normalizePath, resolveRoute, SiteResolver } from "./resolver";
 
@@ -39,8 +40,19 @@ export const PUBLISHED_SITE_CSP = [
  * the request hostname to an active domain record, never a client-supplied project ID, and answers
  * an unrecognised host with a neutral response that reveals no tenant.
  */
-export function createRendererApp(options: { env: Env; logger: Logger; resolver?: SiteResolver }): Express {
-  const { env, logger, resolver } = options;
+/**
+ * Counts one page view. Supplied by the process rather than built here, so the renderer keeps no
+ * database dependency of its own and a test can observe what would have been counted.
+ */
+export type ViewRecorder = (view: { workspaceId: string; projectId: string; path: string }) => void;
+
+export function createRendererApp(options: {
+  env: Env;
+  logger: Logger;
+  resolver?: SiteResolver;
+  recordView?: ViewRecorder;
+}): Express {
+  const { env, logger, resolver, recordView } = options;
 
   const app = express();
   app.disable("x-powered-by");
@@ -112,6 +124,13 @@ export function createRendererApp(options: { env: Env; logger: Logger; resolver?
         // published page must not reference one that does not exist.
         mediaBaseUrl: `${env.PLATFORM_PUBLIC_ORIGIN}/api/v1/public/media`,
       });
+
+      // Counted after the page is known to be a real one, and from the manifest's path rather than
+      // the request's: `/about?utm=x`, `/about/` and `/About` are all one page, and a path nobody
+      // published is not counted at all. A 404 is not a view.
+      if (outcome.kind === "route" && recordView !== undefined && !isLikelyBot(req.get("user-agent"))) {
+        recordView({ workspaceId: site.version.workspaceId, projectId: site.version.projectId, path: route.path });
+      }
 
       res
         .status(outcome.kind === "route" ? 200 : 404)

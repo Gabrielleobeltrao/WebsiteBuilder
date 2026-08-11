@@ -28,6 +28,8 @@ async function signUp(page: Page): Promise<string> {
 }
 
 async function createSite(page: Page, name: string): Promise<void> {
+  // Signing in lands on the overview; sites are one click away in the navigation.
+  await page.getByRole("link", { name: "Sites" }).first().click();
   await page.getByRole("button", { name: "New site" }).click();
   await page.getByLabel("Site name").fill(name);
   await page.getByRole("button", { name: "Create site" }).click();
@@ -77,7 +79,9 @@ test.describe("the MVP flow", () => {
     await page.keyboard.press("Control+s");
 
     // Switching the interface language must not translate or otherwise touch what the user wrote.
-    const workspacePath = new URL(page.url()).pathname.split("/sites")[0] ?? "";
+    // Derived from the two leading segments rather than by cutting at a page name, so it survives
+    // the landing page changing.
+    const workspacePath = new URL(page.url()).pathname.split("/").slice(0, 3).join("/");
     await page.goto(`${workspacePath}/settings`);
     // The current locale's radio being checked proves React has rendered its controlled state, and
     // therefore that a click will reach a handler. Clicking a radio that is merely present races
@@ -96,7 +100,9 @@ test.describe("language preference", () => {
   test("persists across a reload", async ({ page }) => {
     await signUp(page);
 
-    const workspacePath = new URL(page.url()).pathname.split("/sites")[0] ?? "";
+    // Derived from the two leading segments rather than by cutting at a page name, so it survives
+    // the landing page changing.
+    const workspacePath = new URL(page.url()).pathname.split("/").slice(0, 3).join("/");
     await page.goto(`${workspacePath}/settings`);
     // The current locale's radio being checked proves React has rendered its controlled state, and
     // therefore that a click will reach a handler. Clicking a radio that is merely present races
@@ -121,6 +127,43 @@ test.describe("language preference", () => {
   });
 });
 
+test.describe("the workspace overview", () => {
+  test("opens on measured zeros and follows what the account actually has", async ({ page }) => {
+    await signUp(page);
+
+    await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
+    const metrics = page.getByRole("definition");
+    // Views, Sites, Pages, Form entries. A brand-new account has none of any of them, and the form
+    // card says so with a dash rather than claiming a measured zero.
+    await expect(metrics).toHaveText(["0", "0", "0", "—"]);
+    await expect(page.getByText("No form has been created yet")).toBeVisible();
+
+    await createSite(page, "Overview Site");
+    await page.getByRole("link", { name: "Overview" }).first().click();
+
+    // One site, one page: the counts come from the documents just created, not from a cache.
+    await expect(metrics).toHaveText(["0", "1", "1", "—"]);
+    await expect(page.getByRole("link", { name: "Overview Site" })).toBeVisible();
+  });
+
+  test("narrows to one site and back to all of them", async ({ page }) => {
+    await signUp(page);
+    await createSite(page, "First Site");
+    await page.getByRole("link", { name: "Overview" }).first().click();
+
+    const site = page.getByRole("combobox", { name: "Site", exact: true });
+    await expect(site).toHaveValue("");
+    await site.selectOption({ label: "First Site" });
+
+    // The site column disappears when every row belongs to the same site.
+    await expect(page.getByRole("columnheader", { name: "Site" })).toHaveCount(0);
+    await expect(page.getByText("No views recorded in this period.")).toBeVisible();
+
+    await site.selectOption("");
+    await expect(site).toHaveValue("");
+  });
+});
+
 test.describe("dashboard on a phone", () => {
   // Overrides this file's desktop viewport. The editor needs a pointer and a canvas, but the
   // dashboard is what a person reaches for on a phone, and it has to be usable there.
@@ -130,7 +173,7 @@ test.describe("dashboard on a phone", () => {
     await signUp(page);
 
     // The sidebar must not be stacked over the content: the page's own heading comes first.
-    await expect(page.getByRole("heading", { level: 1 })).toBeInViewport();
+    await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeInViewport();
 
     const trigger = page.getByRole("button", { name: "Open menu" });
     await trigger.click();

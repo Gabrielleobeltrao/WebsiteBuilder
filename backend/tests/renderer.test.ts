@@ -364,3 +364,83 @@ describe("published page security headers", () => {
     expect(response.headers["permissions-policy"]).toContain("camera=()");
   });
 });
+
+describe("view counting", () => {
+  /** Collects what would have been counted, so the assertions read the same data Mongo would get. */
+  const recorder = () => {
+    const counted: Array<{ workspaceId: string; projectId: string; path: string }> = [];
+    return { counted, record: (view: (typeof counted)[number]) => counted.push(view) };
+  };
+
+  const countingRenderer = (record: ReturnType<typeof recorder>["record"]) =>
+    createRendererApp({ env: testEnv(), logger: testLogger(), resolver, recordView: record });
+
+  const browser = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15";
+
+  it("counts a served page against the site that owns it", async () => {
+    const projectId = await liveSite(A, "Alpha", "alpha.example.test");
+    const { counted, record } = recorder();
+
+    await request(countingRenderer(record)).get("/about").set("Host", "alpha.example.test").set("User-Agent", browser);
+
+    expect(counted).toEqual([{ workspaceId: A.workspaceId, projectId, path: "/about" }]);
+  });
+
+  it("counts the published path, not the requested one", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+    const { counted, record } = recorder();
+
+    // A query string is part of the request and not of the page. Counting it would split one page
+    // into a row per campaign link, and give anyone a way to grow the collection without limit.
+    await request(countingRenderer(record))
+      .get("/about?utm_source=newsletter")
+      .set("Host", "alpha.example.test")
+      .set("User-Agent", browser);
+
+    expect(counted.map((view) => view.path)).toEqual(["/about"]);
+  });
+
+  it("counts nothing for a page that does not exist", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+    const { counted, record } = recorder();
+
+    const response = await request(countingRenderer(record))
+      .get("/nowhere")
+      .set("Host", "alpha.example.test")
+      .set("User-Agent", browser);
+
+    expect(response.status).toBe(404);
+    expect(counted).toEqual([]);
+  });
+
+  it("counts nothing for an unknown host", async () => {
+    const { counted, record } = recorder();
+
+    await request(countingRenderer(record)).get("/").set("Host", "nobody.example.test").set("User-Agent", browser);
+
+    expect(counted).toEqual([]);
+  });
+
+  it("leaves crawlers and agentless requests out of a customer's numbers", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+    const { counted, record } = recorder();
+    const app = countingRenderer(record);
+
+    await request(app).get("/").set("Host", "alpha.example.test").set("User-Agent", "Googlebot/2.1");
+    await request(app).get("/").set("Host", "alpha.example.test").set("User-Agent", "curl/8.4.0");
+    await request(app).get("/").set("Host", "alpha.example.test").set("User-Agent", "");
+
+    expect(counted).toEqual([]);
+  });
+
+  it("renders exactly the same page whether or not counting is wired", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+    const { record } = recorder();
+
+    const counted = await request(countingRenderer(record)).get("/").set("Host", "alpha.example.test");
+    const plain = await request(renderer()).get("/").set("Host", "alpha.example.test");
+
+    expect(counted.status).toBe(plain.status);
+    expect(counted.text).toBe(plain.text);
+  });
+});

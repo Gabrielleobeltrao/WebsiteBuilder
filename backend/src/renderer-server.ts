@@ -3,8 +3,9 @@ import { COLLECTIONS } from "./db/indexes";
 import { EnvironmentError, loadEnv } from "./config/env";
 import { createLogger } from "./config/logger";
 import { installGracefulShutdown } from "./lifecycle";
+import { ensureAnalyticsIndexes, SiteViewRepository } from "./modules/analytics/repository";
 import { ensurePublishingIndexes, PublishingRepository } from "./modules/publishing/repository";
-import { createRendererApp } from "./renderer/app";
+import { createRendererApp, type ViewRecorder } from "./renderer/app";
 import { SiteResolver } from "./renderer/resolver";
 
 async function start(): Promise<void> {
@@ -24,18 +25,30 @@ async function start(): Promise<void> {
   // Without a database there is nothing to serve, but health must still answer so the platform can
   // report the process as unhealthy rather than as missing.
   let resolver: SiteResolver | undefined;
+  let recordView: ViewRecorder | undefined;
   if (env.MONGODB_URI && env.MONGODB_DB_NAME) {
     const database = await connectDatabase(env, logger);
     await ensurePublishingIndexes(database.db);
+    await ensureAnalyticsIndexes(database.db);
     resolver = new SiteResolver(
       new PublishingRepository(database.db, database.db.collection(COLLECTIONS.projects)),
       env.PUBLIC_SITE_CACHE_TTL_SECONDS,
     );
+
+    // Counting must never delay or fail a page. The response has already been decided by the time
+    // this runs, and a failed counter is a logged warning — a site that stops rendering because its
+    // statistics could not be written would be a bad trade for any customer.
+    const views = new SiteViewRepository(database.db);
+    recordView = (view) => {
+      void views.record(view).catch((error: unknown) => {
+        logger.warn({ err: error, projectId: view.projectId }, "could not record a page view");
+      });
+    };
   } else {
     logger.warn("MONGODB_URI is not set; the renderer cannot serve sites");
   }
 
-  const app = createRendererApp({ env, logger, resolver });
+  const app = createRendererApp({ env, logger, resolver, recordView });
   const server = app.listen(env.PUBLIC_RENDERER_PORT, () => {
     logger.info({ port: env.PUBLIC_RENDERER_PORT, env: env.NODE_ENV }, "public renderer listening");
   });

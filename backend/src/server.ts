@@ -7,6 +7,7 @@ import { createLogger } from "./config/logger";
 import { connectDatabase, createDatabaseHealthProbe, type Database } from "./db/client";
 import { installGracefulShutdown } from "./lifecycle";
 import { createWorkspaceResolver } from "./middleware/session";
+import { ensureAnalyticsIndexes } from "./modules/analytics/repository";
 import { createAuth } from "./modules/auth/auth";
 import { PreferencesRepository } from "./modules/preferences/repository";
 import { createPreferencesRouter } from "./modules/preferences/routes";
@@ -30,7 +31,7 @@ import type { CustomHostnameProvider } from "./modules/domains/provider";
 import { createPublishingRouter } from "./modules/publishing/routes";
 import { ensurePublishingIndexes, PublishingRepository } from "./modules/publishing/repository";
 import { PublishingService } from "./modules/publishing/service";
-import { createWorkspacesRouter } from "./modules/workspaces/routes";
+import { createWorkspaceDashboardRouter, createWorkspacesRouter } from "./modules/workspaces/routes";
 
 /**
  * The custom-hostname provider.
@@ -86,6 +87,7 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
   await ensureBlogIndexes(database.db);
   await ensurePublishingIndexes(database.db);
   await ensureCmsIndexes(database.db);
+  await ensureAnalyticsIndexes(database.db);
 
   // Better Auth owns its own routes and needs the raw body, so it is mounted before the JSON
   // parser rather than behind it.
@@ -112,6 +114,13 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
   routers.push(
     { path: "/me/preferences", router: createPreferencesRouter({ auth, preferences }) },
     { path: "/workspaces", router: createWorkspacesRouter({ auth, workspaces }) },
+    {
+      path: "/workspaces/:workspaceId/dashboard",
+      router: createWorkspaceDashboardRouter({
+        db: database.db,
+        resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
+      }),
+    },
     { path: "/public/projects/:projectId/blog", router: createPublicBlogRouter({ repository: blog }) },
     {
       path: "/workspaces/:workspaceId/projects/:projectId/blog",

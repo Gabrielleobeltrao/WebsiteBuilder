@@ -1,4 +1,43 @@
 export default {
+  overview: {
+    title: "Overview",
+    description: "What this account holds, and what it received.",
+    loading: "Loading the overview…",
+    error: {
+      title: "We could not load the overview",
+      retry: "Try again",
+    },
+    filters: {
+      site: "Site",
+      allSites: "All sites",
+      period: "Period",
+      lastDays_one: "Last day",
+      lastDays_other: "Last {{count}} days",
+    },
+    metrics: {
+      views: "Views",
+      sites: "Sites",
+      pages: "Pages",
+      submissions: "Form entries",
+      unread_one: "{{count}} unread",
+      unread_other: "{{count}} unread",
+      noForms: "No form has been created yet",
+    },
+    chart: {
+      title: "Views per day",
+      summary: "Peak of {{peak}} in one day, across {{days}} days.",
+    },
+    pages: {
+      title: "Most visited pages",
+      page: "Page",
+      site: "Site",
+      empty: "No views recorded in this period.",
+    },
+    sites: {
+      title: "Recent sites",
+    },
+  },
+
   sites: {
     title: "Sites",
     description: "Every site in this workspace.",

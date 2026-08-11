@@ -38,7 +38,7 @@ export function WorkspaceEntryRoute({ activeWorkspaceId }: { activeWorkspaceId: 
     return () => controller.abort();
   }, [resolved]);
 
-  if (resolved !== null) return <Navigate to={`/app/${resolved}/sites`} replace />;
+  if (resolved !== null) return <Navigate to={`/app/${resolved}/overview`} replace />;
 
   // A session with no workspace at all is a broken account rather than a signed-out visitor, so it
   // does not silently become a login redirect.

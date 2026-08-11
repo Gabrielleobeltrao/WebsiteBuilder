@@ -36,6 +36,7 @@ describe("AuthenticatedAppShell mobile drawer", () => {
     const drawer = screen.getByRole("dialog", { name: "Website Builder" });
     expect(drawer).toHaveAttribute("aria-modal", "true");
     expect(within(drawer).getAllByRole("link").map((link) => link.textContent)).toEqual([
+      "Overview",
       "Sites",
       "Media",
       "Settings",

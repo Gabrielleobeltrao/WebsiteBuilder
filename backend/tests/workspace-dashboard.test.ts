@@ -2,6 +2,7 @@ import { createPage, EMPTY_RICH_TEXT } from "@websitebuilder/shared";
 import sharp from "sharp";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { ensureAnalyticsIndexes, SiteViewRepository } from "../src/modules/analytics/repository";
 import { BlogRepository, ensureBlogIndexes } from "../src/modules/blog/repository";
 import { ClientRepository } from "../src/modules/clients/repository";
 import { MediaRepository } from "../src/modules/media/repository";
@@ -47,6 +48,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await database.clear();
   await ensureBlogIndexes(database.db);
+  await ensureAnalyticsIndexes(database.db);
 });
 
 describe("empty workspace", () => {
@@ -60,10 +62,96 @@ describe("empty workspace", () => {
     expect(dashboard.recentSites).toEqual([]);
   });
 
-  it("reports analytics as not connected rather than as zero traffic", async () => {
+  it("reports no traffic as measured zero, over a complete window", async () => {
+    const dashboard = await loadWorkspaceDashboard(database.db, tenantA, { days: 7 });
+
+    expect(dashboard.traffic.totalViews).toBe(0);
+    // Seven days, every one of them present. A chart drawn from a shorter array would show a week
+    // of no visits as a shorter week.
+    expect(dashboard.traffic.byDay).toHaveLength(7);
+    expect(dashboard.traffic.byDay.every((day) => day.views === 0)).toBe(true);
+  });
+
+  it("distinguishes a workspace with no forms from one whose forms received nothing", async () => {
     const dashboard = await loadWorkspaceDashboard(database.db, tenantA);
-    expect(dashboard.analytics).toEqual({ state: "not_connected" });
-    expect(dashboard.analytics).not.toHaveProperty("visits");
+    expect(dashboard.forms).toEqual({ definitions: 0, submissions: 0, unread: 0, state: "no_forms" });
+  });
+});
+
+describe("traffic", () => {
+  const view = (context: WorkspaceContext, projectId: string, path: string, at: Date) =>
+    new SiteViewRepository(database.db).record({ workspaceId: context.workspaceId, projectId, path, at });
+
+  it("sums a page's views across a day and across days", async () => {
+    const site = await projects.create(tenantA, { name: "Aurora" });
+    const today = new Date();
+    const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+
+    await view(tenantA, site.id, "/", today);
+    await view(tenantA, site.id, "/", today);
+    await view(tenantA, site.id, "/", yesterday);
+
+    const dashboard = await loadWorkspaceDashboard(database.db, tenantA, { days: 7 });
+    expect(dashboard.traffic.totalViews).toBe(3);
+    expect(dashboard.traffic.byDay.at(-1)).toEqual({ day: today.toISOString().slice(0, 10), views: 2 });
+  });
+
+  it("ranks pages and names the site each one belongs to", async () => {
+    const site = await projects.create(tenantA, { name: "Aurora" });
+    const now = new Date();
+
+    await view(tenantA, site.id, "/about", now);
+    await view(tenantA, site.id, "/", now);
+    await view(tenantA, site.id, "/", now);
+
+    const dashboard = await loadWorkspaceDashboard(database.db, tenantA);
+    expect(dashboard.traffic.topPages).toEqual([
+      { projectId: site.id, siteName: "Aurora", path: "/", views: 2 },
+      { projectId: site.id, siteName: "Aurora", path: "/about", views: 1 },
+    ]);
+  });
+
+  it("covers every site by default and one site when filtered", async () => {
+    const first = await projects.create(tenantA, { name: "First" });
+    const second = await projects.create(tenantA, { name: "Second" });
+    const now = new Date();
+
+    await view(tenantA, first.id, "/", now);
+    await view(tenantA, second.id, "/", now);
+    await view(tenantA, second.id, "/", now);
+
+    const all = await loadWorkspaceDashboard(database.db, tenantA);
+    expect(all.traffic.totalViews).toBe(3);
+    expect(all.traffic.bySite.map((row) => row.siteName)).toEqual(["Second", "First"]);
+
+    const filtered = await loadWorkspaceDashboard(database.db, tenantA, { projectId: first.id });
+    expect(filtered.traffic.totalViews).toBe(1);
+    expect(filtered.traffic.projectId).toBe(first.id);
+  });
+
+  it("leaves out days older than the window", async () => {
+    const site = await projects.create(tenantA, { name: "Aurora" });
+    const longAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
+
+    await view(tenantA, site.id, "/", longAgo);
+
+    expect((await loadWorkspaceDashboard(database.db, tenantA, { days: 7 })).traffic.totalViews).toBe(0);
+    expect((await loadWorkspaceDashboard(database.db, tenantA, { days: 90 })).traffic.totalViews).toBe(1);
+  });
+
+  it("never counts another workspace's traffic, even for the same page path", async () => {
+    const mine = await projects.create(tenantA, { name: "Mine" });
+    const theirs = await projects.create(tenantB, { name: "Theirs" });
+    const now = new Date();
+
+    await view(tenantA, mine.id, "/", now);
+    await view(tenantB, theirs.id, "/", now);
+    await view(tenantB, theirs.id, "/", now);
+
+    expect((await loadWorkspaceDashboard(database.db, tenantA)).traffic.totalViews).toBe(1);
+    // Asking for a site that belongs to someone else returns that site's absence, not its numbers.
+    const probe = await loadWorkspaceDashboard(database.db, tenantA, { projectId: theirs.id });
+    expect(probe.traffic.totalViews).toBe(0);
   });
 });
 

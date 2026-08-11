@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation, useParams, useSearchParams } from
 import { AuthenticatedAppShell } from "@/app/shells/AuthenticatedAppShell";
 import { PublicShell } from "@/app/shells/PublicShell";
 import { AuthPage } from "@/features/auth/AuthPage";
+import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { SettingsPage } from "@/features/auth/SettingsPage";
 import { BlogRoute } from "@/features/blog/BlogRoute";
 import { PostEditorRoute } from "@/features/blog/PostEditorRoute";
@@ -45,6 +46,11 @@ function SitesRoute() {
   return <SitesPage workspaceId={workspaceId ?? ""} />;
 }
 
+function OverviewRoute() {
+  const { workspaceId } = useParams();
+  return <DashboardPage workspaceId={workspaceId ?? ""} />;
+}
+
 function PreviewRouteWithWorkspace({ workspaceId }: { workspaceId: string }) {
   return <PreviewRoute workspaceId={workspaceId} />;
 }
@@ -72,7 +78,10 @@ export function AppRoutes({
         <Route path="app" element={<WorkspaceEntryRoute activeWorkspaceId={previewWorkspaceId} />} />
 
         <Route path="app/:workspaceId" element={<AuthenticatedAppShell />}>
-          <Route index element={<Navigate to="sites" replace />} />
+          {/* The overview is where a workspace opens: what happened is the first question, and the
+              site list is one click away in the navigation. */}
+          <Route index element={<Navigate to="overview" replace />} />
+          <Route path="overview" element={<OverviewRoute />} />
           <Route path="sites" element={<SitesRoute />} />
           <Route path="sites/:projectId/dashboard" element={<SiteDashboardRoute />} />
           <Route path="sites/:projectId/cms" element={<CmsRoute />} />
