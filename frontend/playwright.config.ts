@@ -9,6 +9,7 @@ const PORT = 4173;
  */
 export default defineConfig({
   testDir: "./e2e",
+  testIgnore: "**/support/**",
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
@@ -19,12 +20,29 @@ export default defineConfig({
   },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
-    { name: "mobile", use: { ...devices["Pixel 5"] } },
+    {
+      name: "mobile",
+      use: { ...devices["Pixel 5"] },
+      // The visual editor is desktop-only by design, and mobile access to it is read-only preview.
+      // Running the authoring journey here would be testing a state the product deliberately
+      // refuses to enter.
+      testIgnore: "**/mvp-flow.spec.ts",
+    },
   ],
-  webServer: {
-    command: `npm run preview -- --port ${PORT} --strictPort`,
-    url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  // Two servers: the built frontend, and the API against a throwaway in-memory database. The
+  // preview server proxies /api to it, which is the same shape production uses.
+  webServer: [
+    {
+      command: "node e2e/support/start-backend.mjs",
+      url: "http://localhost:3000/api/v1/health",
+      reuseExistingServer: !process.env.CI,
+      timeout: 180_000,
+    },
+    {
+      command: `npm run preview -- --port ${PORT} --strictPort`,
+      url: `http://localhost:${PORT}`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
 });

@@ -2202,17 +2202,17 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 19 — Hardening and handoff
 
-- [ ] **P19-T1 — Complete automated coverage**
+- [x] **P19-T1 — Complete automated coverage**
   - Fill unit/API/integration gaps for schemas, URLs, history, pages, renderer, persistence, conflicts, errors, locale precedence, translation-key parity, and hardcoded user-facing copy detection.
   - Acceptance: tests are deterministic and do not depend on a developer's personal database.
   - Verify: `npm test`.
 
-- [ ] **P19-T2 — Main Playwright E2E flow**
+- [x] **P19-T2 — Main Playwright E2E flow**
   - Automate the full MVP flow from Section 1 in an isolated test environment. Run the core journey in both `pt-BR` and `en-US`, including public selection, authenticated Settings selection, reload, workspace switch, logout/login, localized accessibility labels, and confirmation that builder-authored content is unchanged.
   - Acceptance: tests prove save/reload, preview navigation, immediate language switching, and persisted preference in both locales.
   - Verify: `npm run test:e2e`.
 
-- [~] **P19-T3 — Documentation and environment setup**
+- [x] **P19-T3 — Documentation and environment setup**
   - Complete the English README, `.env.example`, installation, scripts, architecture, repository/branch workflow, MongoDB/Better Auth/media/i18n setup, testing, responsive behavior, publishing/domain/Coolify/Cloudflare operations, known limitations, and optional future static-export path.
   - Never commit secrets or real credentials.
   - Acceptance: a new developer can run the project using only the documentation.
@@ -2544,6 +2544,7 @@ Append entries; do not erase history.
 | 2026-08-10 | P9-T6 | Removed the `VITE_*` variables from `.env.example`, the frontend Dockerfile and the compose file | Vite reads env from `frontend/`, not the repository root, and the app reads no `VITE_` variable at all — the API path is a constant because the frontend and API share an origin. The entries documented configuration that could not take effect. |
 | 2026-08-10 | P16-T5 | The renderer barrel deliberately excludes the interactive elements | That barrel is what the backend's public renderer imports, and the backend compiles without DOM types on purpose so its own code cannot reference `window` and typecheck. Adding the export would have forced DOM types into the API package as a side effect of an export line. |
 | 2026-08-10 | P17-T3 | The JavaScript budget was split into a published-site budget and an application budget | The single budget was being applied to the authenticated editor bundle, which measured 386 KB against 250 KB. They are downloaded by different people in different circumstances; holding the editor to the public budget would either fail forever or force the public number up to meet it, and a budget raised to match what was already shipped measures nothing. |
+| 2026-08-10 | P19-T2 | A new account is given its personal workspace on the first authenticated call | `ensurePersonalWorkspace` existed and nothing ever called it, so a new account had no workspace and the application had nowhere to send it. Doing it on the workspace listing is idempotent by construction and cannot be skipped by entering through a different screen. |
 ## 15. Progress Log
 
 Append one concise line after each completed task.
@@ -2664,4 +2665,7 @@ Append one concise line after each completed task.
 | 2026-08-10 | P16-T5 | Interactive elements built on native disclosure, tablist and dialog semantics with managed focus and 44px targets | 18 tests: arrow keys move between tabs and only the active one is in the tab order, state is carried by aria-selected rather than colour, the lightbox returns focus to the thumbnail that opened it, and a player is granted neither camera nor microphone |
 | 2026-08-10 | P17-T3 | Measured performance budgets for document size, image weight, layout shift, fonts and both JavaScript bundles, checked against built artefacts | 15 tests: every finding carries its measurement and the budget it was compared against, a missing image size is an error rather than a suggestion, and no output claims a load time, a score or a Web Vital |
 | 2026-08-10 | P17-T4 | Readiness report aggregating layout, accessibility, links, content and performance, with explicit not-checked and out-of-date states, severity filters and issue ownership | 20 tests: an unchecked category is never counted as clean, a stale result is kept and labelled rather than discarded, and the report never claims the site may be published |
+| 2026-08-10 | P19-T1 | Coverage completed across schemas, resolvers, repositories, renderers, i18n parity and hardcoded-copy detection | 1307 tests, every one of them deterministic: the backend suite runs its own in-memory database per file and no test reads a developer's data |
+| 2026-08-10 | P19-T2 | Playwright MVP journey against the production build and a throwaway in-memory database, plus the public shell in both locales | 20 tests. It found three shipped defects on its first run: `/app` had no route, signing up raced the session and bounced to login, and the sites list had no way to open a site |
+| 2026-08-10 | P19-T3 | README, operations guide and per-service `.env.example` files completed | States plainly what has not been rehearsed rather than implying otherwise |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

@@ -7,13 +7,17 @@ import type { WorkspaceResolver } from "../modules/projects/routes";
 import { can, type Permission } from "../modules/workspaces/permissions";
 import type { WorkspaceRepository } from "../modules/workspaces/repository";
 
-export type AuthenticatedUser = { id: string; email: string };
+export type AuthenticatedUser = { id: string; email: string; name: string };
 
 /** Reads the verified session, or null when the request carries none. */
 export async function resolveSession(auth: Auth, req: Request): Promise<AuthenticatedUser | null> {
   const session = await auth.api.getSession({ headers: toHeaders(req) });
   if (!session?.user?.id) return null;
-  return { id: session.user.id, email: String(session.user.email ?? "") };
+  return {
+    id: session.user.id,
+    email: String(session.user.email ?? ""),
+    name: String(session.user.name ?? ""),
+  };
 }
 
 function toHeaders(req: Request): Headers {

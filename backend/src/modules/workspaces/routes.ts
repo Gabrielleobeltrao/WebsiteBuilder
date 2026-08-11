@@ -21,6 +21,14 @@ export function createWorkspacesRouter(options: { auth: Auth; workspaces: Worksp
       const user = await resolveSession(auth, req);
       if (user === null) throw new ApiProblem("UNAUTHENTICATED", "Authentication is required");
 
+      // Every account needs somewhere to go. Signing up creates the user; nothing created their
+      // workspace, so a new account had no workspace at all and the app had nowhere to send it.
+      // Doing it here is idempotent by construction and runs on the first authenticated call the
+      // client makes, so it cannot be skipped by entering through a different screen.
+      if ((await workspaces.listForUser(user.id)).length === 0) {
+        await workspaces.ensurePersonalWorkspace({ userId: user.id, name: user.name || user.email });
+      }
+
       const owned = await workspaces.listForUser(user.id);
       const withRoles = await Promise.all(
         owned.map(async (workspace) => {

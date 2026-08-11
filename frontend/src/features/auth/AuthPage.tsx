@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
@@ -12,6 +12,7 @@ import { safeReturnPath } from "@/lib/return-path";
  */
 export function AuthPage({ mode }: { mode: "login" | "signup" }) {
   const { t } = useTranslation(["auth", "common", "errors"]);
+  const passwordId = useId();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -75,19 +76,28 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
             />
           </label>
 
-          <label className="block text-sm font-medium text-ink-700">
-            {t("auth:password")}
+          <div>
+            {/* The hint is described, not labelled. Inside the label it becomes part of the field's
+                accessible name, so a screen reader announces "Password At least 12 characters" as
+                the name of the box rather than as guidance about it. */}
+            <label htmlFor={passwordId} className="block text-sm font-medium text-ink-700">
+              {t("auth:password")}
+            </label>
             <input
+              id={passwordId}
               type="password"
               required
               minLength={12}
               value={password}
+              aria-describedby={`${passwordId}-hint`}
               onChange={(event) => setPassword(event.target.value)}
               autoComplete={mode === "signup" ? "new-password" : "current-password"}
               className="mt-1 w-full rounded-md border border-ink-200 px-3 py-2 text-sm text-ink-900"
             />
-            <span className="mt-1 block text-xs font-normal text-ink-500">{t("auth:passwordHint")}</span>
-          </label>
+            <span id={`${passwordId}-hint`} className="mt-1 block text-xs font-normal text-ink-500">
+              {t("auth:passwordHint")}
+            </span>
+          </div>
 
           {status.kind === "error" && (
             <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">

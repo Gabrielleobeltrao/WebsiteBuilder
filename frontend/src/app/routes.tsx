@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useLocation, useParams } from "react-router";
+import { Navigate, Route, Routes, useLocation, useParams, useSearchParams } from "react-router";
 
 import { AuthenticatedAppShell } from "@/app/shells/AuthenticatedAppShell";
 import { PublicShell } from "@/app/shells/PublicShell";
@@ -12,6 +12,7 @@ import { CmsRoute } from "@/features/cms/CmsRoute";
 import { DomainsRoute } from "@/features/publishing/DomainsRoute";
 import { PublishRoute } from "@/features/publishing/PublishRoute";
 import { SiteDashboardRoute } from "@/features/sites/SiteDashboardRoute";
+import { WorkspaceEntryRoute } from "@/features/workspaces/WorkspaceEntryRoute";
 import { PreviewRoute } from "@/features/preview/PreviewRoute";
 import { SitesPage } from "@/features/projects/SitesPage";
 import { LandingPage } from "@/features/public/LandingPage";
@@ -30,6 +31,12 @@ function RequireAuthenticatedArea() {
   const location = useLocation();
   const returnTo = safeReturnPath(`${location.pathname}${location.search}`);
   return <Navigate to={`/login?returnTo=${encodeURIComponent(returnTo)}`} replace />;
+}
+
+/** Sends an already-authenticated visitor to wherever they were heading. */
+function ReturnToDestination() {
+  const [searchParams] = useSearchParams();
+  return <Navigate to={safeReturnPath(searchParams.get("returnTo"))} replace />;
 }
 
 function SitesRoute() {
@@ -56,7 +63,14 @@ export function AppRoutes({
         </>
       )}
 
+      {/*
+        `/app` itself needs a route. Without one it fell through to the catch-all below and was sent
+        to login, which returned the visitor to `/app` — the default return path — and round again.
+      */}
       {authenticated ? (
+        <>
+        <Route path="app" element={<WorkspaceEntryRoute activeWorkspaceId={previewWorkspaceId} />} />
+
         <Route path="app/:workspaceId" element={<AuthenticatedAppShell />}>
           <Route index element={<Navigate to="sites" replace />} />
           <Route path="sites" element={<SitesRoute />} />
@@ -70,6 +84,7 @@ export function AppRoutes({
           <Route path="media" element={<MediaRoute />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
+        </>
       ) : (
         <Route path="app/:workspaceId" element={<RequireAuthenticatedArea />} />
       )}
@@ -83,8 +98,19 @@ export function AppRoutes({
       <Route element={<PublicShell authenticated={authenticated} />}>
         <Route index element={<LandingPage />} />
         <Route path="roadmap" element={<RoadmapPage />} />
-        <Route path="login" element={<AuthPage mode="login" />} />
-        <Route path="signup" element={<AuthPage mode="signup" />} />
+        {/*
+          Someone who already has a session never sees a login form. This also closes a race: after
+          signing up, the redirect fires before the session hook has refreshed, so `/app` briefly
+          looked unauthenticated and sent the new account straight back here.
+        */}
+        <Route
+          path="login"
+          element={authenticated ? <ReturnToDestination /> : <AuthPage mode="login" />}
+        />
+        <Route
+          path="signup"
+          element={authenticated ? <ReturnToDestination /> : <AuthPage mode="signup" />}
+        />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

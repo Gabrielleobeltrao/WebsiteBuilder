@@ -16,6 +16,11 @@ export default defineConfig({
     // private backend. Nothing in the app may ever build a cross-origin API URL.
     proxy: { "/api": { target: "http://localhost:3000", changeOrigin: true } },
   },
+  // The E2E suite runs against the production build through this server, so it needs the same
+  // proxy. Without it the built app would be tested with no API at all, which tests nothing.
+  preview: {
+    proxy: { "/api": { target: "http://localhost:3000", changeOrigin: true } },
+  },
   test: {
     environment: "jsdom",
     globals: true,

@@ -1,6 +1,7 @@
 import type { ProjectSummary } from "@websitebuilder/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 
 import { ApiError } from "@/api/client";
 import { projectsApi } from "@/api/projects";
@@ -133,13 +134,28 @@ export function SitesPage({ workspaceId }: { workspaceId: string }) {
                     bg-white px-5 py-4"
                 >
                   <div className="min-w-0">
-                    <h2 className="truncate font-medium text-ink-900">{project.name}</h2>
+                    {/* The name is the way in. Without it the list had Rename and Delete and no way
+                        to open a site at all, so the builder was unreachable from the dashboard. */}
+                    <h2 className="truncate font-medium text-ink-900">
+                      <Link
+                        to={`/app/${workspaceId}/sites/${project.id}/dashboard`}
+                        className="underline-offset-4 hover:underline"
+                      >
+                        {project.name}
+                      </Link>
+                    </h2>
                     <p className="mt-1 text-xs text-ink-500">
                       {t("dashboard:sites.pageCount", { count: project.pageCount })} ·{" "}
                       {t("dashboard:sites.updatedAt", { when: formatRelative(project.updatedAt) })} · {project.slug}
                     </p>
                   </div>
                   <div className="flex shrink-0 gap-2">
+                    <Link
+                      to={`/app/${workspaceId}/sites/${project.id}/builder`}
+                      className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
+                    >
+                      {t("dashboard:sites.open")}
+                    </Link>
                     <button
                       type="button"
                       onClick={() => {
