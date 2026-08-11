@@ -265,3 +265,70 @@ describe("what a pruned version takes with it", () => {
     expect(calls).toBe(0);
   });
 });
+
+describe("what publishing gives a site", () => {
+  const addressable = () =>
+    new PublishingService({
+      projects,
+      publishing,
+      blog,
+      media: new MediaRepository(database.db, createGridFsStorage(database.db)),
+      platformRootDomain: "example.test",
+      reservedSubdomains: ["www", "api"],
+    });
+
+  it("gives it the address it is served on", async () => {
+    // Publishing used to compile and move a pointer while a customer read it as "put my site
+    // online". Nothing created the hostname, so the site was published and reachable from nowhere,
+    // and the dashboard told them it was not published at all.
+    const project = await newProject();
+
+    const result = await addressable().publish(A, project.id);
+
+    expect(result.status).toBe("published");
+    const domains = await publishing.listDomains(A, project.id);
+    expect(domains.map((domain) => domain.hostname)).toEqual([`${project.slug}.example.test`]);
+    expect(domains[0]?.isPrimary).toBe(true);
+  });
+
+  it("gives one to a site that was published before the address existed", async () => {
+    // Republishing unchanged content is how someone in that state tries again, so that path has to
+    // be able to fix it.
+    const project = await newProject();
+    await new PublishingService({
+      projects,
+      publishing,
+      blog,
+      media: new MediaRepository(database.db, createGridFsStorage(database.db)),
+    }).publish(A, project.id);
+    expect(await publishing.listDomains(A, project.id)).toEqual([]);
+
+    const again = await addressable().publish(A, project.id);
+
+    expect(again.status).toBe("published");
+    expect(await publishing.listDomains(A, project.id)).toHaveLength(1);
+  });
+
+  it("publishes even when the address cannot be created", async () => {
+    const project = await projects.create(A, { name: "www" });
+
+    const result = await addressable().publish(A, project.id);
+
+    // A reserved label is a thing to report, not a reason to fail a publish that already worked.
+    expect(result.status).toBe("published");
+    expect(await publishing.listDomains(A, project.id)).toEqual([]);
+  });
+
+  it("creates no address when the platform has no root domain configured", async () => {
+    const project = await newProject();
+
+    await new PublishingService({
+      projects,
+      publishing,
+      blog,
+      media: new MediaRepository(database.db, createGridFsStorage(database.db)),
+    }).publish(A, project.id);
+
+    expect(await publishing.listDomains(A, project.id)).toEqual([]);
+  });
+});

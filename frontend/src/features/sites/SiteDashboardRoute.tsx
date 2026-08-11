@@ -34,6 +34,7 @@ export function SiteDashboardRoute() {
           projectId={projectId}
           projectName={summary?.name ?? t("dashboard:site.title")}
           pageCount={summary?.pageCount ?? 0}
+        onRenamed={(name) => setSummary((current) => (current === null ? current : { ...current, name }))}
           updatedAt={summary?.updatedAt ?? new Date().toISOString()}
         />
       </div>

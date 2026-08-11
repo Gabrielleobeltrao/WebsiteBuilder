@@ -50,6 +50,7 @@ export default {
     open: "Abrir",
     visit: "Ver site",
     notPublished: "Ainda não publicado",
+    noAddress: "Publicado, mas ainda sem endereço",
     rename: "Renomear",
     renameTitle: "Renomear site",
     confirmRename: "Salvar nome",
@@ -107,6 +108,7 @@ export default {
     "preview": "Pré-visualizar",
     "core": "Site",
     "optional": "Módulos",
+    "settings": "Configurações",
     "nav": {
       "blog": "Blog",
       "forms": "Formulários",

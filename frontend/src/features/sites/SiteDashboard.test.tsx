@@ -1,5 +1,6 @@
 import type { SiteFeatureState } from "@websitebuilder/shared";
 import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SiteDashboard } from "@/features/sites/SiteDashboard";
@@ -144,5 +145,49 @@ describe("localization", () => {
 
     expect(await screen.findByRole("link", { name: "Editar site" })).toBeInTheDocument();
     expect(screen.getByText("Nada está bloqueando a publicação.")).toBeInTheDocument();
+  });
+});
+
+describe("the site's own settings", () => {
+  it("keeps renaming and deleting here rather than on the list", async () => {
+    // On the list they sat beside Open, on every row — a destructive action one mis-tap from the
+    // button people press most, which on a phone is the same few millimetres.
+    mockStatus([]);
+    render();
+
+    expect(await screen.findByRole("button", { name: "Rename" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+  });
+
+  it("states the consequence and asks before deleting", async () => {
+    mockStatus([]);
+    const user = userEvent.setup();
+    render();
+
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Delete this site?" });
+    expect(within(dialog).getByText(/cannot be undone/i)).toBeInTheDocument();
+  });
+
+  it("closes on Escape without doing anything", async () => {
+    mockStatus([]);
+    const user = userEvent.setup();
+    render();
+
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("offers the current name to rename from", async () => {
+    mockStatus([]);
+    const user = userEvent.setup();
+    render();
+
+    await user.click(await screen.findByRole("button", { name: "Rename" }));
+
+    expect(screen.getByLabelText("Site name")).toHaveValue("Acme Studio");
   });
 });

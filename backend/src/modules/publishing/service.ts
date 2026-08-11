@@ -41,6 +41,15 @@ export class PublishingService {
       /** Versions kept per project. The active one is never pruned regardless of this number. */
       retentionCount?: number;
       /**
+       * The root domain every project's free subdomain hangs off, and the labels it may not use.
+       *
+       * Publishing without them still moves the pointer and still leaves the site unreachable,
+       * which is what happened before: `publish` meant "compile and swap" while a customer read it
+       * as "put my site online", and nothing in the product ever created the address.
+       */
+      platformRootDomain?: string;
+      reservedSubdomains?: readonly string[];
+      /**
        * Called with the versions retention just deleted.
        *
        * Injected rather than imported so publishing keeps no dependency on analytics — it does not
@@ -77,6 +86,9 @@ export class PublishingService {
     // nobody can tell apart from the last one.
     const active = await this.deps.publishing.findActiveForProject(projectId);
     if (active !== null && active.contentHash === snapshot.contentHash) {
+      // Republishing unchanged content is how someone whose site never got an address tries again,
+      // so this path has to be able to give them one.
+      await this.ensurePublicAddress(context, projectId);
       return { status: "published", version: active, unchanged: true };
     }
 
@@ -107,6 +119,8 @@ export class PublishingService {
         await this.deps.onVersionsPruned(context, projectId, pruned).catch(() => undefined);
       }
 
+      await this.ensurePublicAddress(context, projectId);
+
       return { status: "published", version, unchanged: false };
     } catch (error) {
       if (error instanceof PublishError && error.reason === "revision-changed") {
@@ -114,6 +128,35 @@ export class PublishingService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Gives a published site the address it is served on.
+   *
+   * A published version with nowhere to serve it is not published in the sense anyone means, and
+   * that is exactly what used to happen: `publish` compiled and swapped a pointer while a customer
+   * read it as "put my site online", and nothing in the product ever created the hostname. The
+   * platform subdomain is free, derived from the slug, and needs no decision from anybody.
+   *
+   * Non-fatal by construction. A slug that is reserved or already taken leaves the site without an
+   * address — which the publishing screen reports — and is not a reason to fail a publish that has
+   * already succeeded.
+   */
+  private async ensurePublicAddress(context: WorkspaceContext, projectId: string): Promise<void> {
+    if (this.deps.platformRootDomain === undefined) return;
+
+    const project = await this.deps.projects.findById(context, projectId);
+    if (project === null) return;
+
+    await this.deps.publishing
+      .ensurePlatformDomain(
+        context,
+        projectId,
+        project.slug,
+        this.deps.platformRootDomain,
+        this.deps.reservedSubdomains,
+      )
+      .catch(() => null);
   }
 
   private async compile(context: WorkspaceContext, projectId: string): Promise<CompileResult | null> {

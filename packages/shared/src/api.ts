@@ -74,6 +74,8 @@ export type ProjectSummary = {
   revision: number;
   createdAt: string;
   updatedAt: string;
+  /** Whether a version of this site is live. Not the same as having somewhere to serve it. */
+  isPublished: boolean;
   /**
    * The address a visitor can open right now.
    *

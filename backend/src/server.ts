@@ -210,6 +210,10 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
             })),
           maxDocumentBytes: env.PUBLISH_MAX_DOCUMENT_BYTES,
           retentionCount: env.PUBLISHED_VERSION_RETENTION_COUNT,
+          // Publishing gives the site the address it is served on. Without this, a customer
+          // publishes successfully and their site is still reachable from nowhere.
+          platformRootDomain: env.PLATFORM_ROOT_DOMAIN,
+          reservedSubdomains: env.reservedSubdomains,
           // Heatmap coordinates are meaningless without the layout that produced them, so they are
           // deleted by the same operation that deletes the layout.
           onVersionsPruned: async (context, projectId, versionIds) => {

@@ -89,7 +89,8 @@ export class ProjectRepository {
       const hostname = hostnames.get(projectId);
       // Both facts are required. A published site with no live address, and a live address on a
       // site that was never published, are each a link to nothing.
-      const live = (rest as { activePublishedVersionId?: string }).activePublishedVersionId !== undefined && hostname !== undefined;
+      const isPublished = (rest as { activePublishedVersionId?: string }).activePublishedVersionId !== undefined;
+      const live = isPublished && hostname !== undefined;
 
       return {
         id: projectId,
@@ -100,6 +101,7 @@ export class ProjectRepository {
         revision: rest.revision,
         createdAt: rest.createdAt,
         updatedAt: rest.updatedAt,
+        isPublished,
         ...(live ? { liveUrl: `https://${hostname}` } : {}),
       };
     });

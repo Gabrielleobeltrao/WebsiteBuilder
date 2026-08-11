@@ -175,6 +175,20 @@ test.describe("reaching the live site from a phone", () => {
     await page.getByRole("link", { name: "Publish" }).first().click();
     await expect(page).toHaveURL(/\/publish$/, { timeout: 20_000 });
     await expect(page.getByRole("heading", { level: 1, name: "Publish" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Publish now" }).click();
+    // Publishing asks first, because visitors see the result immediately.
+    await page.getByRole("dialog").getByRole("button", { name: "Yes, publish" }).click();
+
+    // Publishing has to leave the site reachable. It used to move a pointer and stop there, so a
+    // customer published successfully and their site was served from nowhere — and the list told
+    // them it was not published at all.
+    await expect(page.getByText(/phone-site\./)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("This site does not have a public address yet.")).toHaveCount(0);
+
+    await page.goto(`${new URL(page.url()).pathname.split("/").slice(0, 3).join("/")}/sites`);
+    await expect(page.getByRole("link", { name: "Visit site" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Not published yet/)).toHaveCount(0);
   });
 });
 

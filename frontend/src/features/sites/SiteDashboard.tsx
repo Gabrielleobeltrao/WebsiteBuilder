@@ -1,10 +1,12 @@
 import { isVisibleInNavigation, type SiteFeatureKey, type SiteFeatureState } from "@websitebuilder/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import { ApiError } from "@/api/client";
+import { projectsApi } from "@/api/projects";
 import { siteStatusApi, type SiteStatus } from "@/api/site-status";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { ReadinessPanel } from "@/features/sites/ReadinessPanel";
 
 type LoadState = { status: "loading" } | { status: "error"; code: string } | { status: "ready"; site: SiteStatus };
@@ -38,12 +40,15 @@ export function SiteDashboard({
   projectName,
   pageCount,
   updatedAt,
+  onRenamed,
 }: {
   workspaceId: string;
   projectId: string;
   projectName: string;
   pageCount: number;
   updatedAt: string;
+  /** Lets the page above keep the heading in step with a rename. */
+  onRenamed?: (name: string) => void;
 }) {
   const { t } = useTranslation(["dashboard", "cms", "publishing", "analytics", "errors", "common"]);
   const [state, setState] = useState<LoadState>({ status: "loading" });
@@ -235,8 +240,133 @@ export function SiteDashboard({
               </ul>
             )}
           </nav>
+
+          <SiteSettings
+            workspaceId={workspaceId}
+            projectId={projectId}
+            projectName={projectName}
+            onRenamed={onRenamed}
+          />
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * Renaming and deleting a site.
+ *
+ * They live here rather than on the site list because that is where they belong: the list is for
+ * finding a site and doing the thing you came to do, and a delete button beside "Open" on every row
+ * is a destructive action one mis-tap away — on a phone, next to the button people press most.
+ */
+function SiteSettings({
+  workspaceId,
+  projectId,
+  projectName,
+  onRenamed,
+}: {
+  workspaceId: string;
+  projectId: string;
+  projectName: string;
+  onRenamed?: (name: string) => void;
+}) {
+  const { t } = useTranslation(["dashboard", "errors"]);
+  const navigate = useNavigate();
+  const [dialog, setDialog] = useState<"none" | "rename" | "delete">("none");
+  const [name, setName] = useState(projectName);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  const run = async (action: () => Promise<unknown>, after: () => void) => {
+    setBusy(true);
+    setFailure(null);
+    try {
+      await action();
+      setDialog("none");
+      after();
+    } catch (error) {
+      setDialog("none");
+      setFailure(error instanceof ApiError ? error.code : "INTERNAL_ERROR");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="mt-10">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+        {t("dashboard:site.settings")}
+      </h2>
+
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setName(projectName);
+            setDialog("rename");
+          }}
+          className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
+        >
+          {t("dashboard:sites.rename")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setDialog("delete")}
+          className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-800 hover:bg-red-50"
+        >
+          {t("dashboard:sites.delete")}
+        </button>
+      </div>
+
+      {failure !== null && (
+        <p role="alert" className="mt-3 text-sm text-red-800">
+          {t(`errors:${failure}` as "errors:INTERNAL_ERROR")}
+        </p>
+      )}
+
+      <ConfirmDialog
+        open={dialog === "rename"}
+        title={t("dashboard:sites.renameTitle")}
+        confirmLabel={t("dashboard:sites.confirmRename")}
+        busy={busy}
+        onCancel={() => setDialog("none")}
+        onConfirm={() => {
+          const trimmed = name.trim();
+          if (trimmed.length === 0) return;
+          void run(
+            () => projectsApi.rename(workspaceId, projectId, trimmed),
+            () => onRenamed?.(trimmed),
+          );
+        }}
+      >
+        <label className="block text-sm font-medium text-ink-700">
+          {t("dashboard:sites.nameLabel")}
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            className="mt-1 w-full rounded-md border border-ink-200 px-3 py-2 text-sm text-ink-900"
+          />
+        </label>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={dialog === "delete"}
+        destructive
+        title={t("dashboard:sites.deleteTitle")}
+        description={t("dashboard:sites.deleteWarning")}
+        confirmLabel={t("dashboard:sites.confirmDelete")}
+        busy={busy}
+        onCancel={() => setDialog("none")}
+        onConfirm={() => {
+          // Back to the list: staying on the page of a site that no longer exists would show an
+          // error for something that worked.
+          void run(
+            () => projectsApi.remove(workspaceId, projectId),
+            () => navigate(`/app/${workspaceId}/sites`, { replace: true }),
+          );
+        }}
+      />
+    </section>
   );
 }

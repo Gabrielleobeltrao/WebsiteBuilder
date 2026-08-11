@@ -14,6 +14,7 @@ const summary = (overrides: Partial<ProjectSummary> = {}): ProjectSummary => ({
   revision: 4,
   createdAt: "2026-08-01T10:00:00.000Z",
   updatedAt: "2026-08-10T10:00:00.000Z",
+  isPublished: false,
   ...overrides,
 });
 
@@ -103,39 +104,6 @@ describe("SitesPage actions", () => {
     expect(requests.filter((r) => r.method === "POST")).toHaveLength(1);
   });
 
-  it("requires confirmation before deleting and states the consequence", async () => {
-    const requests: string[] = [];
-    mockFetch((url, init) => {
-      requests.push(`${init?.method ?? "GET"} ${url}`);
-      if (init?.method === "DELETE") return new Response(null, { status: 204 });
-      return ok(requests.some((r) => r.startsWith("DELETE")) ? [] : [summary()]);
-    });
-
-    const user = userEvent.setup();
-    renderWithProviders(<SitesPage workspaceId="w1" />);
-    await screen.findByRole("heading", { level: 2, name: "Acme Studio" });
-
-    await user.click(screen.getByRole("button", { name: "Delete" }));
-    const dialog = screen.getByRole("dialog", { name: "Delete this site?" });
-    expect(within(dialog).getByText(/cannot be undone/i)).toBeInTheDocument();
-    expect(requests.some((r) => r.startsWith("DELETE"))).toBe(false);
-
-    await user.click(within(dialog).getByRole("button", { name: "Delete site" }));
-    expect(await screen.findByRole("heading", { level: 2, name: "No sites yet" })).toBeInTheDocument();
-  });
-
-  it("closes a dialog on Escape without performing the action", async () => {
-    mockFetch(() => ok([summary()]));
-    const user = userEvent.setup();
-    renderWithProviders(<SitesPage workspaceId="w1" />);
-    await screen.findByRole("heading", { level: 2, name: "Acme Studio" });
-
-    await user.click(screen.getByRole("button", { name: "Delete" }));
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    await user.keyboard("{Escape}");
-    expect(screen.queryByRole("dialog")).toBeNull();
-  });
-
   it("does not submit an empty name", async () => {
     const spy = mockFetch(() => ok([]));
     const user = userEvent.setup();
@@ -188,6 +156,27 @@ describe("finding a site from the list", () => {
 
     expect(await screen.findByText(/Not published yet/)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Visit site" })).toBeNull();
+  });
+
+  it("keeps destructive actions off the list", async () => {
+    // Delete beside Open, on every row, is one mis-tap from losing a site — and on a phone it sits
+    // next to the button people press most. It lives on the site's own settings now.
+    mockFetch(() => ok([summary()]));
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+
+    await screen.findByRole("link", { name: "Publish" });
+    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Rename" })).toBeNull();
+  });
+
+  it("says a published site has no address rather than calling it unpublished", async () => {
+    // The state that used to read "Not published yet" after a successful publish. Publishing again
+    // does not fix a missing address, so sending someone back to publish would waste their time.
+    mockFetch(() => ok([summary({ isPublished: true })]));
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+
+    expect(await screen.findByText(/Published, but has no address yet/)).toBeInTheDocument();
+    expect(screen.queryByText(/Not published yet/)).toBeNull();
   });
 
   it("offers publishing from the card, because it is needed after every edit", async () => {

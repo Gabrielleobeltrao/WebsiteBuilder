@@ -9,11 +9,8 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { PageMetadata } from "@/components/common/PageMetadata";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
 
-type DialogState =
-  | { kind: "none" }
-  | { kind: "create" }
-  | { kind: "rename"; project: ProjectSummary }
-  | { kind: "delete"; project: ProjectSummary };
+/** Renaming and deleting live on the site's own settings; this list only creates. */
+type DialogState = { kind: "none" } | { kind: "create" };
 
 type LoadState =
   | { status: "loading" }
@@ -149,9 +146,14 @@ export function SitesPage({ workspaceId }: { workspaceId: string }) {
                     <p className="mt-1 text-xs text-ink-500">
                       {t("dashboard:sites.pageCount", { count: project.pageCount })} ·{" "}
                       {t("dashboard:sites.updatedAt", { when: formatRelative(project.updatedAt) })} ·{" "}
-                      {project.liveUrl === undefined
-                        ? t("dashboard:sites.notPublished")
-                        : project.liveUrl.replace(/^https?:\/\//, "")}
+                      {project.liveUrl !== undefined
+                        ? project.liveUrl.replace(/^https?:\/\//, "")
+                        : project.isPublished
+                          ? // Published and reachable from nowhere. Saying "not published" here
+                            // would be false, and would send someone to publish again to fix
+                            // something publishing does not fix.
+                            t("dashboard:sites.noAddress")
+                          : t("dashboard:sites.notPublished")}
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
@@ -189,23 +191,6 @@ export function SitesPage({ workspaceId }: { workspaceId: string }) {
                     >
                       {t("dashboard:sites.open")}
                     </Link>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setName(project.name);
-                        setDialog({ kind: "rename", project });
-                      }}
-                      className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
-                    >
-                      {t("dashboard:sites.rename")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDialog({ kind: "delete", project })}
-                      className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
-                    >
-                      {t("dashboard:sites.delete")}
-                    </button>
                   </div>
                 </li>
               ))}
@@ -215,21 +200,15 @@ export function SitesPage({ workspaceId }: { workspaceId: string }) {
       </div>
 
       <ConfirmDialog
-        open={dialog.kind === "create" || dialog.kind === "rename"}
-        title={dialog.kind === "rename" ? t("dashboard:sites.renameTitle") : t("dashboard:sites.createTitle")}
-        confirmLabel={
-          dialog.kind === "rename" ? t("dashboard:sites.confirmRename") : t("dashboard:sites.confirmCreate")
-        }
+        open={dialog.kind === "create"}
+        title={t("dashboard:sites.createTitle")}
+        confirmLabel={t("dashboard:sites.confirmCreate")}
         busy={busy}
         onCancel={closeDialog}
         onConfirm={() => {
           const trimmed = name.trim();
           if (trimmed.length === 0) return;
-          void runAction(() =>
-            dialog.kind === "rename"
-              ? projectsApi.rename(workspaceId, dialog.project.id, trimmed)
-              : projectsApi.create(workspaceId, { name: trimmed }),
-          );
+          void runAction(() => projectsApi.create(workspaceId, { name: trimmed }));
         }}
       >
         <label className="block text-sm font-medium text-ink-700">
@@ -243,19 +222,6 @@ export function SitesPage({ workspaceId }: { workspaceId: string }) {
         </label>
       </ConfirmDialog>
 
-      <ConfirmDialog
-        open={dialog.kind === "delete"}
-        destructive
-        title={t("dashboard:sites.deleteTitle")}
-        description={t("dashboard:sites.deleteWarning")}
-        confirmLabel={t("dashboard:sites.confirmDelete")}
-        busy={busy}
-        onCancel={closeDialog}
-        onConfirm={() => {
-          if (dialog.kind !== "delete") return;
-          void runAction(() => projectsApi.remove(workspaceId, dialog.project.id));
-        }}
-      />
     </div>
   );
 }
