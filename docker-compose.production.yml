@@ -133,6 +133,19 @@ services:
       # Below any exact-host router: this platform's own two domain fields, and every other
       # application on this VPS.
       - traefik.http.routers.wb-renderer-projects.priority=10
+
+      # The same set of hostnames on the plain HTTP entrypoint, redirected. Without it a visitor who
+      # types the address without a scheme reaches an entrypoint where no router matches and gets
+      # Traefik's own 404 — a page that looks like the site does not exist, when it does.
+      # Coolify's generated routers get this redirect for their own hostnames; a label-defined
+      # router has to carry its own.
+      - traefik.http.middlewares.wb-https-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.wb-https-redirect.redirectscheme.permanent=true
+      - traefik.http.routers.wb-renderer-projects-http.rule=HostRegexp(`^[a-z0-9][a-z0-9-]*\.${PLATFORM_ROOT_DOMAIN_REGEX}$$`)
+      - traefik.http.routers.wb-renderer-projects-http.entrypoints=http
+      - traefik.http.routers.wb-renderer-projects-http.middlewares=wb-https-redirect
+      - traefik.http.routers.wb-renderer-projects-http.service=wb-renderer
+      - traefik.http.routers.wb-renderer-projects-http.priority=10
     environment:
       NODE_ENV: production
       PUBLIC_RENDERER_PORT: 3001

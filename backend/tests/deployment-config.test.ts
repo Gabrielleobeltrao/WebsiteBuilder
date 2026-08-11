@@ -243,6 +243,21 @@ describe("renderer routing", () => {
     expect(priority).toBeLessThanOrEqual(10);
   });
 
+  it("answers project subdomains on plain HTTP too, with a redirect", () => {
+    // A router only on the https entrypoint leaves http unmatched, and Traefik's unmatched response
+    // is a 404 — indistinguishable from a site that was never published. Both routers must cover the
+    // same hostnames, or the redirect sends part of them somewhere that does not answer.
+    // Compared after dropping the `:?message` clause, which only the first occurrence of a required
+    // variable carries. What must match is the pattern and the variable, which is what is left.
+    const pattern = (value: string | undefined) => (value ?? "").replace(/:\?[^}]*/, "");
+    expect(pattern(label("traefik.http.routers.wb-renderer-projects-http.rule"))).toBe(
+      pattern(label("traefik.http.routers.wb-renderer-projects.rule")),
+    );
+    expect(label("traefik.http.routers.wb-renderer-projects-http.entrypoints")).toBe("http");
+    expect(label("traefik.http.routers.wb-renderer-projects-http.middlewares")).toBe("wb-https-redirect");
+    expect(label("traefik.http.middlewares.wb-https-redirect.redirectscheme.scheme")).toBe("https");
+  });
+
   it("adds no catch-all that would claim hostnames this platform knows nothing about", () => {
     // A rule matching everything belongs to a deliberate, documented decision on the VPS, not to a
     // file that deploys to it.
