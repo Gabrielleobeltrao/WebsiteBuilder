@@ -1,36 +1,17 @@
-import { API_BASE_PATH, apiErrorSchema, type ApiErrorCode, type ApiErrorDetail } from "@websitebuilder/shared";
+import { apiErrorSchema, type ApiErrorCode, type ApiErrorDetail } from "@websitebuilder/shared";
+
+import { apiBase } from "./endpoint";
 
 /**
  * Typed fetch wrapper.
  *
- * The API base comes from build configuration: a relative path when the API shares the origin, or
- * an absolute origin when it is deployed as its own host. It is never derived from anything a
- * request or a document supplies — an API URL that user data can influence is how a session token
- * ends up being sent somewhere nobody intended.
+ * The API base comes from `endpoint.ts`, which the auth client reads too — they must agree about
+ * where the backend is, and when they did not, one of them was calling this application's own
+ * origin and parsing `index.html` as JSON.
  *
  * `credentials: "include"` is what carries the session cookie to a different host on the same
  * registrable domain. The server answers only the one origin it was configured with.
  */
-const API_BASE = resolveApiBase();
-
-function resolveApiBase(): string {
-  const configured = import.meta.env.VITE_API_URL;
-  if (typeof configured !== "string" || configured.trim() === "") return API_BASE_PATH;
-
-  const trimmed = configured.trim().replace(/\/+$/, "");
-
-  // A relative path is used as given. An absolute one must be a real origin, so a typo becomes a
-  // build-time failure rather than requests quietly going nowhere.
-  if (trimmed.startsWith("/")) return trimmed;
-
-  try {
-    const url = new URL(trimmed);
-    if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("unsupported scheme");
-    return trimmed;
-  } catch {
-    throw new Error("VITE_API_URL must be a relative path or an absolute http(s) URL");
-  }
-}
 export class ApiError extends Error {
   constructor(
     public readonly code: ApiErrorCode | "NETWORK_ERROR",
@@ -41,6 +22,8 @@ export class ApiError extends Error {
     this.name = "ApiError";
   }
 }
+
+const API_BASE = apiBase();
 
 export type RequestOptions = {
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
