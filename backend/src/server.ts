@@ -24,6 +24,7 @@ import { CmsRepository, ensureCmsIndexes } from "./modules/cms/repository";
 import { createCmsRouter } from "./modules/cms/routes";
 import { CloudflareHostnameProvider } from "./modules/domains/cloudflare";
 import { FakeHostnameProvider } from "./modules/domains/fakeProvider";
+import { UnconfiguredHostnameProvider } from "./modules/domains/unconfiguredProvider";
 import { DomainService } from "./modules/domains/service";
 import type { CustomHostnameProvider } from "./modules/domains/provider";
 import { createPublishingRouter } from "./modules/publishing/routes";
@@ -39,7 +40,17 @@ import { createWorkspacesRouter } from "./modules/workspaces/routes";
  */
 function createHostnameProvider(env: Env, logger: ReturnType<typeof createLogger>): CustomHostnameProvider {
   if (!env.CLOUDFLARE_ZONE_ID || !env.CLOUDFLARE_API_TOKEN) {
-    if (env.isProduction) throw new EnvironmentError(["CLOUDFLARE_ZONE_ID", "CLOUDFLARE_API_TOKEN"]);
+    // In production the platform still runs: sites publish and serve on their platform hostnames,
+    // and only connecting a customer's own domain is refused. Refusing at start-up instead would
+    // take down everything over a feature nobody may be using yet. What must never happen is the
+    // in-memory fake answering successfully in production and promising a domain nobody registered.
+    if (env.isProduction) {
+      logger.warn(
+        "Cloudflare is not configured; connecting a customer domain will be refused until it is",
+      );
+      return new UnconfiguredHostnameProvider();
+    }
+
     logger.warn("Cloudflare is not configured; custom domains use the in-memory fake provider");
     return new FakeHostnameProvider(env.PUBLIC_RENDERER_ORIGIN);
   }

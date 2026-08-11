@@ -4,6 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { DomainService } from "../src/modules/domains/service";
 import { FakeHostnameProvider } from "../src/modules/domains/fakeProvider";
 import { ProviderError } from "../src/modules/domains/provider";
+import { UnconfiguredHostnameProvider } from "../src/modules/domains/unconfiguredProvider";
 import type { WorkspaceContext } from "../src/modules/projects/repository";
 import { ensurePublishingIndexes, PublishingRepository, PUBLISHING_COLLECTIONS } from "../src/modules/publishing/repository";
 import { COLLECTIONS } from "../src/db/indexes";
@@ -181,5 +182,45 @@ describe("storage", () => {
       hostname: "www.customer.test",
     });
     expect(count).toBe(1);
+  });
+});
+
+describe("without a configured provider", () => {
+  /**
+   * A deployment that has not set up Cloudflare still runs. Only connecting a customer's own domain
+   * is refused, and it is refused rather than quietly accepted.
+   */
+  const unconfigured = () => new DomainService(database.db, new UnconfiguredHostnameProvider(), "platform.test");
+
+  it("keeps the claim and says the provider is unavailable", async () => {
+    const outcome = await unconfigured().connect(A, PROJECT, "www.customer.test");
+
+    expect(outcome.status).toBe("pending-provider");
+    if (outcome.status !== "pending-provider") return;
+    expect(outcome.reason).toBe("unavailable");
+  });
+
+  it("never reports a domain as connected", async () => {
+    const outcome = await unconfigured().connect(A, PROJECT, "www.customer.test");
+
+    // The lie this exists to prevent: telling a customer their domain works while nothing was
+    // registered anywhere.
+    expect(outcome.status).not.toBe("connected");
+    expect(await publishing.resolvePublicHost("www.customer.test")).toBeNull();
+  });
+
+  it("still lets a customer disconnect, so a domain cannot get stuck", async () => {
+    const service = unconfigured();
+    const created = await service.connect(A, PROJECT, "www.customer.test");
+    if (created.status === "rejected") throw new Error("setup failed");
+
+    expect(await service.disconnect(A, idOf(created.domain.id))).toBe(true);
+  });
+
+  it("leaves platform hostnames working, because they need no provider at all", async () => {
+    await publishing.ensurePlatformDomain(A, PROJECT, "acme", "platform.test");
+    expect((await publishing.listDomains(A, PROJECT)).map((domain) => domain.hostname)).toContain(
+      "acme.platform.test",
+    );
   });
 });

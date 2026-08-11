@@ -141,9 +141,30 @@ Startup validates everything with Zod and fails naming the variable, never its v
 
 ### Cloudflare token scope
 
-Zone → SSL and Certificates → **Edit**, restricted to the single zone in `CLOUDFLARE_ZONE_ID`.
-Nothing account-wide. With the token absent, development uses an in-memory fake provider; in
-production, startup refuses rather than promising customers a domain nobody registered.
+Both values are optional. Without them the platform runs normally and only customer custom domains
+are unavailable — connecting one is refused with a message rather than accepted and silently not
+registered. Set them when you are ready to onboard a customer's own domain.
+
+**Where to find them.**
+
+*Zone ID* — `dash.cloudflare.com` → select `oneplataforma.com` → the Overview page, right-hand
+column, under **API**. A 32-character hex string.
+
+*API token* — `dash.cloudflare.com/profile/api-tokens` → **Create Token** → **Create Custom Token**:
+
+| Field | Value |
+|---|---|
+| Permissions | Zone → **SSL and Certificates** → **Edit** |
+| Zone Resources | Include → Specific zone → `oneplataforma.com` |
+
+Nothing account-wide and nothing broader: this token can manage certificates on one zone and can do
+nothing else, which is the whole point of creating a custom one rather than using a global key. It
+is displayed once — if it is lost, create another and delete the old.
+
+**Before the first customer domain**, also set the fallback origin in Cloudflare: SSL/TLS → Custom
+Hostnames → **Fallback Origin** → `origin.websitebuilder.oneplataforma.com`. Custom hostnames stay
+pending without it. Cloudflare for SaaS has its own plan and per-hostname terms; the dashboard
+states the current ones at the point of enabling it.
 
 ---
 
