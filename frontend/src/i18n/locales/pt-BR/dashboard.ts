@@ -15,7 +15,7 @@ export default {
       lastDays_other: "Últimos {{count}} dias",
     },
     metrics: {
-      views: "Acessos",
+      views: "Acessos contados no servidor",
       sites: "Sites",
       pages: "Páginas",
       submissions: "Formulários",

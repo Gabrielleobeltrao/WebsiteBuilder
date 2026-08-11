@@ -298,6 +298,10 @@ Everything an operator needs is in `docs/`:
 | [RELEASE_AND_ROLLBACK.md](docs/RELEASE_AND_ROLLBACK.md) | Promotion, tags, rollback |
 | [PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md) | The per-release list |
 | [OPERATIONS.md](docs/OPERATIONS.md) | Backups, monitoring, incidents |
+| [ANALYTICS.md](docs/ANALYTICS.md) | Turning measurement on, how it works, troubleshooting |
+| [ANALYTICS_METRICS.md](docs/ANALYTICS_METRICS.md) | What every number means, and what is deliberately not measured |
+| [ANALYTICS_PRIVACY.md](docs/ANALYTICS_PRIVACY.md) | What is collected, what never is, and what a visitor controls |
+| [ANALYTICS_OPERATIONS.md](docs/ANALYTICS_OPERATIONS.md) | Budgets, storage formula, scale ceiling, rate limiting |
 
 `npm run smoke:containers` builds the production images and exercises the running stack against a
 throwaway database. It needs Docker and `SMOKE_MONGODB_URI`.

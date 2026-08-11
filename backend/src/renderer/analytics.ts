@@ -92,6 +92,8 @@ export type AnalyticsIngestionDeps = {
   limits?: IngestionLimits;
   /** Whether forwarded addresses can be trusted; when they cannot, address limiting is skipped. */
   trustsProxy: boolean;
+  /** The deployment-level switch. False means the endpoint accepts and stores nothing. */
+  enabled: boolean;
   now?: () => Date;
 };
 
@@ -110,17 +112,52 @@ export type AnalyticsRuntime = {
   loadSettings: (projectId: string) => Promise<AnalyticsSettings>;
   scriptPath: string;
   scriptVersion: string;
+  /**
+   * Aggregate counters for an operator, and nothing else.
+   *
+   * Enough to see that ingestion is failing and why, without being able to see what any visitor
+   * did: no identifiers, no paths, no addresses — only how many batches ended each way.
+   */
+  stats: () => Record<string, number>;
 };
 
 export function createAnalyticsRuntime(deps: AnalyticsIngestionDeps): AnalyticsRuntime {
-  const router = createAnalyticsIngestionRouter(deps);
+  const counters: Record<string, number> = {
+    accepted: 0,
+    rejectedMalformed: 0,
+    rejectedOversize: 0,
+    rejectedRateLimited: 0,
+    rejectedUnknownHost: 0,
+    ignoredBot: 0,
+    ignoredDisabled: 0,
+    ignoredUnpublishedPath: 0,
+    ignoredDuplicate: 0,
+    failed: 0,
+  };
+
   return {
-    router,
+    router: createAnalyticsIngestionRouter(deps, (outcome) => {
+      counters[outcome] = (counters[outcome] ?? 0) + 1;
+    }),
     loadSettings: settingsLoader(deps),
     scriptPath: ANALYTICS_SCRIPT_PATH,
     scriptVersion: TRACKER_VERSION,
+    stats: () => ({ ...counters }),
   };
 }
+
+/** How a batch ended. The only thing recorded about it. */
+type IngestionOutcome =
+  | "accepted"
+  | "rejectedMalformed"
+  | "rejectedOversize"
+  | "rejectedRateLimited"
+  | "rejectedUnknownHost"
+  | "ignoredBot"
+  | "ignoredDisabled"
+  | "ignoredUnpublishedPath"
+  | "ignoredDuplicate"
+  | "failed";
 
 /** One cache per runtime, shared by everything that needs to know whether a site is collecting. */
 function settingsLoader(deps: AnalyticsIngestionDeps): (projectId: string) => Promise<AnalyticsSettings> {
@@ -136,7 +173,10 @@ function settingsLoader(deps: AnalyticsIngestionDeps): (projectId: string) => Pr
   };
 }
 
-export function createAnalyticsIngestionRouter(deps: AnalyticsIngestionDeps): Router {
+export function createAnalyticsIngestionRouter(
+  deps: AnalyticsIngestionDeps,
+  record: (outcome: IngestionOutcome) => void = () => undefined,
+): Router {
   const limits = deps.limits ?? DEFAULT_INGESTION_LIMITS;
   const now = deps.now ?? (() => new Date());
   const counter = new FixedWindowCounter(limits.windowMs, now().getTime());
@@ -173,18 +213,29 @@ export function createAnalyticsIngestionRouter(deps: AnalyticsIngestionDeps): Ro
     async (request, response) => {
       // 204 is the answer to almost everything, including refusal. A beacon has no user interface
       // to show an error in, and a distinguishable rejection is a probe result.
-      const accepted = () => response.status(204).end();
+      const done = (outcome: IngestionOutcome) => {
+        record(outcome);
+        response.status(204).end();
+      };
 
       try {
         if (!request.is("application/json")) {
+          record("rejectedMalformed");
           response.status(415).type("text/plain").send("Unsupported Media Type");
+          return;
+        }
+
+        // The deployment-level lock. A site can be collecting and still receive nothing here while
+        // an operator has ingestion off, which is what makes a controlled rollout possible.
+        if (!deps.enabled) {
+          done("ignoredDisabled");
           return;
         }
 
         const receivedAt = now();
 
         if (isLikelyBot(request.get("user-agent"))) {
-          accepted();
+          done("ignoredBot");
           return;
         }
 
@@ -192,6 +243,7 @@ export function createAnalyticsIngestionRouter(deps: AnalyticsIngestionDeps): Ro
         // ranges every visitor presents the gateway's address, and one bucket would throttle the
         // entire internet as a single client.
         if (deps.trustsProxy && !counter.take(`ip:${request.ip ?? ""}`, limits.perAddress, receivedAt.getTime())) {
+          record("rejectedRateLimited");
           response.status(429).type("text/plain").send("Too Many Requests");
           return;
         }
@@ -200,6 +252,7 @@ export function createAnalyticsIngestionRouter(deps: AnalyticsIngestionDeps): Ro
         if (site === null) {
           // The same answer the page catch-all gives an unknown host, so this endpoint cannot be
           // used to discover which hostnames exist.
+          record("rejectedUnknownHost");
           response.status(404).type("text/plain").send("Not Found");
           return;
         }
@@ -207,6 +260,7 @@ export function createAnalyticsIngestionRouter(deps: AnalyticsIngestionDeps): Ro
         const { workspaceId, projectId } = site.version;
 
         if (!counter.take(`project:${projectId}`, limits.perProject, receivedAt.getTime())) {
+          record("rejectedRateLimited");
           response.status(429).type("text/plain").send("Too Many Requests");
           return;
         }
@@ -215,12 +269,13 @@ export function createAnalyticsIngestionRouter(deps: AnalyticsIngestionDeps): Ro
         // A site whose owner has not enabled collection is not measured, whatever arrives. The
         // tracker is not injected there either; this is the second of the two locks.
         if (!settings.enabled) {
-          accepted();
+          done("ignoredDisabled");
           return;
         }
 
         const batch = analyticsBatchSchema.safeParse(request.body);
         if (!batch.success) {
+          record("rejectedMalformed");
           response.status(400).type("text/plain").send("Bad Request");
           return;
         }
@@ -230,7 +285,7 @@ export function createAnalyticsIngestionRouter(deps: AnalyticsIngestionDeps): Ro
         // sends it, so counting one that was never published would let anyone grow this collection
         // without limit inside someone else's workspace.
         if (outcome.kind !== "route" || outcome.route.statusCode !== 200) {
-          accepted();
+          done("ignoredUnpublishedPath");
           return;
         }
 
@@ -239,7 +294,7 @@ export function createAnalyticsIngestionRouter(deps: AnalyticsIngestionDeps): Ro
         // The first write, before any counter moves: a beacon that was retried carries the id it was
         // assembled with, so the retry is recognised instead of counted again.
         if (!(await deps.analytics.claimBatch(batch.data.batchId, receivedAt))) {
-          accepted();
+          done("ignoredDuplicate");
           return;
         }
 
@@ -257,8 +312,9 @@ export function createAnalyticsIngestionRouter(deps: AnalyticsIngestionDeps): Ro
           ),
         );
 
-        accepted();
+        done("accepted");
       } catch (error) {
+        record("failed");
         // The host is the most that may be logged. Not the body, not an identifier, not the agent.
         deps.logger.warn({ err: error, host: hostnameOf(request) }, "an analytics batch could not be stored");
         response.status(500).type("text/plain").send("Internal Server Error");

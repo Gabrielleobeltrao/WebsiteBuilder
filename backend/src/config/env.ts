@@ -31,6 +31,16 @@ const baseSchema = z.object({
   PLATFORM_PUBLIC_ORIGIN: blankAsAbsent(z.string().url().default("http://localhost:5173")),
   PLATFORM_RESERVED_SUBDOMAINS: z.string().default(""),
   /** How long a proxy may serve a published page before revalidating. */
+  /**
+   * Analytics ingestion. Off by default so a deployment starts without an open write endpoint and
+   * an operator turns it on deliberately — the feature is disabled per site as well, and these are
+   * the two locks that have to be opened in different places.
+   */
+  ANALYTICS_INGESTION_ENABLED: blankAsAbsent(z.enum(["true", "false"]).default("false")),
+  /** Batches per minute from one address, where a forwarded address can be trusted. */
+  ANALYTICS_RATE_LIMIT_PER_ADDRESS: blankAsAbsent(z.coerce.number().int().min(1).max(10_000).default(60)),
+  /** Batches per minute for one project, so one busy site cannot exhaust the process. */
+  ANALYTICS_RATE_LIMIT_PER_PROJECT: blankAsAbsent(z.coerce.number().int().min(1).max(100_000).default(600)),
   PUBLIC_SITE_CACHE_TTL_SECONDS: z.coerce.number().int().nonnegative().max(86_400).default(60),
   /**
    * Proxy ranges whose forwarded headers may be believed. Empty means none: on a host-routed

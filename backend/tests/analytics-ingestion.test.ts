@@ -44,6 +44,7 @@ function app(overrides: Partial<Parameters<typeof createAnalyticsRuntime>[0]> = 
     publishing,
     logger: testLogger(),
     trustsProxy: false,
+    enabled: true,
     ...overrides,
   } as Parameters<typeof createAnalyticsRuntime>[0]);
 
@@ -460,5 +461,77 @@ describe("what a published page carries", () => {
 
     // Configuration travels on attributes precisely so that `script-src` needs no inline allowance.
     expect(page.text).not.toMatch(/<script(?![^>]*\ssrc=)[^>]*>/);
+  });
+});
+
+describe("the deployment switch", () => {
+  it("stores nothing while ingestion is turned off for the whole deployment", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+    const off = app({ enabled: false });
+
+    const response = await send(off, "alpha.example.test", batch());
+
+    // Two locks in two places: a site can be collecting and still receive nothing while an operator
+    // has ingestion off, which is what makes a controlled rollout possible.
+    expect(response.status).toBe(204);
+    expect(await stored(ANALYTICS_COLLECTIONS.daily)).toHaveLength(0);
+  });
+});
+
+describe("what an operator can see", () => {
+  it("reports how batches ended, and nothing about who sent them", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+    const runtime = createAnalyticsRuntime({
+      resolver,
+      analytics,
+      publishing,
+      logger: testLogger(),
+      trustsProxy: false,
+      enabled: true,
+    });
+    const application = createRendererApp({ env: testEnv(), logger: testLogger(), resolver, analytics: runtime });
+
+    await send(application, "alpha.example.test", batch());
+    await send(application, "alpha.example.test", { schemaVersion: 1 });
+    await send(application, "nobody.example.test", batch());
+
+    const health = await request(application).get("/healthz");
+
+    expect(health.body.data.analytics).toMatchObject({
+      accepted: 1,
+      rejectedMalformed: 1,
+      rejectedUnknownHost: 1,
+    });
+    // Counts only. Nothing here names a session, a path, an address or an agent.
+    const serialised = JSON.stringify(health.body.data.analytics);
+    expect(serialised).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/);
+    expect(serialised).not.toContain("alpha.example.test");
+  });
+
+  it("logs nothing that identifies a visitor", async () => {
+    const lines: string[] = [];
+    const capturing = testLogger();
+    const runtime = createAnalyticsRuntime({
+      resolver,
+      analytics,
+      publishing,
+      logger: Object.assign(Object.create(capturing), {
+        warn: (...args: unknown[]) => lines.push(JSON.stringify(args)),
+        info: (...args: unknown[]) => lines.push(JSON.stringify(args)),
+      }) as typeof capturing,
+      trustsProxy: false,
+      enabled: true,
+    });
+    const application = createRendererApp({ env: testEnv(), logger: testLogger(), resolver, analytics: runtime });
+
+    const site = await liveSite(A, "Alpha", "alpha.example.test");
+    const sent = batch({ events: [{ type: "page_region_click", x: 0.1234, y: 0.5678 }] });
+    await send(application, "alpha.example.test", sent);
+
+    const output = lines.join("\n");
+    for (const secret of [sent.sessionId, sent.batchId, sent.pageViewId, "0.1234", "0.5678", BROWSER]) {
+      expect(output, `${secret} was logged`).not.toContain(secret);
+    }
+    expect(site.projectId).not.toBe("");
   });
 });

@@ -106,7 +106,15 @@ export function createRendererApp(options: {
 
   // Health must not require a site hostname and must not expose tenant data.
   app.get("/healthz", (_req, res) => {
-    res.status(200).json({ data: { status: "ok", uptimeSeconds: Math.floor(process.uptime()) } });
+    res.status(200).json({
+      data: {
+        status: "ok",
+        uptimeSeconds: Math.floor(process.uptime()),
+        // Counts only: how many batches ended each way since this process started. Enough to see
+        // that ingestion is failing and why, and not enough to see what any visitor did.
+        ...(analytics === undefined ? {} : { analytics: analytics.stats() }),
+      },
+    });
   });
 
   // Before the page catch-all, and before the unknown-host guard: these paths belong to the

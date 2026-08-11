@@ -212,6 +212,25 @@ describe("the gateway", () => {
   });
 });
 
+describe("analytics ingestion", () => {
+  const renderer = (compose.services.renderer?.environment ?? {}) as Record<string, string>;
+
+  it("starts with ingestion off, so an open write endpoint is a deliberate act", () => {
+    expect(renderer["ANALYTICS_INGESTION_ENABLED"]).toContain(":-false");
+  });
+
+  it("configures both rate-limit buckets", () => {
+    expect(renderer["ANALYTICS_RATE_LIMIT_PER_ADDRESS"]).toBeDefined();
+    expect(renderer["ANALYTICS_RATE_LIMIT_PER_PROJECT"]).toBeDefined();
+  });
+
+  it("passes the trusted proxy ranges the address bucket depends on", () => {
+    // Without them the renderer trusts no forwarded header, every visitor presents the gateway's
+    // address, and an address-keyed limit would throttle the internet as one client.
+    expect(renderer["TRUSTED_PROXY_CIDRS"]).toBeDefined();
+  });
+});
+
 describe("renderer routing", () => {
   const labels = (compose.services.renderer?.labels ?? []) as string[];
   const label = (key: string) => labels.find((entry) => entry.startsWith(`${key}=`))?.split("=").slice(1).join("=");

@@ -43,6 +43,14 @@ async function start(): Promise<void> {
       settingsTtlSeconds: env.PUBLIC_SITE_CACHE_TTL_SECONDS,
       // Address-keyed limiting is only meaningful where a forwarded address can be believed.
       trustsProxy: env.trustedProxyCidrs.length > 0,
+      // Off unless an operator says otherwise. Two locks in two places: this one, and each site's
+      // own setting.
+      enabled: env.ANALYTICS_INGESTION_ENABLED === "true",
+      limits: {
+        perAddress: env.ANALYTICS_RATE_LIMIT_PER_ADDRESS,
+        perProject: env.ANALYTICS_RATE_LIMIT_PER_PROJECT,
+        windowMs: 60_000,
+      },
     });
 
     // Counting must never delay or fail a page. The response has already been decided by the time

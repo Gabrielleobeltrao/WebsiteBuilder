@@ -658,7 +658,7 @@ they are listed as P1-T0a through P1-T0e below.
 
 ### Phase 7 — Integration and operational readiness
 
-- [ ] **P7-T1 — Connect the workspace overview to site analytics**
+- [x] **P7-T1 — Connect the workspace overview to site analytics**
   - **Reworded 2026-08-11.** The placeholder this task described no longer exists; restoring
     `not_connected` behaviour would be a regression. The workspace overview already shows measured
     server-counted traffic.
@@ -667,17 +667,17 @@ they are listed as P1-T0a through P1-T0e below.
   - Acceptance: the workspace overview never fabricates zero traffic, and never presents the browser
     subset as the whole.
 
-- [ ] **P7-T2 — Add observability without visitor leakage**
+- [x] **P7-T2 — Add observability without visitor leakage**
   - Add aggregate ingestion rate, rejected batches, queue/aggregation lag, storage size, query latency, and error metrics.
   - Do not include event payloads, session IDs, or visitor identifiers in logs.
   - Acceptance: operators can detect failure without inspecting visitor behavior.
 
-- [ ] **P7-T3 — Add production environment controls**
+- [x] **P7-T3 — Add production environment controls**
   - Add documented variables for feature enablement, retention limits, sampling, rate limits, batch limits, aggregation interval, and optional anonymous-ID secret.
   - Keep them inside the existing API/renderer services; no new public port or domain.
   - Acceptance: Compose validation and secret-placement tests pass.
 
-- [ ] **P7-T4 — Write documentation**
+- [x] **P7-T4 — Write documentation**
   - Create `docs/ANALYTICS.md`, `docs/ANALYTICS_METRICS.md`, `docs/ANALYTICS_PRIVACY.md`, and `docs/ANALYTICS_OPERATIONS.md`.
   - Update README, roadmap, environment examples, operations, and deployment docs.
   - Acceptance: docs explain collection, definitions, consent, retention, capacity, troubleshooting, backup, deletion, and rollback.
@@ -805,6 +805,7 @@ Append entries; do not erase history.
 | 2026-08-11 | P3-T1..T3 tracker | n/a | `npm run build:tracker`, `npx vitest run backend/tests/{bundle-budget,analytics-ingestion}.test.ts`, `npx playwright test --project=published-site` | 4,224 bytes Brotli against a 15,000 ceiling and an 8,000 target. 18 browser tests on real published pages: origin isolation, scroll depth reported once each, click attribution, Web Vitals, silence while hidden, consent before/after/withdrawn, JavaScript disabled, tracker blocked, ingestion failing |
 | 2026-08-11 | P4 privacy, P5 queries | n/a | `npx vitest run backend/tests/analytics-api.test.ts`, `npx playwright test --project=published-site` | 25 API tests and 22 browser tests. Consent is server-rendered and revealed only when there is a question to ask — a browser test caught that an inline `display` would have shown it to everyone, including people who had declined. Legal wording, jurisdictions and the GPC/DNT policy remain `[!]`: they are decisions, and the implementation carries whatever is decided. |
 | 2026-08-11 | P6 dashboard (except T4) | n/a | `npm run typecheck && npm run test && npm run build && npm run test:e2e` | 1577 unit tests and 45 E2E. Filters live in the URL; a site that is not collecting explains itself instead of drawing an empty chart; a Web Vital below the sample threshold reports its count and no rating. Two defects the tests caught: the settings hints were folded into their controls' accessible names, and a toggle had no `htmlFor`. |
+| 2026-08-11 | P6-T4 heatmaps, P7 operations | n/a | `npx vitest run backend/tests/{analytics-ingestion,deployment-config}.test.ts` | Ingestion counters on the renderer's health endpoint — counts only, asserted to contain no identifier, host or address. `ANALYTICS_INGESTION_ENABLED` defaults to false, so a deployment never starts with an open write endpoint. Four documents written; P7-T3's real production values remain `[!]`. |
 | 2026-08-11 | P1-T0a..e prerequisites | n/a | `npm run typecheck && npm run test && npm run build && npm run test:e2e` | 1436 unit tests and 28 E2E green, including a new `published-site` browser project. Two pre-existing defects found and fixed: elements outside free-layout sections carried no id at all, and the renderer could not run under `tsx` because the frontend components it renders were outside the backend tsconfig's `include` — so `npm run dev:renderer` had never served a page. |
 
 ## 19. Decision Log
