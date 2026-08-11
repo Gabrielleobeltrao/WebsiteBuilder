@@ -451,7 +451,7 @@ Split validation by process:
   - Tag the verified commit according to Section 5.
   - Acceptance: the production commit is exactly the tested commit.
 
-- [!] **P8-T3 — Create the single Coolify production resource**
+- [x] **P8-T3 — Create the single Coolify production resource**
   - Source: this GitHub repository.
   - Branch: `main`.
   - Base Directory: `/`.
@@ -584,6 +584,11 @@ The original statements, for reference:
   only if a route already reaches the renderer. The hazard and the safe order are in
   `docs/CUSTOM_DOMAINS.md` §6.
 - **No backup restore has been rehearsed.** The procedure is written; the evidence is not.
+- **Project subdomains have no TLS certificate yet.** Routing works — an unregistered host answers
+  404 over HTTP, which is the renderer refusing it correctly — but HTTPS presents Traefik's default
+  certificate. A `HostRegexp` router cannot obtain one on demand: Traefik has no concrete hostname
+  to request. A wildcard certificate via DNS-01 is the only path, and until it exists a published
+  site is not reachable over HTTPS.
 - **The forwarded-address chain depends on Traefik's own configuration.** Express walks the chain
   and stops at the first address outside the private ranges, which is correct as long as Traefik
   does not pass a client-supplied header through untouched. Set `forwardedHeaders.trustedIPs` on the
@@ -638,6 +643,7 @@ Append entries; do not erase history.
 | 2026-08-11 | P1-T3 (fix) | (this branch) | 27 env tests, including the exact shape Compose produces | A deployment platform sets a variable to `""` where a developer leaves it unset, and Zod's `.optional()` and `.default()` recognise only `undefined`. Every "leave it blank to disable" value was therefore validated as if someone had typed one deliberately, and the API refused to start in production over three Cloudflare variables it does not need. Blank now reads as absent, everywhere the Compose file uses `${VAR:-}`. A blank value that is genuinely required still fails — absent is exactly what those may not be. |
 | 2026-08-11 | P2-T3 (follow-up) | (this branch) | 4 auth-failure tests | A rate-limited sign-up (429) was falling into the generic "could not create the account, check the address" message. That advice cannot work — the address was never the problem — and following it means retrying immediately, which extends the block. 429 now says to wait; a rejected password length and a rejected address repeat what the server actually said. Verified against the live deployment, where the endpoint returns 200 for a valid signup, 422 for a duplicate, 400 for a short password and 429 under load. |
 | 2026-08-11 | P4-T4 (follow-up) | (this branch) | 5 client-address tests | The API ran with `trust proxy: false`, so every request carried the gateway's own address. Better Auth rate-limits per address, which made it one shared bucket for every visitor — one person reaching the limit locked out the rest, and it surfaced within minutes of a fresh deployment. Trust is now scoped to the private ranges a container gateway can occupy, never `true`, and Better Auth is told which header carries the address. A public hop in the chain is never skipped: it belongs to a visitor, and skipping it would let whoever sent it choose whose bucket to spend. |
+| 2026-08-11 | P8-T3, P8-T5 (partial) | c4e04c2 in production | Live smoke against the deployment | The single Compose resource is running and the topology is confirmed from outside: landing and roadmap 200, `/api/v1/health` reporting `database: up` through the gateway, an unknown API path answering `application/json` rather than HTML, the technical origin's `/healthz` 200, and `api.websitebuilder…` answering 503 — it has no route, which is the point. Account creation and sign-in confirmed by the operator. Project subdomains route correctly (404 over HTTP for an unregistered host) but have no certificate: a `HostRegexp` router cannot obtain one on demand, so a wildcard via DNS-01 is required before any site is publishable over HTTPS. |
 ## 14. Decision Log
 
 Append decisions that change implementation details while preserving the fixed architecture.

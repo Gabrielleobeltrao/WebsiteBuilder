@@ -94,4 +94,4 @@ additive, and there is no destructive migration in this codebase — but confirm
 
 | Date | Tag | Commit | Deployed by | Result |
 |---|---|---|---|---|
-| — | — | — | — | First production deployment not yet performed |
+| 2026-08-11 | `v0.1.0` | `c4e04c2` | Repository owner | First production deployment of the single-origin topology. Application, API and renderer healthy; account creation and sign-in confirmed. Outstanding: no wildcard certificate, so project subdomains answer over HTTP but not HTTPS. |

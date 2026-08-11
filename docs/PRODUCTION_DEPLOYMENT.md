@@ -154,10 +154,21 @@ private.
 of subdomain. `origin.websitebuilder.oneplataforma.com` is three labels deep and outside it, so a
 proxied record there serves a certificate error. DNS-only lets Traefik issue certificates on the VPS.
 
-**The wildcard certificate** needs a DNS-01 challenge, which requires a DNS provider configured in
-Coolify (Settings → Advanced → Let's Encrypt DNS Challenge, with a token scoped to Zone → DNS →
-Edit). Without it each project subdomain gets its own certificate on first request — that works, at
-the cost of latency on that first hit.
+**The wildcard certificate is required, not an optimisation.** Project subdomains are matched by a
+`HostRegexp` router, and Traefik cannot request a certificate for a pattern — it has no concrete
+hostname to ask Let's Encrypt for. On-demand HTTP-01 issuance, which covers a named domain like the
+technical origin, does not apply. Without a wildcard certificate every project subdomain answers
+over HTTP and presents Traefik's default self-signed certificate over HTTPS.
+
+Issue it with a DNS-01 challenge: Coolify → Settings → Advanced → Let's Encrypt DNS Challenge, with
+a Cloudflare token scoped to Zone → DNS → Edit on `oneplataforma.com`. Then confirm:
+
+```bash
+echo | openssl s_client -servername anything.websitebuilder.oneplataforma.com \
+  -connect <VPS IP>:443 2>/dev/null | openssl x509 -noout -subject
+```
+
+`TRAEFIK DEFAULT CERT` means it has not been issued yet.
 
 ---
 
