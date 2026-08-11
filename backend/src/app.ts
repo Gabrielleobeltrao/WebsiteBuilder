@@ -38,7 +38,13 @@ export function createApp(dependencies: AppDependencies = {}): Express {
   app.set("trust proxy", false);
 
   app.use(pinoHttp({ logger, autoLogging: !env.isTest }));
-  app.use(cors({ origin: env.FRONTEND_ORIGIN, credentials: true }));
+  // Same-origin in production: the browser reaches this API through the gateway on the platform
+  // origin, so no cross-origin request is expected and none is permitted. Development runs the two
+  // on different ports, which is the only case that needs an allowance — and it is an exact origin,
+  // never a reflection of whatever the request claimed.
+  if (!env.isProduction) {
+    app.use(cors({ origin: env.FRONTEND_ORIGIN, credentials: true }));
+  }
 
   dependencies.mountAuth?.(app);
 

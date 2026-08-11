@@ -7,6 +7,34 @@ import { renderRouteHtml } from "./html";
 import { normalizePath, resolveRoute, SiteResolver } from "./resolver";
 
 /**
+ * The policy a published page is served under.
+ *
+ * `script-src 'none'` is the important one and it costs nothing here: published pages are server
+ * HTML and ship no JavaScript at all, so a policy that forbids it entirely is simply the truth
+ * written down. If a script is ever added to public output, this line is what will refuse it until
+ * someone argues for the change.
+ *
+ * `style-src` allows inline because every element carries a serialised `style` attribute and
+ * container rules are emitted as a `<style>` block. Those are structured values written by the
+ * renderer from validated data — there is no path by which a designer supplies CSS text — so the
+ * injection `unsafe-inline` normally invites does not exist. The alternative, a per-request nonce,
+ * would defeat caching for no gain against a threat that is already closed.
+ *
+ * Frames are limited to the two video providers whose embed URLs this code builds from an id.
+ */
+export const PUBLISHED_SITE_CSP = [
+  "default-src 'none'",
+  "script-src 'none'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' https: data:",
+  "font-src 'self' https:",
+  "frame-src https://www.youtube-nocookie.com https://player.vimeo.com",
+  "form-action 'self'",
+  "base-uri 'none'",
+  "frame-ancestors 'none'",
+].join("; ");
+
+/**
  * The public multi-tenant renderer. One stateless process serves every published site: it resolves
  * the request hostname to an active domain record, never a client-supplied project ID, and answers
  * an unrecognised host with a neutral response that reveals no tenant.
@@ -80,16 +108,19 @@ export function createRendererApp(options: { env: Env; logger: Logger; resolver?
         route,
         document: site.document,
         canonicalUrl: `https://${site.domain.hostname}${normalizePath(req.path)}`,
-        // Media is served by the API, which is its own host, not by the application.
-        mediaBaseUrl: `${env.API_PUBLIC_ORIGIN}/api/v1/public/media`,
+        // Same origin as the application: the API has no public hostname of its own, and a
+        // published page must not reference one that does not exist.
+        mediaBaseUrl: `${env.PLATFORM_PUBLIC_ORIGIN}/api/v1/public/media`,
       });
 
       res
         .status(outcome.kind === "route" ? 200 : 404)
         .type("text/html; charset=utf-8")
         .set("cache-control", `public, max-age=0, s-maxage=${env.PUBLIC_SITE_CACHE_TTL_SECONDS}`)
+        .set("content-security-policy", PUBLISHED_SITE_CSP)
         .set("x-content-type-options", "nosniff")
         .set("referrer-policy", "strict-origin-when-cross-origin")
+        .set("permissions-policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()")
         .send(html);
     } catch (error) {
       next(error);

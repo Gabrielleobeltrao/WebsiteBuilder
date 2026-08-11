@@ -171,3 +171,59 @@ describe("startup diagnostics", () => {
     expect(presentVariables({} as NodeJS.ProcessEnv)).toEqual([]);
   });
 });
+
+describe("service roles", () => {
+  const production = {
+    NODE_ENV: "production",
+    MONGODB_URI: "mongodb://localhost:27017",
+    MONGODB_DB_NAME: "app",
+    PLATFORM_PUBLIC_ORIGIN: "https://websitebuilder.example.com",
+    PLATFORM_ROOT_DOMAIN: "websitebuilder.example.com",
+    FRONTEND_ORIGIN: "https://websitebuilder.example.com",
+  } as NodeJS.ProcessEnv;
+
+  it("accepts a valid production API environment", () => {
+    const env = loadEnv({ ...production, BETTER_AUTH_SECRET: "x".repeat(40) }, "api");
+    expect(env.isProduction).toBe(true);
+  });
+
+  it("accepts a valid production renderer environment without an auth secret", () => {
+    // The renderer serves published snapshots and has no sessions. Demanding the signing secret
+    // would hand a credential to a process that can only widen its blast radius.
+    expect(() => loadEnv(production, "renderer")).not.toThrow();
+  });
+
+  it("still refuses an API without its secret", () => {
+    expect(() => loadEnv(production, "api")).toThrow(EnvironmentError);
+  });
+
+  it("refuses either role without database configuration", () => {
+    const { MONGODB_URI, ...withoutDatabase } = production;
+
+    for (const role of ["api", "renderer"] as const) {
+      expect(() => loadEnv(withoutDatabase as NodeJS.ProcessEnv, role)).toThrow(EnvironmentError);
+    }
+  });
+
+  it("keeps error messages free of values for both roles", () => {
+    const secret = "x".repeat(40);
+    const failure = (role: "api" | "renderer") => {
+      try {
+        loadEnv({ ...production, MONGODB_URI: "", BETTER_AUTH_SECRET: secret }, role);
+        return "";
+      } catch (thrown) {
+        return (thrown as EnvironmentError).message;
+      }
+    };
+
+    for (const role of ["api", "renderer"] as const) {
+      expect(failure(role)).toContain("MONGODB_URI");
+      expect(failure(role)).not.toContain(secret);
+    }
+  });
+
+  it("defaults to the API role, which is the stricter of the two", () => {
+    // A caller that forgets to say which process it is gets the requirements that refuse more.
+    expect(() => loadEnv(production)).toThrow(EnvironmentError);
+  });
+});

@@ -1,24 +1,28 @@
-# Coolify production stack.
+# Coolify production stack — one resource, three containers, one private network.
 #
-# Three services, one public entry point. Only the frontend gateway gets a domain: the API is
-# reachable exclusively through https://${PLATFORM_ROOT_DOMAIN}/api/*, which is what keeps session
-# cookies same-origin and removes CORS from the product entirely.
+# The application has a single public origin. It serves the SPA and proxies `/api/*` to a backend
+# that has no public route at all: the browser never makes a cross-origin request, so the session
+# cookie is host-only to the origin it is already on and there is no CORS allowance to get wrong.
 #
-# The public renderer is a separate service with its own hostname because it serves *customer*
-# sites. Sharing an origin with the application would mean a published customer page and the
-# authenticated dashboard sat on the same cookie domain.
+# The renderer is separate and public for the opposite reason. It serves *customer* content, and
+# sharing an origin with the authenticated dashboard would put a published customer page and the
+# admin session cookie on one host.
+#
+# Required variables have no default on purpose: `${VAR:?message}` stops the deployment rather than
+# starting a service configured with an empty string.
 
 services:
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
-      args:
-        VITE_API_URL: ${API_PUBLIC_ORIGIN}/api/v1
     restart: unless-stopped
     environment:
       # Coolify reads this to route the domain to this service.
-      SERVICE_FQDN_FRONTEND: ${PLATFORM_PUBLIC_ORIGIN}
+      SERVICE_FQDN_FRONTEND: ${PLATFORM_PUBLIC_ORIGIN:?set the public application origin}
+    # Health-gated so the gateway is not published while its upstream is still starting. The
+    # gateway's own health does not depend on the API, so a later backend restart does not take the
+    # frontend down with it.
     depends_on:
       backend:
         condition: service_healthy
@@ -28,65 +32,91 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    networks: [internal]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
     deploy:
       resources:
-        limits:
-          memory: 256M
+        limits: { memory: 256M }
+        reservations: { memory: 64M }
 
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      target: api
     restart: unless-stopped
+    # Deliberately no SERVICE_FQDN and no `ports`: this service must not be publicly routable. It is
+    # reached only as `backend:3000` on the private network below, which is what makes the
+    # single-origin design true rather than merely intended.
+    expose: ["3000"]
     environment:
-      # The API is publicly routable on its own hostname. It answers only the application origin
-      # below, and only with credentials.
-      SERVICE_FQDN_BACKEND: ${API_PUBLIC_ORIGIN}
-      SERVICE_ROLE: api
       NODE_ENV: production
       API_PORT: 3000
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      MONGODB_URI: ${MONGODB_URI}
-      MONGODB_DB_NAME: ${MONGODB_DB_NAME}
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
-      BETTER_AUTH_URL: ${API_PUBLIC_ORIGIN}
+      MONGODB_URI: ${MONGODB_URI:?set the MongoDB connection string}
+      MONGODB_DB_NAME: ${MONGODB_DB_NAME:?set the MongoDB database name}
+      # At least 32 bytes. Sessions signed with a weak secret are forgeable.
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set a session signing secret of at least 32 characters}
+      # The application origin: the API answers under it at /api/auth, so the cookie is issued for
+      # the host the browser is already on.
+      BETTER_AUTH_URL: ${PLATFORM_PUBLIC_ORIGIN}
       BETTER_AUTH_BASE_PATH: /api/auth
       FRONTEND_ORIGIN: ${PLATFORM_PUBLIC_ORIGIN}
-      PLATFORM_ROOT_DOMAIN: ${PLATFORM_ROOT_DOMAIN}
+      PLATFORM_ROOT_DOMAIN: ${PLATFORM_ROOT_DOMAIN:?set the platform root domain}
       PLATFORM_PUBLIC_ORIGIN: ${PLATFORM_PUBLIC_ORIGIN}
-      API_PUBLIC_ORIGIN: ${API_PUBLIC_ORIGIN}
       PLATFORM_RESERVED_SUBDOMAINS: ${PLATFORM_RESERVED_SUBDOMAINS:-www,app,api,admin,origin,customers,coolify,status,mail,cdn,assets,static,docs,support}
       JSON_BODY_LIMIT: ${JSON_BODY_LIMIT:-8mb}
       SHUTDOWN_TIMEOUT_MS: ${SHUTDOWN_TIMEOUT_MS:-30000}
+      PUBLISHED_VERSION_RETENTION_COUNT: ${PUBLISHED_VERSION_RETENTION_COUNT:-20}
+      PUBLISH_MAX_DOCUMENT_BYTES: ${PUBLISH_MAX_DOCUMENT_BYTES:-4000000}
+      # Optional. Absent, the platform runs and only connecting a customer's own domain is refused.
+      CLOUDFLARE_ZONE_ID: ${CLOUDFLARE_ZONE_ID:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      CLOUDFLARE_SAAS_CNAME_TARGET: ${CLOUDFLARE_SAAS_CNAME_TARGET:-}
+    networks: [internal]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
     deploy:
       resources:
-        limits:
-          memory: 1G
+        limits: { memory: 1G }
+        reservations: { memory: 256M }
 
   renderer:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      target: renderer
     restart: unless-stopped
     environment:
       # Technical hostname plus the wildcard for project subdomains. Never advertised as a product
       # URL — customers reach their sites through their own hostname.
-      SERVICE_FQDN_RENDERER: ${PUBLIC_RENDERER_ORIGIN}
-      # Which of the two servers in this image runs, and which health endpoint is probed.
-      SERVICE_ROLE: renderer
+      SERVICE_FQDN_RENDERER: ${PUBLIC_RENDERER_ORIGIN:?set the technical renderer origin}
       NODE_ENV: production
       PUBLIC_RENDERER_PORT: 3001
       LOG_LEVEL: ${LOG_LEVEL:-info}
       MONGODB_URI: ${MONGODB_URI}
       MONGODB_DB_NAME: ${MONGODB_DB_NAME}
       PLATFORM_ROOT_DOMAIN: ${PLATFORM_ROOT_DOMAIN}
+      # Published pages reference media at this origin, which is where the API answers.
       PLATFORM_PUBLIC_ORIGIN: ${PLATFORM_PUBLIC_ORIGIN}
-      # Media on a published page is served by the API, not by the application.
-      API_PUBLIC_ORIGIN: ${API_PUBLIC_ORIGIN}
       PUBLIC_SITE_CACHE_TTL_SECONDS: ${PUBLIC_SITE_CACHE_TTL_SECONDS:-60}
       # Must match the real Coolify/Traefik proxy range before any forwarded header is trusted.
+      # Empty trusts nothing, which is the safe default on a host-routed multi-tenant renderer.
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
+    # No BETTER_AUTH_SECRET: the renderer has no sessions, and a signing secret handed to a process
+    # that cannot use it only widens what a compromise reaches.
+    networks: [internal]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
     deploy:
       resources:
-        limits:
-          memory: 512M
+        limits: { memory: 512M }
+        reservations: { memory: 128M }
+
+networks:
+  internal:
+    driver: bridge

@@ -70,7 +70,9 @@ test("the real plan resolves a task packet far smaller than the whole plan", () 
 
 test("every task ID in the real plan is unique and extractable", () => {
   const ids = [...plan.matchAll(/^-\s*\[[ x~!]\]\s*\*\*(P\d+-T\d+)\s*—/gm)].map((m) => m[1]);
-  assert.ok(ids.length > 50, `expected many tasks, found ${ids.length}`);
+  // A lower bound, not a count. It exists so a plan that stopped parsing fails loudly rather than
+  // reporting zero tasks and passing; the exact number changes whenever the plan is replaced.
+  assert.ok(ids.length > 10, `expected the plan to parse into tasks, found ${ids.length}`);
   assert.equal(new Set(ids).size, ids.length, "duplicate task IDs in the plan");
   for (const id of ids) assert.doesNotThrow(() => extractTask(plan, id), `failed to extract ${id}`);
 });

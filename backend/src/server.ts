@@ -197,7 +197,7 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
 async function start(): Promise<void> {
   let env: Env;
   try {
-    env = loadEnv();
+    env = loadEnv(process.env, "api");
   } catch (error) {
     if (error instanceof EnvironmentError) {
       // Listing what did arrive turns one ambiguous failure into two distinguishable ones: nothing

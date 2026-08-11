@@ -3,14 +3,17 @@ import { API_BASE_PATH } from "@websitebuilder/shared";
 /**
  * Where the API is, decided once.
  *
- * Two clients talk to the backend — the typed fetch wrapper and Better Auth — and they must agree.
- * When they did not, one of them kept calling the application's own origin, where `/api/*` falls
- * through to the SPA and returns `index.html`; the client then failed to parse a login page as JSON
- * and reported it as a rejected sign-in. Nothing about that error mentions the real cause, which is
- * why this lives in one place rather than in each of them.
+ * In production it is `/api/v1` on this same origin: the gateway proxies `/api/*` to a backend that
+ * has no public hostname at all. Nothing to configure, nothing to get wrong, and no cross-origin
+ * request for a browser to attach credentials to.
  *
- * The value is build configuration and is never derived from a request or a document. An API URL
+ * `VITE_API_URL` remains only for local development, where the API really does answer somewhere
+ * else. It is build configuration and is never derived from a request or a document — an API URL
  * that user data can influence is how a session token ends up somewhere nobody intended.
+ *
+ * Two clients read this: the typed fetch wrapper and Better Auth. They must agree. When they did
+ * not, one kept calling an origin where `/api/*` fell through to the SPA, and a login page parsed
+ * as JSON surfaced as a rejected sign-in with nothing pointing at the cause.
  */
 function configured(): string | null {
   const raw = import.meta.env.VITE_API_URL;

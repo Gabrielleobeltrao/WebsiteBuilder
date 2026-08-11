@@ -1,8 +1,9 @@
-# The checks branch protection requires before `development` may merge into `main`.
+# The checks that gate a change before it reaches `main`.
 #
 # Every one of these is the same command a developer runs locally, so a green run means what it
-# appears to mean. Nothing here reaches a real database, DNS, Cloudflare or Coolify: the
-# backend suite starts its own in-memory MongoDB per file and the E2E suite starts one for itself.
+# appears to mean. Nothing here reaches a real database, DNS, Cloudflare or Coolify: the backend
+# suite starts its own in-memory MongoDB per file, the E2E suite starts one for itself, and the
+# image build is a build only — no container is started against anything real.
 
 name: Quality
 
@@ -36,8 +37,8 @@ jobs:
           cache: npm
 
       # `ci` rather than `install`: it installs exactly the lockfile and fails if the manifests and
-      # the lockfile disagree, which is the difference between reproducing a build and approximating
-      # one.
+      # the lockfile disagree, which is the difference between reproducing a build and
+      # approximating one.
       - run: npm ci
 
       - name: Typecheck
@@ -49,12 +50,65 @@ jobs:
       - name: Build
         run: npm run build
 
-      # After the build, so the bundle scan and the JavaScript budget have an artefact to read.
+      # After the build, so the bundle scan, the build-mode check and the JavaScript budget have an
+      # artefact to read.
       - name: Install browsers
         run: npx playwright install --with-deps chromium
 
       - name: End-to-end
         run: npm run test:e2e
+
+      - name: Skill checks
+        run: npm run check:plan-skill && npm run check:runbook
+
+  # Separate from `verify` so a Docker problem is never mistaken for a code problem, and so this
+  # job's result is legible on its own in the checks list.
+  deployment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # Renders the production Compose with throwaway values. Catches an unset required variable,
+      # a malformed interpolation and a service that lost its build target — the class of mistake
+      # that otherwise surfaces as a failed deploy.
+      - name: Compose renders
+        env:
+          PLATFORM_PUBLIC_ORIGIN: http://localhost:8080
+          PUBLIC_RENDERER_ORIGIN: http://localhost:3001
+          PLATFORM_ROOT_DOMAIN: localhost
+          MONGODB_URI: mongodb://127.0.0.1:27017
+          MONGODB_DB_NAME: ci
+          BETTER_AUTH_SECRET: ci-only-secret-that-is-long-enough-000000
+        run: docker compose -f docker-compose.production.yml config --quiet
+
+      # A build only. Proves both targets compile from a clean checkout and that each carries the
+      # command it should; running the stack against real data belongs in the smoke suite, which an
+      # operator runs deliberately.
+      - name: Images build
+        run: |
+          docker build --target api      -t wb-api:ci      -f backend/Dockerfile .
+          docker build --target renderer -t wb-renderer:ci -f backend/Dockerfile .
+          docker build                   -t wb-frontend:ci -f frontend/Dockerfile .
+
+      - name: Each image starts its own process
+        run: |
+          set -euo pipefail
+          api=$(docker inspect --format '{{join .Config.Cmd " "}}' wb-api:ci)
+          renderer=$(docker inspect --format '{{join .Config.Cmd " "}}' wb-renderer:ci)
+          echo "api:      $api"
+          echo "renderer: $renderer"
+          [[ "$api"      == *"backend/dist/server.js"*          ]]
+          [[ "$api"      != *"renderer-server.js"*              ]]
+          [[ "$renderer" == *"backend/dist/renderer-server.js"* ]]
 
   audit:
     runs-on: ubuntu-latest

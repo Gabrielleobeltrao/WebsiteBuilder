@@ -10,7 +10,7 @@ import { SiteResolver } from "./renderer/resolver";
 async function start(): Promise<void> {
   let env;
   try {
-    env = loadEnv();
+    env = loadEnv(process.env, "renderer");
   } catch (error) {
     if (error instanceof EnvironmentError) {
       process.stderr.write(`${error.message}\n`);
