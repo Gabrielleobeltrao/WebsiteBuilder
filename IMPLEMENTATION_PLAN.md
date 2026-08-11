@@ -2089,7 +2089,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
 
 ### Phase 16 — System pages, redirects, search, and essential visitor elements
 
-- [ ] **P16-T1 — Editable system-page templates**
+- [x] **P16-T1 — Editable system-page templates**
   - Add protected templates for 404, search results, thank-you, maintenance, and generic empty-result states using the shared renderer and safe system bindings.
   - System templates cannot be deleted or assigned conflicting routes; reset-to-safe-default remains available.
   - Acceptance: each state is brandable and responsive while preserving required status/behavior and accessibility.
@@ -2107,13 +2107,13 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: visitor queries return safe, relevant, paginated internal results with correct empty state and never reveal nonpublic content.
   - Verify: indexing, exclusion, ranking stability, query limits, XSS, pagination, and E2E tests.
 
-- [ ] **P16-T4 — Essential visual elements**
+- [x] **P16-T4 — Essential visual elements**
   - Add icon, icon list, divider, spacer, FAQ/accordion, tabs, gallery/lightbox, safe video, social links, download button, breadcrumbs, table, pricing table, and announcement bar elements.
   - Use allowlisted icons/providers/URLs; no arbitrary iframe, HTML, CSS, or JavaScript. Reuse existing responsive sizing, inspector, copy/paste, history, visibility, and renderer contracts.
   - Acceptance: every new element saves/reloads, supports meaningful responsive settings, and renders without editor-only dependencies.
   - Verify: schema, inspector, renderer, persistence, responsive, safe-link/provider, and visual tests.
 
-- [ ] **P16-T5 — Interactive-element accessibility**
+- [x] **P16-T5 — Interactive-element accessibility**
   - Implement keyboard patterns, semantic roles/elements, focus management/restoration, accessible names/states, reduced motion, escape behavior, and touch targets for menu, form, search, FAQ, tabs, gallery/lightbox, and announcement controls.
   - Acceptance: complete visitor interaction works without a pointer and screen-reader state is not communicated by color alone.
   - Verify: automated accessibility, keyboard sequence, focus, reduced-motion, and manual checklist tests.
@@ -2542,6 +2542,7 @@ Append entries; do not erase history.
 | 2026-08-10 | P9-T4 | `sectionStyle` always resolves through the breakpoint chain, including in the editor | Reading a single breakpoint's stored values in the canvas and the chain everywhere else meant a section set to four fixed columns on desktop showed auto-fit while editing mobile. One resolution path is the whole reason the renderer is shared. |
 | 2026-08-10 | P9-T6 | Fluid lengths are stored as their two endpoints, not as a pre-computed clamp | The viewport term needs an intercept; a bare `vw` equals the minimum only by coincidence, so a curve without one sits pinned at the floor and then jumps. Storing endpoints keeps the maths in one serialiser that is tested by evaluating the CSS it emits. |
 | 2026-08-10 | P9-T6 | Removed the `VITE_*` variables from `.env.example`, the frontend Dockerfile and the compose file | Vite reads env from `frontend/`, not the repository root, and the app reads no `VITE_` variable at all — the API path is a constant because the frontend and API share an origin. The entries documented configuration that could not take effect. |
+| 2026-08-10 | P16-T5 | The renderer barrel deliberately excludes the interactive elements | That barrel is what the backend's public renderer imports, and the backend compiles without DOM types on purpose so its own code cannot reference `window` and typecheck. Adding the export would have forced DOM types into the API package as a side effect of an export line. |
 ## 15. Progress Log
 
 Append one concise line after each completed task.
@@ -2657,4 +2658,7 @@ Append one concise line after each completed task.
 | 2026-08-10 | P15-T2 | CMS repository, API and dashboard: collections, schema editor, item table with status and search, create/edit/duplicate/delete, and impact reporting for schema changes | 31 tests: a removed field's values survive and return if the field does, a newly required field is refused only when published items cannot satisfy it, a duplicate is always a draft, renaming a label never changes a field id, and an empty number stays undefined |
 | 2026-08-10 | P15-T3 | CMS collection element: structured query with filters, sorts and bounded limit, one reusable card sub-layout bound by immutable field id, grid/list layout, load-more and an editable empty state | 27 tests: publishing a matching item adds it to a list with no page edit, drafts never reach published output, a missing value renders nothing rather than "undefined", a non-http value never becomes clickable, and "show more" keeps the items already shown |
 | 2026-08-10 | P15-T4 | Detail templates with separate draft and published copies, SEO inheritance per part, impact reporting, and item routes gated on template publication | 16 tests: editing a draft leaves the live template untouched, no item route is claimed until a template has been published, a template naming only a title field still inherits the site description, and deleting a collection removes its template |
+| 2026-08-10 | P16-T1 | System pages for 404, search, thank-you, maintenance and empty results, each with a fixed status contract, protected bindings and safe defaults | 18 tests: a 404 answers 404 however it is designed, maintenance answers 503 so crawlers return rather than dropping the site, no system page enters the sitemap, and an ordinary page claiming a system path is a publication blocker |
+| 2026-08-10 | P16-T4 | Fourteen visual elements as validated structured data: icon, icon list, divider, spacer, accordion, tabs, gallery, video, social links, download, breadcrumbs, table, pricing table, announcement bar | 11 tests: no element type accepts HTML, CSS, a script or an iframe URL; a video id must be id-shaped and the embed URL is built here; a social link must belong to the network it claims |
+| 2026-08-10 | P16-T5 | Interactive elements built on native disclosure, tablist and dialog semantics with managed focus and 44px targets | 18 tests: arrow keys move between tabs and only the active one is in the tab order, state is carried by aria-selected rather than colour, the lightbox returns focus to the thumbnail that opened it, and a player is granted neither camera nor microphone |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

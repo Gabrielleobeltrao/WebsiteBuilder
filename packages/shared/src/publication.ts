@@ -12,6 +12,7 @@ import {
 import { flattenChains, type Redirect } from "./redirects";
 import { buildSearchIndex, type SearchDocument, type SearchSource } from "./search";
 import { resolvePageMetadata } from "./seo";
+import { SYSTEM_PAGE_CONTRACTS, SYSTEM_PAGE_KINDS } from "./system-pages";
 
 /**
  * Compiles one project revision into a publishable snapshot.
@@ -192,14 +193,23 @@ export function buildRouteManifest(input: CompileInput): RouteManifestEntry[] {
     }
   }
 
-  // The 404 handler is a route so the renderer never needs a hardcoded fallback page.
-  routes.push({
-    path: "/404",
-    kind: "system",
-    resourceId: "not-found",
-    statusCode: 404,
-    seo: { title: "Page not found", robots: { index: false, follow: false } },
-  });
+  // System pages are routes so the renderer never needs a hardcoded fallback. Each carries the
+  // status its contract requires, whatever the designer put on it.
+  for (const kind of SYSTEM_PAGE_KINDS) {
+    const contract = SYSTEM_PAGE_CONTRACTS[kind];
+    // A page with no fixed path is rendered in place of other content and claims no route.
+    if (contract.path === null) continue;
+
+    routes.push({
+      path: contract.path,
+      kind: "system",
+      resourceId: kind,
+      // The manifest only distinguishes 200 from 404; a 503 is served by the renderer from the
+      // same entry when the site is in maintenance.
+      statusCode: contract.statusCode === 404 ? 404 : 200,
+      seo: { title: kind, robots: { index: false, follow: false } },
+    });
+  }
 
   return routes;
 }

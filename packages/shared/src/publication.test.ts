@@ -280,3 +280,36 @@ describe("redirects", () => {
     expect(snapshot?.redirects.some((entry) => entry.sourcePath === "/about")).toBe(false);
   });
 });
+
+describe("system pages", () => {
+  it("claims a route for every system page that has a fixed path", () => {
+    const snapshot = compileSite(input()).snapshot;
+    const system = snapshot?.routes.filter((route) => route.kind === "system") ?? [];
+
+    expect(system.map((route) => route.path).sort()).toEqual(["/404", "/search", "/thank-you"]);
+  });
+
+  it("keeps the 404 answering 404 and the others answering 200", () => {
+    const system = compileSite(input()).snapshot?.routes.filter((route) => route.kind === "system") ?? [];
+
+    expect(system.find((route) => route.path === "/404")?.statusCode).toBe(404);
+    expect(system.find((route) => route.path === "/search")?.statusCode).toBe(200);
+  });
+
+  it("keeps every system page out of the sitemap", () => {
+    const snapshot = compileSite(input()).snapshot;
+
+    for (const path of ["/404", "/search", "/thank-you"]) {
+      expect(snapshot?.sitemapPaths).not.toContain(path);
+    }
+  });
+
+  it("reports a collision when an ordinary page claims a system path", () => {
+    const clashing = project();
+    clashing.pages.push(createPage({ name: "Search", slug: "search", order: 1 }));
+
+    const result = compileSite(input({ project: clashing }));
+    expect(result.ok).toBe(false);
+    expect(result.report.issues.map((issue) => issue.code)).toContain("route-collision");
+  });
+});
