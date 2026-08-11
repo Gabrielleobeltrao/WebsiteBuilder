@@ -6,6 +6,11 @@
 FROM node:22-slim AS build
 WORKDIR /app
 
+# The build needs TypeScript, tsup and the workspace tooling, all of which are devDependencies. A
+# platform that exposes NODE_ENV=production at build time would make npm skip exactly those, so this
+# stage states its own value rather than inheriting one that breaks it.
+ENV NODE_ENV=development
+
 # Manifests first so dependency installation is cached until they actually change.
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/
@@ -14,7 +19,9 @@ COPY frontend/package.json frontend/
 
 # The renderer server-renders the frontend's renderer components, so that workspace is installed
 # and its source is copied in — the bundler reads them directly rather than a built artefact.
-RUN npm ci --workspace @websitebuilder/backend --workspace @websitebuilder/shared \
+# `--include=dev` as well as the environment above: two ways of saying it, because a missing build
+# tool fails late and confusingly, and the cost of saying it twice is a flag.
+RUN npm ci --include=dev --workspace @websitebuilder/backend --workspace @websitebuilder/shared \
   --workspace @websitebuilder/frontend --include-workspace-root
 
 COPY tsconfig.base.json ./

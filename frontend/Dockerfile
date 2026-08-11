@@ -3,12 +3,18 @@
 FROM node:22-slim AS build
 WORKDIR /app
 
+# Vite and TypeScript are devDependencies. A platform that exposes NODE_ENV=production at build time
+# would make npm skip them, so this stage states its own value rather than inheriting one that
+# breaks it.
+ENV NODE_ENV=development
+
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/
 COPY backend/package.json backend/
 COPY frontend/package.json frontend/
 
-RUN npm ci --workspace @websitebuilder/frontend --workspace @websitebuilder/shared --include-workspace-root
+RUN npm ci --include=dev --workspace @websitebuilder/frontend --workspace @websitebuilder/shared \
+  --include-workspace-root
 
 COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
