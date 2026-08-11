@@ -2,7 +2,7 @@ import { toNodeHandler } from "better-auth/node";
 import express from "express";
 
 import { createApp, type AppDependencies } from "./app";
-import { EnvironmentError, loadEnv, type Env } from "./config/env";
+import { EnvironmentError, loadEnv, presentVariables, type Env } from "./config/env";
 import { createLogger } from "./config/logger";
 import { connectDatabase, createDatabaseHealthProbe, type Database } from "./db/client";
 import { installGracefulShutdown } from "./lifecycle";
@@ -200,7 +200,14 @@ async function start(): Promise<void> {
     env = loadEnv();
   } catch (error) {
     if (error instanceof EnvironmentError) {
-      process.stderr.write(`${error.message}\n`);
+      // Listing what did arrive turns one ambiguous failure into two distinguishable ones: nothing
+      // here means the platform passed no environment at all, which is a different fix from a
+      // single variable that was never saved. Names only — a value printed here is a value leaked
+      // into every log collector downstream.
+      const present = presentVariables();
+      process.stderr.write(
+        `${error.message}\n\nVariables this service received: ${present.length === 0 ? "(none)" : present.join(", ")}\n`,
+      );
       process.exit(1);
     }
     throw error;

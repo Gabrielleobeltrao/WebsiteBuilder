@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { EnvironmentError, loadEnv } from "../src/config/env";
+import { EnvironmentError, loadEnv, presentVariables } from "../src/config/env";
 
 describe("loadEnv", () => {
   it("applies development defaults", () => {
@@ -146,5 +146,28 @@ describe("production safety", () => {
     const env = loadEnv(production);
     expect(env.PUBLISHED_VERSION_RETENTION_COUNT).toBeGreaterThan(0);
     expect(env.PUBLISH_MAX_DOCUMENT_BYTES).toBeGreaterThan(0);
+  });
+});
+
+describe("startup diagnostics", () => {
+  it("reports which known variables arrived, by name only", () => {
+    const present = presentVariables({
+      BETTER_AUTH_SECRET: "x".repeat(40),
+      MONGODB_URI: "mongodb://localhost:27017",
+      UNRELATED: "ignored",
+    } as NodeJS.ProcessEnv);
+
+    expect(present).toEqual(["MONGODB_URI", "BETTER_AUTH_SECRET"]);
+    // A value here is a value leaked into every log collector downstream.
+    expect(present.join(" ")).not.toContain("x".repeat(40));
+  });
+
+  it("treats an empty or whitespace value as absent", () => {
+    expect(presentVariables({ MONGODB_URI: "", MONGODB_DB_NAME: "   " } as NodeJS.ProcessEnv)).toEqual([]);
+  });
+
+  it("returns nothing when no environment arrived at all", () => {
+    // Which is a different problem from one variable never being saved, and needs a different fix.
+    expect(presentVariables({} as NodeJS.ProcessEnv)).toEqual([]);
   });
 });

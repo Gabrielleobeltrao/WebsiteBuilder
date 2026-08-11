@@ -87,6 +87,35 @@ function describeRequired(name: string, value: string | undefined, minimum?: num
   return null;
 }
 
+/**
+ * The variables this service reads, for diagnostics only.
+ *
+ * When startup fails, knowing which of these actually arrived separates "I did not set it" from "I
+ * set it and the platform did not pass it" — two problems with different fixes that produce the
+ * same message. Names only, never values.
+ */
+export const KNOWN_VARIABLES = [
+  "SERVICE_ROLE",
+  "NODE_ENV",
+  "API_PORT",
+  "PUBLIC_RENDERER_PORT",
+  "MONGODB_URI",
+  "MONGODB_DB_NAME",
+  "BETTER_AUTH_SECRET",
+  "BETTER_AUTH_URL",
+  "FRONTEND_ORIGIN",
+  "PLATFORM_ROOT_DOMAIN",
+  "PLATFORM_PUBLIC_ORIGIN",
+  "API_PUBLIC_ORIGIN",
+  "CLOUDFLARE_ZONE_ID",
+  "CLOUDFLARE_API_TOKEN",
+] as const;
+
+/** Which of the known variables arrived with a non-empty value. Names only. */
+export function presentVariables(source: NodeJS.ProcessEnv = process.env): string[] {
+  return KNOWN_VARIABLES.filter((name) => (source[name] ?? "").trim() !== "");
+}
+
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   const parsed = baseSchema.safeParse(source);
   if (!parsed.success) {
