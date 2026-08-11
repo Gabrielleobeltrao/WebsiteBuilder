@@ -245,7 +245,7 @@ Split validation by process:
 
 ### Phase 2 — Implement one-origin application routing
 
-- [ ] **P2-T1 — Add the Nginx `/api/` gateway**
+- [x] **P2-T1 — Add the Nginx `/api/` gateway**
   - Add `location /api/` above the SPA fallback in `frontend/nginx.conf`.
   - Proxy to `http://backend:3000` on the private Compose network without stripping `/api`.
   - Forward the required host/protocol/request/correlation headers and use safe connect/read/send timeouts.
@@ -255,21 +255,21 @@ Split validation by process:
   - Restrict trusted real-IP sources to the actual proxy network instead of `0.0.0.0/0`.
   - Acceptance: `/api/v1/health` returns JSON through the main origin and returns a non-HTML 5xx when the backend is stopped.
 
-- [ ] **P2-T2 — Make frontend API calls relative in production**
+- [x] **P2-T2 — Make frontend API calls relative in production**
   - Use `/api/v1` as the production API base.
   - Remove the absolute `API_PUBLIC_ORIGIN` build argument and any requirement for a public API domain.
   - Preserve explicit local-development configuration only where needed.
   - Add endpoint-resolution tests for production, development override, malformed values, and trailing slashes.
   - Acceptance: the production JavaScript bundle contains no `api.websitebuilder.oneplataforma.com` reference.
 
-- [ ] **P2-T3 — Align Better Auth and cookies with the main origin**
+- [x] **P2-T3 — Align Better Auth and cookies with the main origin**
   - Configure Better Auth URL as `PLATFORM_PUBLIC_ORIGIN` with base path `/api/auth`.
   - Verify secure, host-only production cookies and same-origin browser requests.
   - Do not set a broad cookie domain such as `.websitebuilder.oneplataforma.com`; published customer sites must not receive dashboard cookies.
   - Keep CORS disabled for the same-origin production browser flow or restricted to the exact main origin if the middleware is still required.
   - Acceptance: register, login, refresh/session, logout, and protected API calls work through `https://websitebuilder.oneplataforma.com/api/...` without a public API hostname.
 
-- [ ] **P2-T4 — Align public media URLs**
+- [x] **P2-T4 — Align public media URLs**
   - Build public media URLs from the main platform origin and `/api/v1/public/media`.
   - Remove `API_PUBLIC_ORIGIN` as an independently configurable production origin.
   - Verify published pages can load WebP images without authentication and without mixed content.
@@ -277,7 +277,7 @@ Split validation by process:
 
 ### Phase 3 — Rebuild the production Compose contract
 
-- [ ] **P3-T1 — Make root Compose the single source of truth**
+- [x] **P3-T1 — Make root Compose the single source of truth**
   - Keep `docker-compose.production.yml` at repository root.
   - `frontend` builds from root context with `frontend/Dockerfile`.
   - `backend` builds from root context with `backend/Dockerfile`, target `api`.
@@ -287,20 +287,20 @@ Split validation by process:
   - Use `restart: unless-stopped` and realistic resource limits/reservations.
   - Acceptance: `docker compose config` is valid and all three images build from a clean clone.
 
-- [ ] **P3-T2 — Keep the API private**
+- [x] **P3-T2 — Keep the API private**
   - Remove `SERVICE_FQDN_BACKEND` and every backend host-port publication.
   - Use only internal port 3000.
   - Confirm the frontend can reach `backend:3000` and the host/VPS internet cannot reach the API container directly.
   - Acceptance: API works through `/api/*`; direct public API access does not exist.
 
-- [ ] **P3-T3 — Publish only frontend and renderer routes**
+- [x] **P3-T3 — Publish only frontend and renderer routes**
   - Bind the main platform domain to frontend port 8080.
   - Bind the technical origin and platform wildcard namespace to renderer port 3001.
   - Use the exact `SERVICE_FQDN_*` syntax supported by the installed Coolify version; verify the generated Traefik labels instead of guessing.
   - Do not use host `ports` unless a documented Coolify limitation requires it.
   - Acceptance: generated routes point to the correct container ports and do not expose secrets.
 
-- [ ] **P3-T4 — Harden Compose configuration**
+- [x] **P3-T4 — Harden Compose configuration**
   - Use required-variable interpolation for production secrets and critical origins so an unset value stops deployment.
   - Pass each secret only to the service that needs it.
   - Ensure no `VITE_*` build argument contains a secret.
@@ -370,7 +370,7 @@ Split validation by process:
 
 ### Phase 6 — Automated verification and CI
 
-- [ ] **P6-T1 — Add deployment-configuration tests**
+- [x] **P6-T1 — Add deployment-configuration tests**
   - Validate Compose rendering with a non-secret test env.
   - Test that backend has no public route, frontend proxies `/api`, build targets have distinct commands, and required variables are enforced.
   - Acceptance: tests fail on the original broken topology and pass on the corrected topology.
@@ -560,6 +560,12 @@ Append entries; do not erase history.
 | 2026-08-11 | P1-T1 | (this branch) | `awk` over the Dockerfile shows one `CMD` per target | Two build targets, `api` and `renderer`, on a shared `runtime-base` that deliberately has no `CMD` of its own. The runtime `SERVICE_ROLE` branch and its shell wrapper are gone, so the process a container runs is a property of the image and visible in `docker inspect`. `docker inspect` itself not run — no Docker on this machine. |
 | 2026-08-11 | P1-T2 | (this branch) | Health check reads per target | Each target probes its own endpoint and port: the API on 3000 `/api/v1/health`, the renderer on 3001 `/healthz`. The shared `healthcheck.js` that switched on a variable is deleted along with the variable. Swapping a command now fails the corresponding check because neither answers the other's path. |
 | 2026-08-11 | P1-T3 | (this branch) | 22 env tests | `loadEnv` takes a role. The renderer no longer requires `BETTER_AUTH_SECRET` — it has no sessions, and a signing secret given to a process that cannot use it only widens its blast radius. Both roles still require database configuration, both keep values out of error messages, and the default role is `api`, the stricter of the two. |
+| 2026-08-11 | P2-T1 | (this branch) | Shape check + 6 gateway tests | `location /api/` proxies to `http://backend:3000` above the SPA fallback, preserving the path. Timeouts, forwarded headers and a request id added; `proxy_intercept_errors off` keeps a backend failure a backend failure. Real-IP trust narrowed from `0.0.0.0/0` to the private ranges Docker allocates from. `/healthz` deliberately does not reach the API, so the gateway stays healthy through a backend restart. |
+| 2026-08-11 | P2-T2 | (this branch) | Built bundle inspected | Production API base is the relative `/api/v1`. `VITE_API_URL` survives only as a local-development override; the build argument and the compose argument are gone. The built bundle contains no `api.websitebuilder` reference and `allowHttp:!1` confirms a production build. |
+| 2026-08-11 | P2-T3 | (this branch) | 13 app tests | Better Auth uses `PLATFORM_PUBLIC_ORIGIN` with base path `/api/auth`, so the cookie is issued for the origin the browser is already on and stays host-only. CORS is now registered only outside production: same-origin needs no allowance, and any allowance is one string away from being a reflection. A test asserts production answers with no `access-control-allow-origin` at all. |
+| 2026-08-11 | P2-T4 | (this branch) | Renderer media base | Published pages build media URLs from `PLATFORM_PUBLIC_ORIGIN`. `API_PUBLIC_ORIGIN` is removed from the schema, compose and every example — a published page must not reference a hostname that does not exist. |
+| 2026-08-11 | P3-T1 to P3-T4 | (this branch) | 21 deployment-config tests | Root compose is the source of truth: three services, one private bridge network, both images built from the root context, API and renderer from distinct targets. Required values use `${VAR:?message}` so a missing one stops the deployment instead of starting a service configured with an empty string. Log rotation set per service. `docker compose config` NOT run — no Docker on this machine. |
+| 2026-08-11 | P6-T1 | (this branch) | Tests re-run against the reintroduced defects | The deployment tests were proved to fail on the original topology: restoring the duplicate `CMD` fails the one-command assertion, and restoring `SERVICE_FQDN_BACKEND` fails two privacy assertions. They pass on the corrected topology. A YAML parser was added as a backend devDependency so the checks read structure rather than matching text — the first text-matching attempt produced a false positive against its own comment. |
 ## 14. Decision Log
 
 Append decisions that change implementation details while preserving the fixed architecture.

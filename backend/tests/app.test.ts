@@ -117,6 +117,21 @@ describe("cross-origin access", () => {
     expect(response.headers["access-control-allow-origin"]).not.toBe("https://evil.example.com");
   });
 
+  it("permits no cross-origin request at all in production", async () => {
+    // Production is same-origin by construction: the browser reaches this API through the gateway
+    // on the platform origin. An allowance there would only invite a use the architecture does not
+    // have, and any allowance is one exact string away from being a reflection.
+    const production = createApp({
+      env: { ...testEnv(), NODE_ENV: "production" as const, isProduction: true, FRONTEND_ORIGIN: "https://app.example.com" },
+      logger: testLogger(),
+    });
+
+    const response = await request(production).get("/api/v1/health").set("Origin", "https://app.example.com");
+
+    expect(response.status).toBe(200);
+    expect(response.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+
   it("does not allow a lookalike host", async () => {
     const response = await request(app())
       .get("/api/v1/health")

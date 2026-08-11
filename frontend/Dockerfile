@@ -23,11 +23,9 @@ COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY frontend frontend
 
-# The API's public origin is compiled into the bundle, because the API is deployed as its own host
-# and the browser has to know where to call. Only public values may ever be passed here: everything
-# prefixed VITE_ is downloaded by every visitor.
-ARG VITE_API_URL=/api/v1
-ENV VITE_API_URL=$VITE_API_URL
+# No VITE_* build argument. The API answers at /api/v1 on this same origin, proxied by the gateway
+# below, so there is no address to compile in. Should one ever be needed, only public values may be
+# passed here — everything prefixed VITE_ is downloaded by every visitor.
 
 RUN npm run build --workspace @websitebuilder/frontend
 

@@ -20,6 +20,8 @@ export function createAuth(options: { db: Db; env: Env }) {
   return betterAuth({
     database: mongodbAdapter(db),
     secret: env.BETTER_AUTH_SECRET,
+    // The application origin. The API answers under it at /api/auth, so the cookie is issued for
+    // the origin the browser is already on and no cross-site flow exists to configure.
     baseURL: env.BETTER_AUTH_URL,
     basePath: env.BETTER_AUTH_BASE_PATH,
     emailAndPassword: {
