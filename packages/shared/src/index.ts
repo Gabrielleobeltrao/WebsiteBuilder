@@ -3,6 +3,7 @@ export * from "./audit";
 export * from "./bindings";
 export * from "./blog";
 export * from "./cms";
+export * from "./cms-elements";
 export * from "./dynamic-elements";
 export * from "./containers";
 export * from "./diagnostics";

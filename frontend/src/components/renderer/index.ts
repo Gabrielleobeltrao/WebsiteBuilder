@@ -5,6 +5,7 @@
  * there is exactly one implementation of how a document becomes markup. A second one is how a
  * preview starts disagreeing with what a visitor receives.
  */
+export { CmsCollectionRenderer } from "./CmsCollectionRenderer";
 export { ElementRenderer } from "./ElementRenderer";
 export { NavigationRenderer } from "./NavigationRenderer";
 export { ProjectPageRenderer, SectionRenderer } from "./ProjectPageRenderer";

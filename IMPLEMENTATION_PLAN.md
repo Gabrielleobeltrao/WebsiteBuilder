@@ -2073,7 +2073,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: business content can be managed without opening the visual builder and schema changes never silently discard data.
   - Verify: form generation, impact analysis, rich text/media, lifecycle, and UI tests.
 
-- [ ] **P15-T3 — Dynamic list/repeater builder element**
+- [x] **P15-T3 — Dynamic list/repeater builder element**
   - Implement a CMS Collection element with one reusable card sub-layout, collection binding, filters, sort, limit, grid/list layout, pagination/load-more, and editable empty state.
   - Bind dynamic elements through immutable field IDs and preview with selectable real draft/published sample items.
   - Acceptance: publishing a matching item adds it to every configured listing without editing those pages.
@@ -2655,4 +2655,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P9-T7 | Responsive images: `srcset` from the stored WebP variants, a `sizes` description, explicit dimensions, focal-point `object-position`, aspect ratio and per-width source overrides | 18 tests: an unresolvable variant is dropped rather than offered, a mobile crop cannot leak into wider screens, an asset with no variants falls back to a plain source, and a degenerate size returns null instead of invalid CSS |
 | 2026-08-10 | P9-T8 | Continuous preview between 320–1920 with presets and an exact width, plus a width sweep reporting overflow, off-canvas, impossible sizes, overlaps, small text and tap targets, and missing responsive assets | 40 tests: findings merge into width ranges rather than one per width, a breakpoint override that fixes an overflow narrows the reported range, deliberate layering is not reported as an overlap, and running the diagnostics leaves the page byte-identical |
 | 2026-08-10 | P15-T2 | CMS repository, API and dashboard: collections, schema editor, item table with status and search, create/edit/duplicate/delete, and impact reporting for schema changes | 31 tests: a removed field's values survive and return if the field does, a newly required field is refused only when published items cannot satisfy it, a duplicate is always a draft, renaming a label never changes a field id, and an empty number stays undefined |
+| 2026-08-10 | P15-T3 | CMS collection element: structured query with filters, sorts and bounded limit, one reusable card sub-layout bound by immutable field id, grid/list layout, load-more and an editable empty state | 27 tests: publishing a matching item adds it to a list with no page edit, drafts never reach published output, a missing value renders nothing rather than "undefined", a non-http value never becomes clickable, and "show more" keeps the items already shown |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
