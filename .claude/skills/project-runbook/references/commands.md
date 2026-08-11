@@ -13,7 +13,11 @@ npm run typecheck        # tsc --noEmit across every workspace
 npm run test             # Vitest across every workspace
 npm run build            # production build of every workspace
 npm run test:e2e         # Playwright
+npm run smoke:containers # builds the production images and exercises the running stack
 ```
+
+`smoke:containers` needs Docker and a throwaway database in `SMOKE_MONGODB_URI`. It uses its own
+Compose project and database name, so it cannot touch production data.
 
 Scope to one workspace with `-w`:
 

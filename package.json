@@ -23,7 +23,8 @@
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "npm run test:e2e -w frontend",
     "check:plan-skill": "node --test .claude/skills/execute-plan-task/scripts/extract-plan-task.test.mjs",
-    "check:runbook": "node .claude/skills/project-runbook/scripts/check-runbook.mjs"
+    "check:runbook": "node .claude/skills/project-runbook/scripts/check-runbook.mjs",
+    "smoke:containers": "bash scripts/container-smoke.sh"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
