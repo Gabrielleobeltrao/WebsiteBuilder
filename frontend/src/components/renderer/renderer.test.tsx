@@ -10,7 +10,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { ElementRenderer } from "./ElementRenderer";
-import { ProjectPageRenderer } from "./ProjectPageRenderer";
+import { ProjectPageRenderer, SectionRenderer } from "./ProjectPageRenderer";
 import { RendererContext, type RendererContextValue } from "./RendererContext";
 import { sectionStyle } from "./styles";
 
@@ -273,5 +273,62 @@ describe("responsive section layout", () => {
 
     expect(canvas.gridTemplateColumns).toBe(visitor.gridTemplateColumns);
     expect(canvas.gridTemplateColumns).toBe("repeat(1, minmax(0, 1fr))");
+  });
+});
+
+describe("container queries", () => {
+  const containerSection = (overrides: Partial<BuilderSection> = {}): BuilderSection => ({
+    id: "section-c",
+    name: "Card",
+    role: "content",
+    layoutMode: "flex",
+    heightByBreakpoint: {},
+    layoutByBreakpoint: {},
+    elements: [],
+    backgroundColor: "#ffffff",
+    hidden: false,
+    ...overrides,
+  });
+
+  it("declares a container only when the section opts in", () => {
+    const { container: plain } = render(<SectionRenderer section={containerSection()} />);
+    expect(plain.querySelector("section")?.style.containerType).toBe("");
+
+    const { container: opted } = render(
+      <SectionRenderer section={containerSection({ container: { enabled: true, name: "card" } })} />,
+    );
+    expect(opted.querySelector("section")?.style.containerType).toBe("inline-size");
+  });
+
+  it("emits container rules scoped to the section", () => {
+    const { container } = render(
+      <SectionRenderer
+        section={containerSection({
+          containerRules: [{ minWidth: 400, flex: { direction: "column" } }],
+        })}
+      />,
+    );
+
+    const css = container.querySelector("style")?.textContent ?? "";
+    expect(css).toContain('[data-section-id="section-c"]');
+    expect(css).toContain("@container (min-width: 400px)");
+    expect(css).toContain("flex-direction: column;");
+  });
+
+  it("emits no style element when a section has no rules", () => {
+    const { container } = render(<SectionRenderer section={containerSection()} />);
+    expect(container.querySelector("style")).toBeNull();
+  });
+
+  it("lets one component answer to its container rather than the viewport", () => {
+    // The same section markup, rendered twice. What differs at the same viewport width is the
+    // container it sits in, which is the whole point of the feature.
+    const section = containerSection({
+      containerRules: [{ container: "main", minWidth: 700, flex: { direction: "row" } }],
+    });
+
+    const { container } = render(<SectionRenderer section={section} />);
+    const css = container.querySelector("style")?.textContent ?? "";
+    expect(css).toContain("@container main (min-width: 700px)");
   });
 });

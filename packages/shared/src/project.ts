@@ -23,6 +23,12 @@ import {
   type PageSeoSettings,
   type SiteSeoSettings,
 } from "./seo";
+import {
+  containerRuleSchema,
+  sectionContainerSchema,
+  type ContainerRule,
+  type SectionContainer,
+} from "./containers";
 import { HOME_PAGE_SLUG, pageSlugSchema } from "./slug";
 
 export const SECTION_ROLES = ["content", "header", "footer"] as const;
@@ -38,6 +44,9 @@ export const builderSectionSchema = z
     layoutMode: z.enum(SECTION_LAYOUT_MODES),
     heightByBreakpoint: z.record(z.string(), responsiveLengthSchema),
     layoutByBreakpoint: z.record(z.string(), z.record(z.string(), z.unknown())),
+    /** Opt-in: a section becomes a query container only when this says so. */
+    container: sectionContainerSchema.optional(),
+    containerRules: z.array(containerRuleSchema).max(12).optional(),
     elements: z.array(builderElementSchema),
     backgroundColor: z.string().max(40),
     hidden: z.boolean(),
@@ -52,6 +61,8 @@ export type BuilderSection = {
   layoutMode: SectionLayoutMode;
   heightByBreakpoint: Record<string, z.infer<typeof responsiveLengthSchema>>;
   layoutByBreakpoint: Record<string, Record<string, unknown>>;
+  container?: SectionContainer;
+  containerRules?: ContainerRule[];
   elements: BuilderElement[];
   backgroundColor: string;
   hidden: boolean;

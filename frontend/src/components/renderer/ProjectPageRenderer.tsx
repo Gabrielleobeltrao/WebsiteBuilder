@@ -1,4 +1,9 @@
-import type { BuilderPage, BuilderSection } from "@websitebuilder/shared";
+import {
+  serializeContainer,
+  serializeContainerRules,
+  type BuilderPage,
+  type BuilderSection,
+} from "@websitebuilder/shared";
 
 import { ElementRenderer } from "./ElementRenderer";
 import { isRenderable, sectionStyle } from "./styles";
@@ -15,11 +20,20 @@ export function SectionRenderer({
 }) {
   if (section.hidden) return null;
 
+  // Container rules are generated CSS rather than inline styles, because `@container` cannot be
+  // expressed in a style attribute. They are built from structured values through the same
+  // allowlisted writers as the inline styles, and scoped to this section's own id.
+  const containerCss = serializeContainerRules(section.id, section.layoutMode, section.containerRules ?? []);
+
   return (
     <section
-      style={sectionStyle(section, breakpointId, width === undefined ? {} : { width })}
+      style={{
+        ...sectionStyle(section, breakpointId, width === undefined ? {} : { width }),
+        ...serializeContainer(section.container),
+      }}
       data-section-id={section.id}
     >
+      {containerCss !== "" && <style>{containerCss}</style>}
       {section.elements.filter(isRenderable).map((element) => (
         <ElementRenderer key={element.id} element={element} positioned={section.layoutMode === "free"} />
       ))}

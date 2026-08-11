@@ -1803,7 +1803,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: layouts adapt between breakpoints without requiring an override at every pixel and never force accidental horizontal overflow.
   - Verify: grid/flex renderer and inspector tests across boundary/intermediate widths.
 
-- [ ] **P9-T5 — Container queries and reusable component behavior**
+- [x] **P9-T5 — Container queries and reusable component behavior**
   - Implement opt-in container names/rules and container-width resolution for nested/reusable sections/components, with cycle/ambiguity protection.
   - Acceptance: the same component can render differently in a narrow sidebar and wide main area at the same viewport width.
   - Verify: nested-container, query-boundary, renderer, and safety tests.
@@ -2648,4 +2648,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P18-T7 | Completed environment schema, `.env.example` and Coolify manifests; gateway upstream is now configurable so the API may run as its own resource; operator guide added | 12 env tests plus a scan of the built frontend bundle that fails if a backend variable name or connection string appears in code the browser downloads |
 | 2026-08-10 | P18-T8 | Operational hardening: renderer reads the active-version pointer per request so publish and rollback take effect at once across processes, retention wired to the configured count, backup/restore, monitoring and smoke procedures documented | A restarted renderer with an empty cache still serves published sites; retention keeps the configured count and never the version being served; a provider outage leaves live domains serving |
 | 2026-08-10 | P9-T4 | Section grid/flex resolved through the breakpoint chain, `auto-fit` and `auto-fill`, span clamping and shrink-safe children | 25 tests across 320/375/390/640/641/768/1024/1280/1440/1920: a desktop value applies at every narrower width, a narrower breakpoint overrides only what it sets, a 900px column minimum cannot overflow a 320px screen, and the editor canvas resolves identically to the published site |
+| 2026-08-10 | P9-T5 | Opt-in container queries with named containers, generated `@container` rules scoped per section, and ambiguity/cycle checks | 20 tests: a rule naming a non-ancestor container is reported rather than silently never matching, one name declared twice is caught before CSS resolves it to the nearest silently, a section querying itself is refused, and a rule emits only the properties it set |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
