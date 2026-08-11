@@ -194,7 +194,7 @@ describe("routes", () => {
 });
 
 describe("caching", () => {
-  it("serves a published change after the site's cache entry is invalidated", async () => {
+  it("serves a publication immediately, without waiting for a cache to expire", async () => {
     const projectId = await liveSite(A, "Alpha", "alpha.example.test");
 
     const app = renderer();
@@ -207,10 +207,8 @@ describe("caching", () => {
     await projects.saveDocument(A, projectId, revision, typed);
     await service.publish(A, projectId);
 
-    // Still the old page: the cache is doing its job.
-    expect((await request(app).get("/").set("Host", "alpha.example.test")).text).toContain("Alpha home");
-
-    resolver.invalidateHost("alpha.example.test");
+    // The API that published this runs in a different process, so there is no cache to invalidate
+    // from there. The active-version pointer is read per request, which is what makes this work.
     expect((await request(app).get("/").set("Host", "alpha.example.test")).text).toContain("Renamed");
   });
 
@@ -223,5 +221,40 @@ describe("caching", () => {
     const beta = await request(app).get("/").set("Host", "beta.example.test");
 
     expect(beta.text).toContain("Beta home");
+  });
+});
+
+describe("rollback visibility", () => {
+  it("serves the restored version at once", async () => {
+    const projectId = await liveSite(A, "Alpha", "alpha.example.test");
+    const first = (await publishing.history(A, projectId))[0]!;
+
+    const project = await projects.findById(A, projectId);
+    const { id, workspaceId, createdByUserId, revision, createdAt, updatedAt, ...document } = project!;
+    const typed = document as ReturnType<typeof createProjectDocument>;
+    typed.pages[0]!.seo.title = "Second";
+    await projects.saveDocument(A, projectId, revision, typed);
+    await service.publish(A, projectId);
+
+    const app = renderer();
+    expect((await request(app).get("/").set("Host", "alpha.example.test")).text).toContain("Second");
+
+    await publishing.rollback(A, projectId, first.id);
+    expect((await request(app).get("/").set("Host", "alpha.example.test")).text).toContain("Alpha home");
+  });
+});
+
+describe("restart", () => {
+  it("keeps serving published sites from a process with an empty cache", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+
+    // A fresh resolver is what a restarted or redeployed container starts with. Published mappings
+    // and versions live in the database, so nothing is lost with the process.
+    const restarted = new SiteResolver(publishing, 60);
+    const app = createRendererApp({ env: testEnv(), logger: testLogger(), resolver: restarted });
+
+    const response = await request(app).get("/").set("Host", "alpha.example.test");
+    expect(response.status).toBe(200);
+    expect(response.text).toContain("Alpha home");
   });
 });

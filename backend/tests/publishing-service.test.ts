@@ -167,3 +167,31 @@ describe("preflight", () => {
     expect(result?.report.routeCount).toBeGreaterThan(0);
   });
 });
+
+describe("retention", () => {
+  it("keeps only the configured number of versions and never the one being served", async () => {
+    const retaining = new PublishingService({
+      projects,
+      publishing,
+      blog,
+      media: new MediaRepository(database.db, createGridFsStorage(database.db)),
+      retentionCount: 2,
+    });
+
+    const project = await projects.create(A, { name: "Acme" });
+    for (const name of ["one", "two", "three", "four"]) {
+      const reloaded = await projects.findById(A, project.id);
+      const { id, workspaceId, createdByUserId, revision, createdAt, updatedAt, ...document } = reloaded!;
+      const typed = document as ReturnType<typeof createProjectDocument>;
+      typed.seo.siteName = name;
+      await projects.saveDocument(A, project.id, revision, typed);
+      await retaining.publish(A, project.id);
+    }
+
+    const remaining = await publishing.history(A, project.id);
+    expect(remaining).toHaveLength(2);
+
+    const active = await publishing.findActiveForProject(project.id);
+    expect(remaining.map((version) => version.id)).toContain(active?.id);
+  });
+});

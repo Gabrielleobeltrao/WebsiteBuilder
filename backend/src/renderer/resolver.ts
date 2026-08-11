@@ -15,6 +15,14 @@ import { TtlCache } from "./cache";
  * Identity comes from the hostname and nothing else. There is deliberately no way to name a project
  * through a query parameter or a header: on a process serving every tenant, one such override is a
  * complete cross-tenant read.
+ *
+ * Caching is split by how each piece behaves. Host mappings and published snapshots are effectively
+ * immutable — a snapshot never changes once written — so both are cached with a bounded TTL. The
+ * project's active-version pointer is read on every request, because it is the one thing a publish
+ * or a rollback moves, and the API that moves it runs in a different process from this one. There
+ * is no channel to invalidate a cache across that boundary, so the pointer is simply never stale.
+ * The cost is one indexed lookup by `_id`; the benefit is that a rollback takes effect at once
+ * rather than up to a TTL later.
  */
 export type ResolvedSite = { domain: SiteDomain; version: PublishedSiteVersion; document: BuilderProject };
 
@@ -24,51 +32,55 @@ export type RouteOutcome =
   | { kind: "not-found"; route: RouteManifestEntry | null };
 
 export class SiteResolver {
-  private readonly hosts: TtlCache<ResolvedSite | null>;
+  private readonly hosts: TtlCache<{ projectId: string; domain: SiteDomain } | null>;
+  private readonly versions: TtlCache<PublishedSiteVersion>;
 
   constructor(
     private readonly repository: PublishingRepository,
     ttlSeconds: number,
   ) {
-    this.hosts = new TtlCache<ResolvedSite | null>(Math.max(1, ttlSeconds) * 1000);
+    const ttlMs = Math.max(1, ttlSeconds) * 1000;
+    this.hosts = new TtlCache(ttlMs);
+    // Keyed by version id, which identifies immutable content. A stale entry is impossible.
+    this.versions = new TtlCache(ttlMs, 100);
   }
 
-  /**
-   * Resolves a hostname to its live site.
-   *
-   * A miss is cached too. Otherwise an unknown host — which is what a scanner sends — would reach
-   * the database on every request.
-   */
   async resolve(rawHostname: string): Promise<ResolvedSite | null> {
     const key = rawHostname.toLowerCase();
-    const cached = this.hosts.get(key);
-    if (cached !== undefined) return cached;
 
-    const match = await this.repository.resolvePublicHost(rawHostname);
-    if (match === null) {
-      this.hosts.set(key, null);
-      return null;
+    let match = this.hosts.get(key);
+    if (match === undefined) {
+      match = await this.repository.resolvePublicHost(rawHostname);
+      // Misses are cached too. An unknown host is what a scanner sends, and it must not reach the
+      // database on every request.
+      this.hosts.set(key, match);
     }
+    if (match === null) return null;
 
-    const version = await this.repository.findActiveForProject(match.projectId);
+    const pointer = await this.repository.findActiveVersionId(match.projectId);
     // A domain pointing at a project that has never published is not an error and not another
     // tenant's site: it is simply not live.
-    const resolved =
-      version === null
-        ? null
-        : { domain: match.domain, version, document: version.document as BuilderProject };
+    if (pointer === null) return null;
 
-    this.hosts.set(key, resolved);
-    return resolved;
+    let version = this.versions.get(pointer);
+    if (version === undefined) {
+      const loaded = await this.repository.findActive(match.projectId, pointer);
+      if (loaded === null) return null;
+      this.versions.set(pointer, loaded);
+      version = loaded;
+    }
+
+    return { domain: match.domain, version, document: version.document as BuilderProject };
   }
 
-  /** Drops one hostname's entry so a publication is visible without waiting for the TTL. */
+  /** Drops one hostname's mapping, for a domain that was just connected or disconnected. */
   invalidateHost(hostname: string): void {
     this.hosts.invalidate(hostname.toLowerCase());
   }
 
   invalidateAll(): void {
     this.hosts.clear();
+    this.versions.clear();
   }
 
   /** Canonical host for a site, so secondary domains do not compete for the same content. */
@@ -102,6 +114,5 @@ export function resolveRoute(version: PublishedSiteVersion, rawPath: string): Ro
 /** Trailing slashes and duplicated separators must not produce a second URL for one page. */
 export function normalizePath(rawPath: string): string {
   const [pathname = "/"] = rawPath.split("?");
-  const collapsed = `/${pathname.split("/").filter((segment) => segment.length > 0).join("/")}`;
-  return collapsed;
+  return `/${pathname.split("/").filter((segment) => segment.length > 0).join("/")}`;
 }

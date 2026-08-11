@@ -153,9 +153,24 @@ export class PublishingRepository {
 
   /** The version a project is serving right now, resolved from the project's own pointer. */
   async findActiveForProject(projectId: string): Promise<PublishedSiteVersion | null> {
+    const versionId = await this.findActiveVersionId(projectId);
+    return versionId === null ? null : this.findActive(projectId, versionId);
+  }
+
+  /**
+   * Just the pointer.
+   *
+   * The renderer reads this on every request because it is the one value a publish or a rollback
+   * moves, and it runs in a different process from the API that moves it. Reading only the pointer
+   * keeps that fresh without loading the snapshot it names.
+   */
+  async findActiveVersionId(projectId: string): Promise<string | null> {
     if (!ObjectId.isValid(projectId) || projectId.length !== 24) return null;
-    const project = await this.projects.findOne({ _id: new ObjectId(projectId) });
-    return this.findActive(projectId, project?.activePublishedVersionId);
+    const project = await this.projects.findOne(
+      { _id: new ObjectId(projectId) },
+      { projection: { activePublishedVersionId: 1 } },
+    );
+    return project?.activePublishedVersionId ?? null;
   }
 
   async history(

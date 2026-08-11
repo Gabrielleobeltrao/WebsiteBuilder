@@ -132,6 +132,7 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
           media,
           collectModuleFacts,
           maxDocumentBytes: env.PUBLISH_MAX_DOCUMENT_BYTES,
+          retentionCount: env.PUBLISHED_VERSION_RETENTION_COUNT,
         }),
         repository: publishing,
         domains,

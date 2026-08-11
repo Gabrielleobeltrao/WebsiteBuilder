@@ -38,6 +38,8 @@ export class PublishingService {
       blog: BlogRepository;
       media: MediaRepository;
       maxDocumentBytes?: number;
+      /** Versions kept per project. The active one is never pruned regardless of this number. */
+      retentionCount?: number;
       /** Not yet backed by repositories; wired in when the CMS and redirect stores land. */
       loadCmsCollections?: (projectId: string) => Promise<PublishableCollection[]>;
       loadCmsItems?: (projectId: string) => Promise<PublishableCmsItem[]>;
@@ -78,6 +80,10 @@ export class PublishingService {
         referencedMediaIds: snapshot.referencedMediaIds,
         contentHash: snapshot.contentHash,
       });
+      // Retention runs after the pointer moved, so the version now live is known and excluded.
+      // Deleting the snapshot a site is serving to save disk would take that site offline.
+      await this.deps.publishing.pruneVersions(context, projectId, this.deps.retentionCount ?? 20, version.id);
+
       return { status: "published", version, unchanged: false };
     } catch (error) {
       if (error instanceof PublishError && error.reason === "revision-changed") {
