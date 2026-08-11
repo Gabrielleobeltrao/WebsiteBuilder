@@ -1808,7 +1808,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: the same component can render differently in a narrow sidebar and wide main area at the same viewport width.
   - Verify: nested-container, query-boundary, renderer, and safety tests.
 
-- [ ] **P9-T6 — Fluid typography, spacing, and navigation**
+- [x] **P9-T6 — Fluid typography, spacing, and navigation**
   - Add safe `clamp()` typography/spacing controls, responsive line height, configurable navigation collapse width, tap-target checks, and mobile drawer behavior.
   - Acceptance: text/menu transitions smoothly at intermediate widths without abrupt unreadable states.
   - Verify: typography resolver, navigation, accessibility, and visual tests.
@@ -2540,6 +2540,8 @@ Append entries; do not erase history.
 | 2026-08-10 | P18-T8 | The renderer reads the active-version pointer on every request instead of caching it | The API and the renderer are separate processes, so "invalidate the renderer cache after publish" has no channel to travel on. Host mappings and snapshots are immutable and stay cached; only the pointer, which is the one thing publish and rollback move, is read fresh. One indexed `_id` lookup per request buys a rollback that takes effect immediately. |
 | 2026-08-10 | P18-T7 | The gateway's API upstream is substituted at container start | It was the Compose service name, which does not resolve when the API runs as a separate Coolify resource — the shape this deployment actually uses. Every `/api/*` request returned 502 with no indication why. |
 | 2026-08-10 | P9-T4 | `sectionStyle` always resolves through the breakpoint chain, including in the editor | Reading a single breakpoint's stored values in the canvas and the chain everywhere else meant a section set to four fixed columns on desktop showed auto-fit while editing mobile. One resolution path is the whole reason the renderer is shared. |
+| 2026-08-10 | P9-T6 | Fluid lengths are stored as their two endpoints, not as a pre-computed clamp | The viewport term needs an intercept; a bare `vw` equals the minimum only by coincidence, so a curve without one sits pinned at the floor and then jumps. Storing endpoints keeps the maths in one serialiser that is tested by evaluating the CSS it emits. |
+| 2026-08-10 | P9-T6 | Removed the `VITE_*` variables from `.env.example`, the frontend Dockerfile and the compose file | Vite reads env from `frontend/`, not the repository root, and the app reads no `VITE_` variable at all — the API path is a constant because the frontend and API share an origin. The entries documented configuration that could not take effect. |
 ## 15. Progress Log
 
 Append one concise line after each completed task.
@@ -2649,4 +2651,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P18-T8 | Operational hardening: renderer reads the active-version pointer per request so publish and rollback take effect at once across processes, retention wired to the configured count, backup/restore, monitoring and smoke procedures documented | A restarted renderer with an empty cache still serves published sites; retention keeps the configured count and never the version being served; a provider outage leaves live domains serving |
 | 2026-08-10 | P9-T4 | Section grid/flex resolved through the breakpoint chain, `auto-fit` and `auto-fill`, span clamping and shrink-safe children | 25 tests across 320/375/390/640/641/768/1024/1280/1440/1920: a desktop value applies at every narrower width, a narrower breakpoint overrides only what it sets, a 900px column minimum cannot overflow a 320px screen, and the editor canvas resolves identically to the published site |
 | 2026-08-10 | P9-T5 | Opt-in container queries with named containers, generated `@container` rules scoped per section, and ambiguity/cycle checks | 20 tests: a rule naming a non-ancestor container is reported rather than silently never matching, one name declared twice is caught before CSS resolves it to the nearest silently, a section querying itself is refused, and a rule emits only the properties it set |
+| 2026-08-10 | P9-T6 | Fluid typography and spacing as structured endpoints serialised to `clamp()` with a real intercept, plus a readability floor; navigation collapse and drawer already met the task | 12 tests evaluate the generated CSS the way a browser would: it passes through both endpoints exactly, grows monotonically across 320–1920, and reversed endpoints describe the same curve rather than shrinking as the screen grows |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

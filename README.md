@@ -147,9 +147,18 @@ its value.
 
 **Frontend**
 
-Only `VITE_*` values reach the browser, and they are compiled in at build time. A credential placed
-there is a published credential. The two that belong are `VITE_PUBLIC_ORIGIN` and
-`VITE_API_URL=/api/v1` — the API path is relative on purpose.
+There is one `.env` at the root, read by the backend and the renderer. The frontend reads none of
+it: Vite loads env from `frontend/`, and the app currently uses no `VITE_*` variable at all, because
+the API base path is a constant in the shared package. That follows from the single-origin design —
+the browser talks to `/api/v1` on whatever host served the page, so there is nothing to configure.
+
+In production the separation is real regardless: each Coolify resource carries only its own
+variables, and the API's secrets are never present on the frontend resource.
+
+Should a public value ever be needed in the browser, it belongs in `frontend/.env` with a `VITE_`
+prefix and nowhere else. Everything with that prefix is compiled into code every visitor downloads,
+so a credential placed there is a published credential. `npm run test` reads the built bundle and
+fails if a backend variable name or a connection string appears in it.
 
 **Renderer**
 

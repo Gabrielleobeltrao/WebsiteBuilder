@@ -13,9 +13,6 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
-      args:
-        VITE_PUBLIC_ORIGIN: ${PLATFORM_PUBLIC_ORIGIN}
-        VITE_API_URL: /api/v1
     restart: unless-stopped
     environment:
       # Coolify reads this to route the domain to this service.

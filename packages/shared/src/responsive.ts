@@ -14,10 +14,16 @@ export type LengthKeyword = (typeof LENGTH_KEYWORDS)[number];
 
 export type NumericLength = { value: number; unit: LengthUnit };
 
+export type FluidLength = {
+  /** Grows linearly from `minPx` at `minViewportPx` to `maxPx` at `maxViewportPx`, clamped at both ends. */
+  fluid: { minPx: number; maxPx: number; minViewportPx: number; maxViewportPx: number };
+};
+
 export type ResponsiveLength =
   | NumericLength
   | { keyword: LengthKeyword }
-  | { clamp: { min: NumericLength; preferred: NumericLength; max: NumericLength } };
+  | { clamp: { min: NumericLength; preferred: NumericLength; max: NumericLength } }
+  | FluidLength;
 
 export const numericLengthSchema = z
   .object({ value: z.number().finite(), unit: z.enum(LENGTH_UNITS) })
@@ -30,6 +36,18 @@ export const responsiveLengthSchema: z.ZodType<ResponsiveLength> = z.union([
     .object({
       clamp: z
         .object({ min: numericLengthSchema, preferred: numericLengthSchema, max: numericLengthSchema })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      fluid: z
+        .object({
+          minPx: z.number().positive().finite().max(400),
+          maxPx: z.number().positive().finite().max(400),
+          minViewportPx: z.number().int().min(200).max(4000),
+          maxViewportPx: z.number().int().min(200).max(4000),
+        })
         .strict(),
     })
     .strict(),
@@ -47,6 +65,7 @@ function serializeNumeric(length: NumericLength): string {
 
 export function serializeLength(length: ResponsiveLength): string {
   if ("keyword" in length) return length.keyword;
+  if ("fluid" in length) return serializeFluid(length);
   if ("clamp" in length) {
     const { min, preferred, max } = length.clamp;
     return `clamp(${serializeNumeric(min)}, ${serializeNumeric(preferred)}, ${serializeNumeric(max)})`;
@@ -55,6 +74,72 @@ export function serializeLength(length: ResponsiveLength): string {
 }
 
 export const px = (value: number): NumericLength => ({ value, unit: "px" });
+
+/**
+ * `clamp(min, calc(intercept + slope * 1vw), max)`.
+ *
+ * The intercept matters: a bare `vw` term equals the minimum only by coincidence, so a curve
+ * without it sits pinned at the floor and then jumps. With it, the value passes through both
+ * endpoints exactly and moves smoothly between them.
+ */
+function serializeFluid({ fluid }: FluidLength): string {
+  const { minPx, maxPx, minViewportPx, maxViewportPx } = fluid;
+  const slope = (maxPx - minPx) / (maxViewportPx - minViewportPx);
+  const intercept = minPx - slope * minViewportPx;
+
+  const vw = round(slope * 100);
+  const base = round(intercept);
+  const preferred = base === 0 ? `${vw}vw` : `calc(${base}px + ${vw}vw)`;
+
+  return `clamp(${round(minPx)}px, ${preferred}, ${round(maxPx)}px)`;
+}
+
+function round(value: number): number {
+  return Math.round(value * 1e4) / 1e4;
+}
+
+/** Below this, body text stops being comfortably readable on a phone. */
+export const MIN_READABLE_FONT_PX = 12;
+
+/**
+ * Builds a fluid length from the two endpoints a designer actually cares about.
+ *
+ * Endpoints are ordered and the viewport range is normalised here, so a reversed pair describes the
+ * same curve instead of one where text shrinks as the screen grows.
+ */
+export function fluidLength(input: {
+  minPx: number;
+  maxPx: number;
+  minViewportPx: number;
+  maxViewportPx: number;
+}): ResponsiveLength {
+  const minPx = Math.min(input.minPx, input.maxPx);
+  const maxPx = Math.max(input.minPx, input.maxPx);
+  const minViewportPx = Math.min(input.minViewportPx, input.maxViewportPx);
+  const maxViewportPx = Math.max(input.minViewportPx, input.maxViewportPx);
+
+  // Equal endpoints, or a viewport range of zero, describe no curve. A fixed length is the honest
+  // answer rather than a division by zero.
+  if (minPx === maxPx || minViewportPx === maxViewportPx) return px(minPx);
+
+  return { fluid: { minPx, maxPx, minViewportPx, maxViewportPx } };
+}
+
+/**
+ * True when a length can render text below the readable floor at any width.
+ *
+ * A fluid or clamped length is safe when its minimum is legible. Relative units depend on context
+ * this function does not have, so they are reported for review rather than passed.
+ */
+export function isReadableFontSize(length: ResponsiveLength): boolean | "unknown" {
+  if ("keyword" in length) return "unknown";
+  if ("fluid" in length) return length.fluid.minPx >= MIN_READABLE_FONT_PX;
+  if ("clamp" in length) {
+    const { min } = length.clamp;
+    return min.unit === "px" ? min.value >= MIN_READABLE_FONT_PX : "unknown";
+  }
+  return length.unit === "px" ? length.value >= MIN_READABLE_FONT_PX : "unknown";
+}
 
 export const HORIZONTAL_CONSTRAINTS = ["left", "right", "center", "stretch", "scale"] as const;
 export const VERTICAL_CONSTRAINTS = ["top", "bottom", "center", "stretch", "scale"] as const;

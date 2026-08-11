@@ -14,12 +14,10 @@ COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY frontend frontend
 
-# VITE_* values are compiled into the bundle, so they are build arguments rather than runtime
-# environment. Only public values belong here: anything secret would be published to every visitor.
-ARG VITE_PUBLIC_ORIGIN
-ARG VITE_API_URL=/api/v1
-ENV VITE_PUBLIC_ORIGIN=$VITE_PUBLIC_ORIGIN
-ENV VITE_API_URL=$VITE_API_URL
+# No VITE_* build arguments: the app reads none. The API base path is a constant in the shared
+# package because the frontend and the API share one origin, so there is nothing to configure per
+# environment. Should that change, only public values may be passed here — everything prefixed
+# VITE_ is compiled into code every visitor downloads.
 
 RUN npm run build --workspace @websitebuilder/frontend
 
