@@ -12,7 +12,7 @@ import { PageSeoPanel } from "@/features/editor/inspector/PageSeoPanel";
 import { PagesPanel } from "@/features/editor/panel/PagesPanel";
 import { resolvePanelView } from "@/features/editor/panel/panelMachine";
 import { RightPanel } from "@/features/editor/panel/RightPanel";
-import { WidthControl } from "@/features/editor/canvas/WidthControl";
+import { DeviceSwitcher } from "@/features/editor/canvas/DeviceSwitcher";
 import { SaveStateIndicator } from "@/features/editor/SaveStateIndicator";
 import {
   selectCurrentPage,
@@ -131,7 +131,7 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
         </div>
 
         <div className="flex items-center gap-3">
-          <WidthControl />
+          <DeviceSwitcher />
           <SaveStateIndicator
             persistence={store.persistence}
             onRetry={() => void store.save()}

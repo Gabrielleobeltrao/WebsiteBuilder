@@ -279,6 +279,11 @@ export default {
   },
 
   "responsive": {
+    "device": "Dispositivo",
+    "autoFix": "Ajustar a este dispositivo",
+    "autoFixHint": "Cria um override só para este dispositivo. O desktop não é tocado, e dá para desfazer.",
+    "autoFixNothing": "Neste dispositivo já cabe tudo.",
+    "autoFixDone": "{{count}} elemento(s) ajustado(s) neste dispositivo.",
     "canvasWidth": "Largura da tela",
     "preset": {
       "desktop": "Desktop",

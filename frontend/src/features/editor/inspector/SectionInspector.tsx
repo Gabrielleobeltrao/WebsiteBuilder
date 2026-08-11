@@ -7,6 +7,7 @@ import {
   JUSTIFY_VALUES,
   readFlexLayout,
   readGridLayout,
+  resolveSectionForDevice,
   SECTION_LAYOUT_MODES,
   type BuilderSection,
   type SectionLayoutMode,
@@ -16,10 +17,8 @@ import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { describeConversion } from "@/features/editor/store/sections";
-import { useEditorStore } from "@/features/editor/store/editorStore";
+import { selectEditingDevice, useEditorStore } from "@/features/editor/store/editorStore";
 import { ColorField, InspectorGroup, NumberField, SelectField, TextField, ToggleField } from "./controls";
-
-const BREAKPOINT = "desktop";
 
 /**
  * Section inspector.
@@ -31,6 +30,10 @@ const BREAKPOINT = "desktop";
 export function SectionInspector({ section }: { section: BuilderSection }) {
   const { t } = useTranslation("builder");
   const store = useEditorStore();
+  // The device on the canvas, not a constant. This was hardcoded to desktop, so switching to Mobile
+  // and changing a gap silently changed the desktop layout — the worst kind of bug, because the
+  // damage is invisible until somebody opens the site on a laptop.
+  const device = useEditorStore(selectEditingDevice);
   const [pendingMode, setPendingMode] = useState<SectionLayoutMode | null>(null);
   const key = `section:${section.id}`;
 
@@ -45,7 +48,7 @@ export function SectionInspector({ section }: { section: BuilderSection }) {
                 ...candidate,
                 layoutByBreakpoint: {
                   ...candidate.layoutByBreakpoint,
-                  [BREAKPOINT]: { ...(candidate.layoutByBreakpoint[BREAKPOINT] ?? {}), ...values },
+                  [device]: { ...(candidate.layoutByBreakpoint[device] ?? {}), ...values },
                 },
               }
             : candidate,
@@ -53,8 +56,15 @@ export function SectionInspector({ section }: { section: BuilderSection }) {
       })),
     }));
 
-  const grid = readGridLayout(section.layoutByBreakpoint[BREAKPOINT]);
-  const flex = readFlexLayout(section.layoutByBreakpoint[BREAKPOINT]);
+  // Read through the inheritance chain rather than from this device's own entry: a device that has
+  // never been touched must show what it actually renders, which is what it inherits.
+  const resolved = resolveSectionForDevice({
+    device,
+    heightByBreakpoint: section.heightByBreakpoint,
+    layoutByBreakpoint: section.layoutByBreakpoint,
+  });
+  const grid = readGridLayout(resolved.layout);
+  const flex = readFlexLayout(resolved.layout);
   const impact = pendingMode === null ? null : describeConversion(section, pendingMode);
 
   return (

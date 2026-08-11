@@ -63,52 +63,60 @@ function setup() {
   return selection.elementId;
 }
 
-describe("continuous width control", () => {
-  it("offers presets plus a slider and a numeric input", () => {
+describe("the device switcher", () => {
+  it("offers exactly three devices and nothing else", () => {
     setup();
-    expect(screen.getByRole("button", { name: "Desktop" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Mobile" })).toBeInTheDocument();
-    expect(screen.getByRole("slider", { name: "Canvas width" })).toBeInTheDocument();
-    expect(screen.getByRole("spinbutton", { name: "Canvas width" })).toBeInTheDocument();
+    const group = screen.getByRole("group", { name: "Device" });
+
+    // Three, and only three. The slider, the numeric width and the breakpoint badge are gone: the
+    // continuum was honest about the problem and useless as a control, because it asked an author
+    // which of sixteen hundred widths to design for.
+    expect(within(group).getAllByRole("button")).toHaveLength(3);
+
+    // Scoped to the top bar: the inspector still has a width field, because an element's own width
+    // is a property somebody edits. What is gone is the canvas width, which was never one.
+    const header = screen.getByRole("banner");
+    expect(within(header).queryByRole("slider")).toBeNull();
+    expect(within(header).queryByRole("spinbutton")).toBeNull();
   });
 
-  it("reaches widths between the presets", async () => {
+  it("announces which device is being authored", async () => {
     const user = userEvent.setup();
     setup();
+    const group = screen.getByRole("group", { name: "Device" });
 
-    const numeric = screen.getByRole("spinbutton", { name: "Canvas width" });
-    await user.clear(numeric);
-    await user.type(numeric, "834");
-    expect(useEditorStore.getState().ui.editingWidth).toBe(834);
+    // Which device is selected decides where every following edit lands, so it is announced rather
+    // than only highlighted.
+    expect(within(group).getByRole("button", { name: /Desktop/ })).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(within(group).getByRole("button", { name: /Mobile/ }));
+    expect(within(group).getByRole("button", { name: /Mobile/ })).toHaveAttribute("aria-pressed", "true");
+    expect(useEditorStore.getState().ui.editingWidth).toBe(390);
   });
 
-  it("clamps to the supported range", () => {
+  it("renders each device at its own reference width", async () => {
+    const user = userEvent.setup();
+    setup();
+    const group = screen.getByRole("group", { name: "Device" });
+
+    await user.click(within(group).getByRole("button", { name: /Tablet/ }));
+    expect(useEditorStore.getState().ui.editingWidth).toBe(768);
+  });
+
+  it("changing device never touches the document or history", () => {
+    setup();
+    const before = useEditorStore.getState().history;
+
+    act(() => useEditorStore.getState().setEditingDevice("mobile"));
+    expect(useEditorStore.getState().history).toEqual(before);
+  });
+
+  it("still clamps a width set programmatically", () => {
     setup();
     act(() => useEditorStore.getState().setEditingWidth(99));
     expect(useEditorStore.getState().ui.editingWidth).toBe(320);
     act(() => useEditorStore.getState().setEditingWidth(9999));
     expect(useEditorStore.getState().ui.editingWidth).toBe(1920);
-  });
-
-  it("changing width never touches the document or history", () => {
-    setup();
-    const before = useEditorStore.getState().history;
-
-    act(() => useEditorStore.getState().setEditingWidth(390));
-    expect(useEditorStore.getState().history).toEqual(before);
-  });
-
-  it("names the breakpoint the current width falls into", async () => {
-    const user = userEvent.setup();
-    setup();
-    const header = screen.getByRole("banner");
-    expect(within(header).getByRole("button", { name: "Desktop" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-
-    await user.click(within(header).getByRole("button", { name: "Mobile" }));
-    expect(useEditorStore.getState().ui.editingWidth).toBe(390);
   });
 });
 

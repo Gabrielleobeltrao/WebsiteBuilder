@@ -1,4 +1,11 @@
-import { migrateDocumentResponsive } from "@websitebuilder/shared";
+import {
+  autoFitPageToDevice,
+  DEVICE_ORDER,
+  deviceForWidth,
+  deviceReferenceWidth,
+  migrateDocumentResponsive,
+  type DeviceMode,
+} from "@websitebuilder/shared";
 import {
   DESIGN_WIDTH,
   resolveBreakpointAt,
@@ -87,6 +94,10 @@ export type EditorState = {
   setPanelMode: (mode: PanelMode) => void;
   setZoom: (zoom: number) => void;
   setEditingWidth: (width: number) => void;
+  /** The device being authored. Every geometry and style write lands on this one. */
+  setEditingDevice: (device: DeviceMode) => void;
+  /** Fits the current page's escaping elements to the device being authored. Returns how many. */
+  autoFitCurrentPage: () => number;
   setBreakpointOverride: (
     elementId: string,
     breakpointId: string,
@@ -325,7 +336,37 @@ export const useEditorStore = create<EditorState>((set, get) => {
       set((state) => ({ ui: { ...state.ui, editingWidth: Math.max(320, Math.min(1920, Math.round(width))) } }));
     },
 
+    setEditingDevice(device) {
+      // Stored as a width because the canvas renders at one, and derived back to a device wherever
+      // a write needs to know which override it belongs to. One value, so the two can never
+      // disagree about which device is on screen.
+      set((state) => ({ ui: { ...state.ui, editingWidth: deviceReferenceWidth(device) } }));
+    },
+
+    autoFitCurrentPage() {
+      const device = selectEditingDevice(get());
+      const pageId = selectCurrentPage(get())?.id;
+      if (pageId === undefined) return 0;
+
+      let changed = 0;
+      // One update, so it is one undo. A repair that takes five presses of undo to reverse is a
+      // repair people stop trusting.
+      get().update((document) => ({
+        ...document,
+        pages: document.pages.map((page) => {
+          if (page.id !== pageId) return page;
+          const result = autoFitPageToDevice(page, device);
+          changed = result.changed.length;
+          return result.page;
+        }),
+      }));
+
+      return changed;
+    },
+
     setBreakpointOverride(elementId, breakpointId, part, values) {
+      // Geometry written for a device is pixels on that device's canvas. Recording which canvas is
+      // what lets the compiler read it back correctly instead of assuming the desktop one.
       get().update((document) =>
         elementOps.updateElement(document, elementId, (element) => ({
           ...element,
@@ -334,6 +375,9 @@ export const useEditorStore = create<EditorState>((set, get) => {
             [breakpointId]: {
               ...element.breakpointOverrides?.[breakpointId],
               [part]: { ...element.breakpointOverrides?.[breakpointId]?.[part], ...values },
+              ...(part === "geometry" && isDeviceMode(breakpointId)
+                ? { referenceWidth: deviceReferenceWidth(breakpointId) }
+                : {}),
             },
           },
         })),
@@ -355,7 +399,12 @@ export const useEditorStore = create<EditorState>((set, get) => {
           const forBreakpoint = { ...overrides[breakpointId], [part]: rest };
 
           // An empty override object would keep reporting the value as overridden.
-          if (Object.keys(rest).length === 0) delete (forBreakpoint as Record<string, unknown>)[part];
+          if (Object.keys(rest).length === 0) {
+            delete (forBreakpoint as Record<string, unknown>)[part];
+            // The recorded canvas describes geometry. With the geometry gone it describes nothing,
+            // and leaving it behind keeps the device looking overridden when it is not.
+            if (part === "geometry") delete (forBreakpoint as Record<string, unknown>).referenceWidth;
+          }
           if (Object.keys(forBreakpoint).length === 0) delete overrides[breakpointId];
           else overrides[breakpointId] = forBreakpoint;
 
@@ -422,8 +471,22 @@ export const useEditorStore = create<EditorState>((set, get) => {
       if (created !== null) get().select({ kind: "element", elementId: created });
     },
 
+    /**
+     * Writes geometry to the device being authored.
+     *
+     * On desktop that is the element's base geometry, which is what every other device inherits. On
+     * a narrower device it is that device's override, and only the keys that actually changed —
+     * so dragging on mobile cannot silently move the element on a laptop, which is what happened
+     * before and was invisible until somebody opened the site on one.
+     */
     moveElement(elementId, geometry) {
-      get().update((document) => elementOps.moveElement(document, elementId, geometry));
+      const device = selectEditingDevice(get());
+      if (device === "desktop") {
+        get().update((document) => elementOps.moveElement(document, elementId, geometry));
+        return;
+      }
+
+      get().setBreakpointOverride(elementId, device, "geometry", geometry);
     },
 
     renameElement(elementId, name) {
@@ -523,6 +586,16 @@ export function selectCurrentPage(state: EditorState): BuilderPage | null {
 }
 
 /** Breakpoint the editing width currently falls into, or the widest one as a fallback. */
+/** The device the canvas is showing, which is the device every edit writes to. */
+/** Whether a breakpoint id names one of the three devices rather than something else. */
+function isDeviceMode(id: string): id is DeviceMode {
+  return (DEVICE_ORDER as readonly string[]).includes(id);
+}
+
+export function selectEditingDevice(state: EditorState): DeviceMode {
+  return deviceForWidth(state.ui.editingWidth);
+}
+
 export function selectEditingBreakpoint(state: EditorState): BreakpointDefinition | null {
   const breakpoints = state.history.present.breakpoints;
   return resolveBreakpointAt(state.ui.editingWidth, breakpoints) ?? breakpoints[0] ?? null;

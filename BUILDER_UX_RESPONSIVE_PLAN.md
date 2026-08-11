@@ -547,25 +547,38 @@ Opening a finding sets the current page, device, selection, and inspector contex
 
 ### Phase 3 — Device-aware editor state
 
-- [ ] **3.1 Replace continuous WidthControl with DeviceSwitcher.**
+- [x] **3.1 Replace continuous WidthControl with DeviceSwitcher.**
   - Acceptance: exactly Desktop, Tablet, and Mobile controls are visible; slider, numeric width, and breakpoint badge are removed.
   - Verify: component tests query exactly three device buttons.
+  - Three icon buttons with `aria-pressed`, and nothing else. The slider, the numeric canvas width
+    and the breakpoint badge are gone: the continuum was honest about the problem and useless as a
+    control, because it asked an author which of sixteen hundred widths to design for.
 
-- [ ] **3.2 Make Moveable writes device-aware.**
+- [x] **3.2 Make Moveable writes device-aware.**
   - Acceptance: Desktop drag/resize updates base; Tablet/Mobile update only their override.
   - Verify: store and interaction tests prove cross-device isolation.
+  - `moveElement` writes the base on desktop and that device's override anywhere else, recording
+    the canvas the pixels were authored against. Five tests prove desktop, tablet and mobile are
+    independent and that a narrow edit is one undo.
 
-- [ ] **3.3 Make ElementInspector device-aware.**
+- [x] **3.3 Make ElementInspector device-aware.**
   - Acceptance: geometry and supported style fields display origin and write/reset the correct device value.
   - Verify: inspector tests for inherited, overridden, and reset states.
+  - Geometry fields show and write the resolved device values, with a badge saying inherited or
+    overridden and a reset that appears only where there is an override to give back.
 
-- [ ] **3.4 Remove SectionInspector's desktop constant.**
+- [x] **3.4 Remove SectionInspector's desktop constant.**
   - Acceptance: Grid/Flex/height/padding/gap/direction edits follow the active device.
   - Verify: Tablet and Mobile section edits leave Desktop unchanged.
+  - It follows the device switcher and reads through the inheritance chain, so a device nobody has
+    touched shows what it actually renders. This closed the last Phase 0 capture.
 
-- [ ] **3.5 Add explicit responsive auto-fix.**
+- [x] **3.5 Add explicit responsive auto-fix.**
   - Acceptance: auto-fix is user-triggered, undoable, deterministic, and creates only necessary overrides.
   - Verify: overflow fixture is fixed without changing Desktop.
+  - `autoFitPageToDevice` reuses the migration rule for one device on request. User-triggered,
+    one undo, deterministic, and it replaces an override because that is what pressing it asks for
+    — unlike the automatic pass, which leaves an authored decision alone.
 
 ### Phase 4 — Builder shell and right sidebar UX
 
@@ -761,6 +774,7 @@ Add entries in chronological order. Do not replace previous entries.
 
 | Date | Task | Commit | Verification | Result |
 | --- | --- | --- | --- | --- |
+| 2026-08-11 | 3.1-3.5 device-aware editing | n/a | `npm run typecheck && npm run test` | 1,708 tests pass, zero failures. Every Phase 0 capture is green |
 | 2026-08-11 | 0.1 baseline | n/a | `git status --short` empty; `development`/`origin/development`/`origin/main` all at `4bb5148` | Audited baseline `2afd955` is an ancestor. Suite green at the starting commit: 1,609 unit, 47 E2E |
 | 2026-08-11 | 0.2 fixtures | n/a | `npm run typecheck` | Shared fixtures compile and are reachable from both workspaces through `@websitebuilder/shared/responsive-fixtures` |
 | 2026-08-11 | 2.1-2.6 responsive compiler | n/a | `npm run test` | 1,694 tests pass; only Phase 0's device-aware-write capture still fails, which Phase 3.4 fixes. The nine renderer captures are green |
@@ -777,6 +791,7 @@ Add material implementation decisions here before or while making them.
 
 | ID | Decision | Reason | Consequences |
 | --- | --- | --- | --- |
+| D-012 | The device switcher stores a width, not a mode | The canvas has to render at some width, and two values would eventually disagree about which device is on screen | The device is derived wherever a write needs it, so the switcher and the canvas cannot drift |
 | D-001 | Keep builder controls on the right | Explicit product requirement | Elementor interaction logic is adapted, not copied spatially |
 | D-002 | Expose exactly three device modes | Clearer UX requested | Internal tests may still sweep intermediate widths |
 | D-003 | Use isolated iframe preview | Accurate internal viewport and CSS media behavior | Requires authorized draft-preview HTML route |

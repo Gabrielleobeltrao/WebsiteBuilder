@@ -1,7 +1,14 @@
-import { TEXT_TAGS, type BuilderElement, type BuilderPage } from "@websitebuilder/shared";
+import {
+  deviceOriginOf,
+  resolveElementForDevice,
+  TEXT_TAGS,
+  type BuilderElement,
+  type BuilderPage,
+} from "@websitebuilder/shared";
 import { useTranslation } from "react-i18next";
 
-import { useEditorStore } from "@/features/editor/store/editorStore";
+import { selectEditingDevice, useEditorStore } from "@/features/editor/store/editorStore";
+import { DeviceValue } from "./DeviceValue";
 import { ColorField, InspectorGroup, LengthField, NumberField, SelectField, TextField, ToggleField } from "./controls";
 import { LinkEditor } from "./LinkEditor";
 
@@ -19,6 +26,13 @@ export function ElementInspector({ element, pages }: { element: BuilderElement; 
   const { t } = useTranslation("builder");
   const store = useEditorStore();
   const key = `element:${element.id}`;
+  const device = useEditorStore(selectEditingDevice);
+  const resolved = resolveElementForDevice({
+    device,
+    base: element.responsiveLayout,
+    geometry: element.geometry,
+    overrides: element.breakpointOverrides,
+  });
 
   const patch = (recipe: (current: BuilderElement) => BuilderElement) =>
     store.update((document) => {
@@ -285,33 +299,32 @@ export function ElementInspector({ element, pages }: { element: BuilderElement; 
       </InspectorGroup>
 
       <InspectorGroup titleKey="layout">
+        {/*
+          The geometry of the device on the canvas, not the base geometry.
+
+          Both the value shown and the value written follow the device switcher. Showing the base
+          while editing a device would be the same lie in reverse: an author would correct a number
+          that is not the one their phone uses.
+        */}
         <div className="grid grid-cols-2 gap-2">
-          <NumberField
-            label={t("fields.x")}
-            value={element.geometry.x}
-            transactionKey={`${key}:x`}
-            onChange={(x) => store.moveElement(element.id, { ...element.geometry, x })}
-          />
-          <NumberField
-            label={t("fields.y")}
-            value={element.geometry.y}
-            transactionKey={`${key}:y`}
-            onChange={(y) => store.moveElement(element.id, { ...element.geometry, y })}
-          />
-          <NumberField
-            label={t("fields.width")}
-            value={element.geometry.width}
-            min={8}
-            transactionKey={`${key}:width`}
-            onChange={(width) => store.moveElement(element.id, { ...element.geometry, width })}
-          />
-          <NumberField
-            label={t("fields.height")}
-            value={element.geometry.height}
-            min={8}
-            transactionKey={`${key}:height`}
-            onChange={(height) => store.moveElement(element.id, { ...element.geometry, height })}
-          />
+          {(["x", "y", "width", "height"] as const).map((axis) => (
+            <div key={axis}>
+              <NumberField
+                label={t(`fields.${axis}`)}
+                value={resolved.authoredGeometry[axis]}
+                {...(axis === "width" || axis === "height" ? { min: 8 } : {})}
+                transactionKey={`${key}:${axis}:${device}`}
+                onChange={(value) =>
+                  store.moveElement(element.id, { ...resolved.authoredGeometry, [axis]: value })
+                }
+              />
+              <DeviceValue
+                origin={deviceOriginOf(device, resolved.origins.geometry)}
+                source={resolved.origins.geometry}
+                onReset={() => store.clearBreakpointOverride(element.id, device, "geometry", axis)}
+              />
+            </div>
+          ))}
         </div>
         <div className="flex flex-wrap gap-1">
           {(["front", "forward", "backward", "back"] as const).map((direction) => (

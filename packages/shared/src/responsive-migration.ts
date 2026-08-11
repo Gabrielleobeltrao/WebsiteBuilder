@@ -27,6 +27,49 @@ import type { BuilderPage, BuilderSection } from "./project";
 /** The devices a migration may write. Desktop is absent on purpose. */
 const NARROW_DEVICES: DeviceMode[] = ["tablet", "mobile"];
 
+/**
+ * Fits one page's elements to one device, on request.
+ *
+ * The same rule the migration applies, aimed at a single device because somebody asked for it. It
+ * differs from the automatic pass in one way that matters: it replaces an existing override, since
+ * a person pressing "fit to this device" is asking for exactly that. Everything else holds —
+ * desktop is untouched, other devices are untouched, and it is one undoable step.
+ */
+export function autoFitPageToDevice(
+  page: BuilderPage,
+  device: DeviceMode,
+): { page: BuilderPage; changed: string[] } {
+  if (device === "desktop") return { page, changed: [] };
+
+  const changed: string[] = [];
+  const sections = page.sections.map((section) => {
+    if (section.layoutMode !== "free") return section;
+
+    const elements = section.elements.map((element) => {
+      if (escapesAt(element, device) === null) return element;
+      changed.push(element.id);
+
+      return {
+        ...element,
+        breakpointOverrides: {
+          ...element.breakpointOverrides,
+          [device]: {
+            ...element.breakpointOverrides?.[device],
+            geometry: safeGeometryFor(element, device),
+            referenceWidth: deviceReferenceWidth(device),
+          },
+        },
+      } as BuilderElement;
+    });
+
+    return elements.every((element, index) => element === section.elements[index])
+      ? section
+      : { ...section, elements };
+  });
+
+  return changed.length === 0 ? { page, changed } : { page: { ...page, sections }, changed };
+}
+
 export type MigrationReport = {
   /** Elements that received an override, and the device that received it. */
   changed: Array<{ elementId: string; device: DeviceMode; reason: "overflow" | "off-canvas" }>;

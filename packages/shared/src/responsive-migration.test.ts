@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { DEVICE_SAFE_PADDING, deviceReferenceWidth } from "./devices";
 import { legacyDesktopOnlyProject, overriddenProject } from "./responsive-fixtures";
-import { migrateDocumentResponsive } from "./responsive-migration";
+import { autoFitPageToDevice, migrateDocumentResponsive } from "./responsive-migration";
 import { resolveElementForDevice } from "./resolve";
 
 const elementsOf = (document: ReturnType<typeof legacyDesktopOnlyProject>) =>
@@ -123,5 +123,52 @@ describe("what migration fixes", () => {
       expect(["tablet", "mobile"]).toContain(entry.device);
       expect(["overflow", "off-canvas"]).toContain(entry.reason);
     }
+  });
+});
+
+describe("fitting a page to one device on request", () => {
+  it("changes nothing on desktop, whatever is asked", () => {
+    const page = legacyDesktopOnlyProject().pages[0]!;
+    const result = autoFitPageToDevice(page, "desktop");
+
+    // Desktop is the base every other device inherits. "Fitting" it would mean redesigning the site.
+    expect(result.page).toBe(page);
+    expect(result.changed).toEqual([]);
+  });
+
+  it("fits only the device that was asked for", () => {
+    const page = legacyDesktopOnlyProject().pages[0]!;
+    const { page: fitted } = autoFitPageToDevice(page, "mobile");
+    const element = fitted.sections[0]!.elements.find((candidate) => candidate.id === "far-right")!;
+
+    expect(element.breakpointOverrides?.["mobile"]).toBeDefined();
+    expect(element.breakpointOverrides?.["tablet"]).toBeUndefined();
+  });
+
+  it("replaces an override, because that is what was asked for", () => {
+    // Unlike the automatic migration, which leaves an authored decision alone. Somebody pressing
+    // "fit to this device" is asking for the placement to be recomputed.
+    const page = overriddenProject().pages[0]!;
+    const { page: fitted } = autoFitPageToDevice(page, "mobile");
+    const element = fitted.sections[0]!.elements.find((candidate) => candidate.id === "far-right")!;
+
+    expect(element.breakpointOverrides?.["mobile"]?.geometry?.x).toBe(DEVICE_SAFE_PADDING.mobile);
+  });
+
+  it("touches only the elements that do not fit", () => {
+    const page = legacyDesktopOnlyProject().pages[0]!;
+    const { page: fitted, changed } = autoFitPageToDevice(page, "mobile");
+
+    expect(changed).toContain("far-right");
+    expect(changed).not.toContain("centred");
+    expect(fitted.sections[0]!.elements.find((c) => c.id === "centred")!.breakpointOverrides).toBeUndefined();
+  });
+
+  it("reports nothing and returns the same page when everything already fits", () => {
+    const { page } = autoFitPageToDevice(legacyDesktopOnlyProject().pages[0]!, "mobile");
+    const again = autoFitPageToDevice(page, "mobile");
+
+    // Deterministic: the second pass computes the same placement it already wrote.
+    expect(again.page.sections[0]!.elements).toEqual(page.sections[0]!.elements);
   });
 });
