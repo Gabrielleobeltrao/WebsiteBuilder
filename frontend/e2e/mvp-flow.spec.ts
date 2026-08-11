@@ -121,6 +121,34 @@ test.describe("language preference", () => {
   });
 });
 
+test.describe("dashboard on a phone", () => {
+  // Overrides this file's desktop viewport. The editor needs a pointer and a canvas, but the
+  // dashboard is what a person reaches for on a phone, and it has to be usable there.
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("keeps the workspace navigation behind the menu instead of above the page", async ({ page }) => {
+    await signUp(page);
+
+    // The sidebar must not be stacked over the content: the page's own heading comes first.
+    await expect(page.getByRole("heading", { level: 1 })).toBeInViewport();
+
+    const trigger = page.getByRole("button", { name: "Open menu" });
+    await trigger.click();
+    const drawer = page.getByRole("dialog", { name: "Website Builder" });
+    await expect(drawer).toBeVisible();
+
+    await drawer.getByRole("link", { name: "Media" }).click();
+    await expect(page).toHaveURL(/\/media$/);
+    await expect(drawer).toBeHidden();
+
+    await page.setViewportSize({ width: 320, height: 800 });
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    );
+    expect(overflow).toBe(false);
+  });
+});
+
 test.describe("authentication boundary", () => {
   test("sends a signed-out visitor to login and back after signing in", async ({ page }) => {
     await page.goto("/app/anything/sites");

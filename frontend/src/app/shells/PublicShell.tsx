@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, NavLink, Outlet, useLocation } from "react-router";
+import { Link, NavLink, Outlet } from "react-router";
 
+import { MobileNavDrawer } from "@/app/shells/MobileNavDrawer";
 import { LanguageSelector } from "@/components/common/LanguageSelector";
-import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 /**
  * Layout for unauthenticated marketing and authentication entry routes.
@@ -93,15 +92,6 @@ function Brand({ onNavigate }: { onNavigate?: () => void }) {
 
 export function PublicShell({ authenticated = false }: { authenticated?: boolean }) {
   const { t } = useTranslation(["common", "public"]);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const drawerRef = useRef<HTMLDivElement>(null);
-  const location = useLocation();
-
-  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
-  useFocusTrap(drawerRef, { active: drawerOpen, onEscape: closeDrawer });
-
-  // A route change must never leave the drawer covering the page it navigated to.
-  useEffect(() => setDrawerOpen(false), [location.pathname]);
 
   const sidebarContent = (onNavigate?: () => void) => (
     <div className="flex h-full flex-col gap-6">
@@ -122,50 +112,11 @@ export function PublicShell({ authenticated = false }: { authenticated?: boolean
         {t("common:skipToContent")}
       </a>
 
-      <header className="flex items-center justify-between border-b border-ink-100 px-4 py-3 lg:hidden">
-        <Brand />
-        <button
-          type="button"
-          onClick={() => setDrawerOpen(true)}
-          aria-expanded={drawerOpen}
-          aria-controls="public-drawer"
-          className="rounded-md border border-ink-200 px-3 py-2 text-sm font-medium text-ink-700"
-        >
-          {t("common:actions.openMenu")}
-        </button>
-      </header>
+      <MobileNavDrawer id="public-drawer" label={t("public:nav.label")} brand={<Brand />}>
+        {(close) => sidebarContent(close)}
+      </MobileNavDrawer>
 
       <aside className="hidden w-64 shrink-0 border-r border-ink-100 p-6 lg:block">{sidebarContent()}</aside>
-
-      {drawerOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <button
-            type="button"
-            aria-label={t("common:actions.closeMenu")}
-            onClick={closeDrawer}
-            className="absolute inset-0 size-full bg-ink-950/40"
-          />
-          <div
-            id="public-drawer"
-            ref={drawerRef}
-            role="dialog"
-            aria-modal="true"
-            aria-label={t("public:nav.label")}
-            className="absolute inset-y-0 left-0 w-72 max-w-[85vw] overflow-y-auto bg-white p-6 shadow-xl"
-          >
-            <div className="mb-4 flex justify-end">
-              <button
-                type="button"
-                onClick={closeDrawer}
-                className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700"
-              >
-                {t("common:actions.closeMenu")}
-              </button>
-            </div>
-            {sidebarContent(closeDrawer)}
-          </div>
-        </div>
-      )}
 
       <main id="main-content" className="min-w-0 flex-1">
         <Outlet />
