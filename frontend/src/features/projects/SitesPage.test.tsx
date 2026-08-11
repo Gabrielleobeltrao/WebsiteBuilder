@@ -160,3 +160,38 @@ describe("SitesPage localization", () => {
     expect(screen.getByRole("button", { name: "Novo site" })).toBeInTheDocument();
   });
 });
+
+describe("finding a site from the list", () => {
+  beforeEach(() => {
+    mockFetch(() => ok([summary()]));
+  });
+
+  it("offers a preview in one tap, without going through the editor", async () => {
+    // The editor refuses to open without a pointer and a wide screen, so on the device most likely
+    // to be looking for a preview, every visible action used to lead somewhere unusable.
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+
+    const preview = await screen.findByRole("link", { name: "Preview" });
+    expect(preview).toHaveAttribute("href", "/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
+  });
+
+  it("carries the workspace in the preview address", async () => {
+    // Without it the preview asks the API for an empty workspace and gets a 404, which is how it
+    // was broken for every user before.
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+
+    const href = (await screen.findByRole("link", { name: "Preview" })).getAttribute("href") ?? "";
+    expect(href.split("/").filter(Boolean)).toHaveLength(3);
+  });
+
+  it("shows the site's own page as a link a touch device can see", async () => {
+    // Underlined always rather than on hover: a phone has no hover, and a link that reveals itself
+    // only to a pointer is invisible to everyone holding one of these.
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+
+    const name = await screen.findByRole("link", { name: "Acme Studio" });
+    expect(name).toHaveAttribute("href", "/app/w1/sites/aaaaaaaaaaaaaaaaaaaaaaaa/dashboard");
+    expect(name.className).toContain("underline");
+    expect(name.className).not.toContain("hover:underline");
+  });
+});

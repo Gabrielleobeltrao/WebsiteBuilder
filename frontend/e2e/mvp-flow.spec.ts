@@ -154,6 +154,29 @@ test.describe("preview", () => {
   });
 });
 
+test.describe("reaching a preview on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("is one tap from the site list", async ({ page }) => {
+    await signUp(page);
+
+    // The mobile path: open the menu, go to Sites, tap Preview. No editor in between, because the
+    // editor refuses to open at this width.
+    await page.getByRole("button", { name: "Open menu" }).click();
+    await page.getByRole("dialog").getByRole("link", { name: "Sites" }).click();
+    await page.getByRole("button", { name: "New site" }).click();
+    await page.getByLabel("Site name").fill("Phone Site");
+    await page.getByRole("button", { name: "Create site" }).click();
+    await expect(page.getByText("Phone Site")).toBeVisible();
+
+    await page.getByRole("link", { name: "Preview" }).first().click();
+
+    await expect(page).toHaveURL(/\/preview\//, { timeout: 20_000 });
+    expect(new URL(page.url()).pathname.split("/").filter(Boolean)).toHaveLength(3);
+    await expect(page.getByRole("alert")).toHaveCount(0);
+  });
+});
+
 test.describe("the workspace overview", () => {
   test("opens on measured zeros and follows what the account actually has", async ({ page }) => {
     await signUp(page);

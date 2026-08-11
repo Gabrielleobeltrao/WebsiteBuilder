@@ -134,12 +134,14 @@ export function SitesPage({ workspaceId }: { workspaceId: string }) {
                     bg-white px-5 py-4"
                 >
                   <div className="min-w-0">
-                    {/* The name is the way in. Without it the list had Rename and Delete and no way
-                        to open a site at all, so the builder was unreachable from the dashboard. */}
+                    {/* The name is the way in. Underlined always, not on hover: a touch device has
+                        no hover, so a link that only reveals itself to a pointer is invisible to
+                        everyone on a phone — which is where this list is most used, because the
+                        editor needs a pointer and a wide screen. */}
                     <h2 className="truncate font-medium text-ink-900">
                       <Link
                         to={`/app/${workspaceId}/sites/${project.id}/dashboard`}
-                        className="underline-offset-4 hover:underline"
+                        className="underline decoration-ink-300 underline-offset-4 hover:decoration-ink-900"
                       >
                         {project.name}
                       </Link>
@@ -150,6 +152,16 @@ export function SitesPage({ workspaceId }: { workspaceId: string }) {
                     </p>
                   </div>
                   <div className="flex shrink-0 gap-2">
+                    {/* One tap from the list to a rendered site. It used to be reachable only
+                        through the site page behind the name, and the visible buttons all led to
+                        the editor — which refuses to open on the device most likely to be looking
+                        for a preview. */}
+                    <Link
+                      to={`/preview/${workspaceId}/${project.id}`}
+                      className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
+                    >
+                      {t("dashboard:site.preview")}
+                    </Link>
                     <Link
                       to={`/app/${workspaceId}/sites/${project.id}/builder`}
                       className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
