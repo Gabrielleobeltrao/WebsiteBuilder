@@ -265,6 +265,10 @@ E2E runs against the production build, so what is tested is what ships.
 
 ## Deployment on Coolify
 
+Full operator procedures — DNS records, routing rules, Cloudflare token scope, backups, monitoring,
+the smoke checklist and incident handling — live in [docs/OPERATIONS.md](docs/OPERATIONS.md). The
+summary below is enough to get a first deploy running.
+
 > **Not yet verified against a live environment.** The manifests below are written to the
 > architecture above and reviewed, but Docker is not installed on the development machine, so the
 > images have not been built and no staging deploy has been rehearsed. Treat the first deploy as a

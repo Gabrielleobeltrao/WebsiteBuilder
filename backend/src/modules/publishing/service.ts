@@ -14,7 +14,7 @@ import type { ProjectRepository, WorkspaceContext } from "../projects/repository
 import { reconcileSiteStatus, type ModuleFacts } from "../projects/status";
 import { PublishError, type PublishingRepository } from "./repository";
 
-/** A published document larger than this is a symptom, not a site. */
+/** A published document larger than this is a symptom, not a site. Overridable per environment. */
 export const MAX_PUBLISHED_DOCUMENT_BYTES = 4_000_000;
 
 export type PublishOutcome =
@@ -37,6 +37,7 @@ export class PublishingService {
       publishing: PublishingRepository;
       blog: BlogRepository;
       media: MediaRepository;
+      maxDocumentBytes?: number;
       /** Not yet backed by repositories; wired in when the CMS and redirect stores land. */
       loadCmsCollections?: (projectId: string) => Promise<PublishableCollection[]>;
       loadCmsItems?: (projectId: string) => Promise<PublishableCmsItem[]>;
@@ -126,7 +127,7 @@ export class PublishingService {
       mediaExists: (mediaId) => ownedMedia.has(mediaId),
       supportedSchemaVersion: SCHEMA_VERSION,
       moduleBlockers: status.blockingIssueCount,
-      maxDocumentBytes: MAX_PUBLISHED_DOCUMENT_BYTES,
+      maxDocumentBytes: this.deps.maxDocumentBytes ?? MAX_PUBLISHED_DOCUMENT_BYTES,
     });
   }
 }

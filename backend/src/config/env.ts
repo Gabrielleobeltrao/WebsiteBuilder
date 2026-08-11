@@ -29,9 +29,17 @@ const baseSchema = z.object({
    * correct for development and never for production.
    */
   CLOUDFLARE_API_BASE_URL: z.string().url().default("https://api.cloudflare.com/client/v4"),
+  CLOUDFLARE_ACCOUNT_ID: z.string().min(1).optional(),
   CLOUDFLARE_ZONE_ID: z.string().min(1).optional(),
   CLOUDFLARE_API_TOKEN: z.string().min(1).optional(),
+  /** The CNAME target customers point their hostname at. */
+  CLOUDFLARE_SAAS_CNAME_TARGET: z.string().min(3).default("customers.localhost"),
   PUBLIC_RENDERER_ORIGIN: z.string().min(3).default("origin.localhost"),
+  /** Versions kept per project. The active one is never pruned regardless of this number. */
+  PUBLISHED_VERSION_RETENTION_COUNT: z.coerce.number().int().min(1).max(500).default(20),
+  PUBLISH_MAX_DOCUMENT_BYTES: z.coerce.number().int().positive().default(4_000_000),
+  DOMAIN_VERIFICATION_INTERVAL_SECONDS: z.coerce.number().int().positive().default(60),
+  DOMAIN_VERIFICATION_TIMEOUT_HOURS: z.coerce.number().int().positive().default(72),
   /** Bytes accepted for a builder document save. Larger documents are rejected with 413. */
   JSON_BODY_LIMIT: z.string().default("8mb"),
   PUBLIC_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),

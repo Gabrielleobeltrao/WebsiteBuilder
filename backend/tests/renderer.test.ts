@@ -48,10 +48,18 @@ async function liveSite(context: WorkspaceContext, name: string, hostname: strin
     order: 1,
     seo: { ...typed.pages[0]!.seo, title: `${name} about` },
   });
-  await projects.saveDocument(context, project.id, revision, typed);
+  const saved = await projects.saveDocument(context, project.id, revision, typed);
+  // Setup that fails quietly produces a test failure with no explanation. Both of these return
+  // rather than throw on failure, so they are checked here.
+  if (saved === null) throw new Error(`saveDocument rejected the ${name} fixture`);
 
-  await service.publish(context, project.id);
-  await publishing.ensurePlatformDomain(context, project.id, hostname.split(".")[0]!, "example.test");
+  const published = await service.publish(context, project.id);
+  if (published.status !== "published") {
+    throw new Error(`publishing ${name} returned ${published.status}: ${JSON.stringify(published)}`);
+  }
+
+  const domain = await publishing.ensurePlatformDomain(context, project.id, hostname.split(".")[0]!, "example.test");
+  if (domain === null) throw new Error(`no platform hostname for ${name}`);
 
   resolver.invalidateAll();
   return project.id;

@@ -45,7 +45,7 @@ function createHostnameProvider(env: Env, logger: ReturnType<typeof createLogger
     apiBaseUrl: env.CLOUDFLARE_API_BASE_URL,
     zoneId: env.CLOUDFLARE_ZONE_ID,
     apiToken: env.CLOUDFLARE_API_TOKEN,
-    originHostname: env.PUBLIC_RENDERER_ORIGIN,
+    originHostname: env.CLOUDFLARE_SAAS_CNAME_TARGET,
   });
 }
 
@@ -125,7 +125,14 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
     {
       path: "/workspaces/:workspaceId/projects/:projectId/publishing",
       router: createPublishingRouter({
-        service: new PublishingService({ projects, publishing, blog, media, collectModuleFacts }),
+        service: new PublishingService({
+          projects,
+          publishing,
+          blog,
+          media,
+          collectModuleFacts,
+          maxDocumentBytes: env.PUBLISH_MAX_DOCUMENT_BYTES,
+        }),
         repository: publishing,
         domains,
         resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
