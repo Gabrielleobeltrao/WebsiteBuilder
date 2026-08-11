@@ -195,3 +195,73 @@ describe("retention", () => {
     expect(remaining.map((version) => version.id)).toContain(active?.id);
   });
 });
+
+describe("what a pruned version takes with it", () => {
+  /** A service whose retention is tight enough that publishing twice prunes something. */
+  const withRetention = (onVersionsPruned: PublishingService["deps"]["onVersionsPruned"]) =>
+    new PublishingService({
+      projects,
+      publishing,
+      blog,
+      media: new MediaRepository(database.db, createGridFsStorage(database.db)),
+      retentionCount: 1,
+      ...(onVersionsPruned === undefined ? {} : { onVersionsPruned }),
+    });
+
+  it("tells the caller which layouts stopped existing", async () => {
+    const pruned: string[] = [];
+    const tight = withRetention(async (_context, _projectId, versionIds) => {
+      pruned.push(...versionIds);
+    });
+
+    const project = await newProject();
+    const first = await tight.publish(A, project.id);
+    await edit(project.id, (document) => (document.pages[0]!.seo.title = "Changed"));
+    await tight.publish(A, project.id);
+    await edit(project.id, (document) => (document.pages[0]!.seo.title = "Changed again"));
+    await tight.publish(A, project.id);
+
+    // Heatmap coordinates are stored against a version; the ones whose version is gone can only be
+    // drawn over a layout that did not produce them, so the caller is told to delete them.
+    expect(first.status).toBe("published");
+    expect(pruned.length).toBeGreaterThan(0);
+    if (first.status === "published") expect(pruned).toContain(first.version.id);
+  });
+
+  it("publishes the site even when tidying up afterwards fails", async () => {
+    // A site that refuses to go live because its old statistics could not be cleaned up would be a
+    // bad trade in every direction.
+    const tight = withRetention(async () => {
+      throw new Error("the analytics database is unreachable");
+    });
+
+    const project = await newProject();
+    await tight.publish(A, project.id);
+    await edit(project.id, (document) => (document.pages[0]!.seo.title = "Changed"));
+    await edit(project.id, (document) => (document.pages[0]!.seo.title = "Changed twice"));
+
+    const result = await tight.publish(A, project.id);
+
+    expect(result.status).toBe("published");
+    expect(await publishing.findActiveVersionId(project.id)).not.toBeNull();
+  });
+
+  it("does not call the hook when nothing was pruned", async () => {
+    let calls = 0;
+    const service = new PublishingService({
+      projects,
+      publishing,
+      blog,
+      media: new MediaRepository(database.db, createGridFsStorage(database.db)),
+      retentionCount: 20,
+      onVersionsPruned: async () => {
+        calls += 1;
+      },
+    });
+
+    const project = await newProject();
+    await service.publish(A, project.id);
+
+    expect(calls).toBe(0);
+  });
+});

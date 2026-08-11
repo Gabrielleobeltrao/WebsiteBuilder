@@ -41,6 +41,13 @@ export class PublishingService {
       /** Versions kept per project. The active one is never pruned regardless of this number. */
       retentionCount?: number;
       /**
+       * Called with the versions retention just deleted.
+       *
+       * Injected rather than imported so publishing keeps no dependency on analytics — it does not
+       * need to know why a layout mattered to anyone else, only that it is gone.
+       */
+      onVersionsPruned?: (context: WorkspaceContext, projectId: string, versionIds: string[]) => Promise<void>;
+      /**
        * Workspace-scoped so a compiler run can never read another tenant's content. The redirect
        * store does not exist yet; its loader is wired in when it lands.
        */
@@ -85,7 +92,20 @@ export class PublishingService {
       });
       // Retention runs after the pointer moved, so the version now live is known and excluded.
       // Deleting the snapshot a site is serving to save disk would take that site offline.
-      await this.deps.publishing.pruneVersions(context, projectId, this.deps.retentionCount ?? 20, version.id);
+      const pruned = await this.deps.publishing.pruneVersions(
+        context,
+        projectId,
+        this.deps.retentionCount ?? 20,
+        version.id,
+      );
+
+      // Anything else that describes those layouts goes with them — today, the heatmap coordinates
+      // that would otherwise have nothing to be drawn over. Awaited so a caller sees a consistent
+      // state, and swallowed so it cannot fail a publish: a site that would not go live because its
+      // old statistics could not be tidied is a bad trade in every direction.
+      if (pruned.length > 0 && this.deps.onVersionsPruned !== undefined) {
+        await this.deps.onVersionsPruned(context, projectId, pruned).catch(() => undefined);
+      }
 
       return { status: "published", version, unchanged: false };
     } catch (error) {

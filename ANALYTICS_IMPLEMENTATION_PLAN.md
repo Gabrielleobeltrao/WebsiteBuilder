@@ -560,7 +560,7 @@ they are listed as P1-T0a through P1-T0e below.
   - Acceptance: replaying the same batch does not double-count, and the arithmetic is proven by
     fixture tests that never touch a database.
 
-- [ ] **P2-T3 — Bind heatmap data to version lifetime**
+- [x] **P2-T3 — Bind heatmap data to version lifetime**
   - Delete a version's bins in the same operation that prunes the version (A-011). Only spatial data
     carries a version; traffic, engagement and vitals survive every publish.
   - Acceptance: pruning a version removes its bins and no other project's; a rollback to a retained
@@ -800,6 +800,7 @@ Append entries; do not erase history.
 | 2026-08-11 | P0-T3 budgets | n/a | `docs/ANALYTICS_OPERATIONS.md` written | Budgets, per-page-view event count, storage formula with a worked example, alert threshold, scale ceiling and its replacement |
 | 2026-08-11 | P1-T1/P1-T2 contracts | `052547e` | `npx vitest run packages/shared/src/analytics.test.ts` | 25 tests |
 | 2026-08-11 | P2-T1/P2-T2 storage and aggregation | n/a | `npx vitest run backend/tests/analytics-{aggregate,repository}.test.ts` | 37 tests: 17 fixture tests of the arithmetic with no database, 20 against a real MongoDB covering index shape, retention ordering, deduplication, tenant isolation and version lifetime |
+| 2026-08-11 | P2-T3 version lifetime | n/a | `npx vitest run backend/tests/publishing-{repository,service}.test.ts` | Pruning now reports the ids it removed instead of a count, and publishing deletes the matching bins through an injected hook — awaited so state stays consistent, swallowed so a failed cleanup cannot fail a publish |
 | 2026-08-11 | P1-T0a..e prerequisites | n/a | `npm run typecheck && npm run test && npm run build && npm run test:e2e` | 1436 unit tests and 28 E2E green, including a new `published-site` browser project. Two pre-existing defects found and fixed: elements outside free-layout sections carried no id at all, and the renderer could not run under `tsx` because the frontend components it renders were outside the backend tsconfig's `include` — so `npm run dev:renderer` had never served a page. |
 
 ## 19. Decision Log

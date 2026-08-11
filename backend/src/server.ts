@@ -7,7 +7,7 @@ import { createLogger } from "./config/logger";
 import { connectDatabase, createDatabaseHealthProbe, type Database } from "./db/client";
 import { installGracefulShutdown } from "./lifecycle";
 import { createWorkspaceResolver } from "./middleware/session";
-import { ensureAnalyticsIndexes } from "./modules/analytics/repository";
+import { AnalyticsRepository, ensureAnalyticsIndexes } from "./modules/analytics/repository";
 import { createAuth } from "./modules/auth/auth";
 import { PreferencesRepository } from "./modules/preferences/repository";
 import { createPreferencesRouter } from "./modules/preferences/routes";
@@ -83,6 +83,7 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
   const blog = new BlogRepository(database.db);
   const cms = new CmsRepository(database.db);
   const publishing = new PublishingRepository(database.db, database.db.collection(COLLECTIONS.projects));
+  const analytics = new AnalyticsRepository(database.db);
   const domains = new DomainService(database.db, createHostnameProvider(env, logger), env.PLATFORM_ROOT_DOMAIN);
   await ensureBlogIndexes(database.db);
   await ensurePublishingIndexes(database.db);
@@ -190,6 +191,11 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
             })),
           maxDocumentBytes: env.PUBLISH_MAX_DOCUMENT_BYTES,
           retentionCount: env.PUBLISHED_VERSION_RETENTION_COUNT,
+          // Heatmap coordinates are meaningless without the layout that produced them, so they are
+          // deleted by the same operation that deletes the layout.
+          onVersionsPruned: async (context, projectId, versionIds) => {
+            await analytics.dropVersionData(context, projectId, versionIds);
+          },
         }),
         repository: publishing,
         domains,
