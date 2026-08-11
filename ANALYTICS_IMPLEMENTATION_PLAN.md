@@ -529,15 +529,23 @@ they are listed as P1-T0a through P1-T0e below.
   - Add the tracker ceiling to the shared performance budgets and measure the built artefact.
   - Acceptance: the budget fails the build when exceeded, rather than living in prose.
 
-- [ ] **P1-T1 — Add strict shared schemas and metric definitions**
+- [x] **P1-T1 — Add strict shared schemas and metric definitions**
   - Add versioned event, filter, response, heatmap, vital, settings, and export schemas to `packages/shared`.
   - Add boundary and malformed-input tests.
   - Acceptance: frontend, renderer, and API use the same contracts.
+  - Done in `packages/shared/src/analytics.ts`: event union, batch envelope, source and campaign
+    allowlist, settings with defaults, dashboard and heatmap filters, engagement rules, and Core Web
+    Vitals thresholds with histogram edges placed exactly on them. 25 boundary tests, including one
+    asserting the envelope has nowhere to put a tenant identifier and one asserting no event can
+    carry visitor text.
 
-- [ ] **P1-T2 — Add stable analytics markup**
+- [x] **P1-T2 — Add stable analytics markup**
   - Render stable `data-wb-page`, `data-wb-section`, `data-wb-element`, and element-kind attributes without exposing tenant secrets.
   - Preserve stable IDs across immutable published versions.
   - Acceptance: SSR tests prove expected IDs and no draft-only information leaks.
+  - Covered by P1-T0a and P1-T0b. The existing `data-page-id`, `data-section-id` and
+    `data-element-id` names are reused rather than adding a parallel `data-wb-*` set, which would
+    double the identity markup on every published page to say the same thing twice.
 
 ### Phase 2 — Storage and aggregation
 
