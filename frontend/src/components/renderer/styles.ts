@@ -1,6 +1,7 @@
 import {
   DEFAULT_BREAKPOINTS,
   DESIGN_WIDTH,
+  serializeFocalPoint,
   resolveSectionLayout,
   serializeFlexLayout,
   serializeGridLayout,
@@ -52,6 +53,8 @@ export function textStyle(element: TextElement): CSSProperties {
 export function imageStyle(element: ImageElement): CSSProperties {
   return {
     objectFit: element.style.objectFit,
+    // Keeps the subject of a cropped image in frame instead of whatever happens to be centred.
+    objectPosition: serializeFocalPoint(element.focalPoint),
     borderRadius: element.style.borderRadius,
     width: "100%",
     height: "100%",

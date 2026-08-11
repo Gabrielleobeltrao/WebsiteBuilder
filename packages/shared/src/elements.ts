@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+import {
+  artDirectionSourceSchema,
+  focalPointSchema,
+  type ArtDirectionSource,
+  type FocalPoint,
+} from "./images";
+
 import { safeLinkSchema, type SafeLink } from "./links";
 import {
   geometrySchema,
@@ -82,6 +89,8 @@ export type ImageElement = BaseElement & {
   alt: string;
   /** Decorative images render with an empty alt and are hidden from assistive technology. */
   decorative: boolean;
+  focalPoint?: FocalPoint;
+  artDirection?: ArtDirectionSource[];
   style: { objectFit: "cover" | "contain" | "fill"; borderRadius: number };
 };
 
@@ -140,6 +149,10 @@ export const imageElementSchema = z
     ]),
     alt: z.string().max(500),
     decorative: z.boolean(),
+    /** Kept visible when a crop cuts the rest of the image. */
+    focalPoint: focalPointSchema.optional(),
+    /** Per-width source overrides, for a different crop on a phone rather than a smaller file. */
+    artDirection: z.array(artDirectionSourceSchema).max(4).optional(),
     style: z
       .object({
         objectFit: z.enum(["cover", "contain", "fill"]),

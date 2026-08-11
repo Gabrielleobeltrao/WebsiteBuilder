@@ -332,3 +332,82 @@ describe("container queries", () => {
     expect(css).toContain("@container main (min-width: 700px)");
   });
 });
+
+describe("responsive images", () => {
+  const image = (overrides: Partial<ImageElement> = {}): ImageElement =>
+    ({
+      id: "img-1",
+      type: "image",
+      name: "Image",
+      source: { kind: "media", mediaId: "m1" },
+      alt: "A description",
+      decorative: false,
+      geometry: { x: 0, y: 0, width: 320, height: 200, rotation: 0 },
+      responsiveLayout: {
+        width: { value: 320, unit: "px" },
+        height: { value: 200, unit: "px" },
+        horizontalConstraint: "left",
+        verticalConstraint: "top",
+        visible: true,
+      },
+      zIndex: 1,
+      locked: false,
+      hidden: false,
+      style: { objectFit: "cover", borderRadius: 0 },
+      ...overrides,
+    }) as ImageElement;
+
+  const withVariants: RendererContextValue = {
+    resolvePagePath: () => null,
+    resolveMediaUrl: (id) => `/media/${id}/1440.webp`,
+    resolveMediaVariants: () => [
+      { width: 320, height: 200 },
+      { width: 768, height: 480 },
+      { width: 1440, height: 900 },
+    ],
+    resolveMediaVariantUrl: (id, width) => `/media/${id}/${width}.webp`,
+  };
+
+  const renderImage = (element: ImageElement, context: RendererContextValue = withVariants) =>
+    render(
+      <RendererContext.Provider value={context}>
+        <ElementRenderer element={element} />
+      </RendererContext.Provider>,
+    );
+
+  it("lets the browser choose from the variants that exist", () => {
+    renderImage(image());
+    const img = screen.getByAltText("A description");
+
+    expect(img.getAttribute("srcset")).toBe(
+      "/media/m1/320.webp 320w, /media/m1/768.webp 768w, /media/m1/1440.webp 1440w",
+    );
+    expect(img.getAttribute("sizes")).toContain("(max-width: 640px) 100vw");
+  });
+
+  it("emits explicit dimensions so content below does not shift as it loads", () => {
+    renderImage(image());
+    const img = screen.getByAltText("A description");
+
+    expect(img.getAttribute("width")).toBe("1440");
+    expect(img.getAttribute("height")).toBe("900");
+  });
+
+  it("falls back to a plain source when an asset has no variants", () => {
+    renderImage(image(), { resolvePagePath: () => null, resolveMediaUrl: () => "/external.png" });
+    const img = screen.getByAltText("A description");
+
+    expect(img.getAttribute("srcset")).toBeNull();
+    expect(img.getAttribute("src")).toBe("/external.png");
+  });
+
+  it("keeps the chosen subject in frame when the image is cropped", () => {
+    renderImage(image({ focalPoint: { x: 0.2, y: 0.75 } }));
+    expect(screen.getByAltText("A description").style.objectPosition).toBe("20% 75%");
+  });
+
+  it("centres by default", () => {
+    renderImage(image());
+    expect(screen.getByAltText("A description").style.objectPosition).toBe("50% 50%");
+  });
+});

@@ -1813,7 +1813,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: text/menu transitions smoothly at intermediate widths without abrupt unreadable states.
   - Verify: typography resolver, navigation, accessibility, and visual tests.
 
-- [ ] **P9-T7 — Responsive image art direction**
+- [x] **P9-T7 — Responsive image art direction**
   - Connect media variants to `srcset`/`sizes`, explicit dimensions, focal/object position, aspect ratio, and optional per-breakpoint source override.
   - Acceptance: browser can select an appropriate WebP variant and mobile can use a different crop/source without affecting desktop.
   - Verify: source selection, markup, layout-shift, fallback, and renderer tests.
@@ -2652,4 +2652,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P9-T4 | Section grid/flex resolved through the breakpoint chain, `auto-fit` and `auto-fill`, span clamping and shrink-safe children | 25 tests across 320/375/390/640/641/768/1024/1280/1440/1920: a desktop value applies at every narrower width, a narrower breakpoint overrides only what it sets, a 900px column minimum cannot overflow a 320px screen, and the editor canvas resolves identically to the published site |
 | 2026-08-10 | P9-T5 | Opt-in container queries with named containers, generated `@container` rules scoped per section, and ambiguity/cycle checks | 20 tests: a rule naming a non-ancestor container is reported rather than silently never matching, one name declared twice is caught before CSS resolves it to the nearest silently, a section querying itself is refused, and a rule emits only the properties it set |
 | 2026-08-10 | P9-T6 | Fluid typography and spacing as structured endpoints serialised to `clamp()` with a real intercept, plus a readability floor; navigation collapse and drawer already met the task | 12 tests evaluate the generated CSS the way a browser would: it passes through both endpoints exactly, grows monotonically across 320–1920, and reversed endpoints describe the same curve rather than shrinking as the screen grows |
+| 2026-08-10 | P9-T7 | Responsive images: `srcset` from the stored WebP variants, a `sizes` description, explicit dimensions, focal-point `object-position`, aspect ratio and per-width source overrides | 18 tests: an unresolvable variant is dropped rather than offered, a mobile crop cannot leak into wider screens, an asset with no variants falls back to a plain source, and a degenerate size returns null instead of invalid CSS |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |

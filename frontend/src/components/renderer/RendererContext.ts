@@ -12,6 +12,13 @@ export type RendererContextValue = {
   resolvePagePath: (pageId: string) => string | null;
   /** URL for an uploaded media asset, or null when it is unavailable. */
   resolveMediaUrl: (mediaId: string) => string | null;
+  /**
+   * The stored variants of an asset, so the renderer can offer the browser a real choice.
+   * Returning nothing is normal — an external URL has no variants — and yields a plain `src`.
+   */
+  resolveMediaVariants?: (mediaId: string) => { width: number; height: number }[];
+  /** URL of one specific variant width. */
+  resolveMediaVariantUrl?: (mediaId: string, width: number) => string | null;
   /** Allows http links in local development only. */
   allowHttp?: boolean;
 };

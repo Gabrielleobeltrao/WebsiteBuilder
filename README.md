@@ -147,10 +147,13 @@ its value.
 
 **Frontend**
 
-There is one `.env` at the root, read by the backend and the renderer. The frontend reads none of
-it: Vite loads env from `frontend/`, and the app currently uses no `VITE_*` variable at all, because
-the API base path is a constant in the shared package. That follows from the single-origin design —
-the browser talks to `/api/v1` on whatever host served the page, so there is nothing to configure.
+Environment files live next to the service that reads them: `backend/.env.example` covers the API
+and the renderer, `frontend/.env.example` covers the gateway. The root `.env` is still read first by
+the development scripts, so an existing local file keeps working and `backend/.env` overrides it.
+
+The frontend file is empty by design. The app uses no `VITE_*` variable at all, because the API base
+path is a constant in the shared package — the browser talks to `/api/v1` on whatever host served
+the page, so there is nothing to configure.
 
 In production the separation is real regardless: each Coolify resource carries only its own
 variables, and the API's secrets are never present on the frontend resource.

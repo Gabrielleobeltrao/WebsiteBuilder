@@ -9,6 +9,7 @@ export * from "./elements";
 export * from "./features";
 export * from "./forms";
 export * from "./ids";
+export * from "./images";
 export * from "./layout";
 export * from "./links";
 export * from "./navigation";

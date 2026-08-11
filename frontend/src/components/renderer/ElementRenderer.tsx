@@ -1,4 +1,6 @@
 import {
+  buildSizes,
+  buildSrcSet,
   resolveSafeLinkHref,
   type BuilderElement,
   type ButtonElement,
@@ -24,24 +26,38 @@ export function TextRenderer({ element }: { element: TextElement }) {
 }
 
 export function ImageRenderer({ element }: { element: ImageElement }) {
-  const { resolveMediaUrl } = useRendererContext();
+  const { resolveMediaUrl, resolveMediaVariants, resolveMediaVariantUrl } = useRendererContext();
+
+  const mediaId = element.source.kind === "media" ? element.source.mediaId : null;
 
   // An empty URL is treated as no source: rendering src="" makes the browser refetch the page.
   const src =
     element.source.kind === "url"
       ? (element.source.url.trim() || null)
-      : element.source.kind === "media"
-        ? resolveMediaUrl(element.source.mediaId)
-        : null;
+      : mediaId === null
+        ? null
+        : resolveMediaUrl(mediaId);
 
   if (src === null) {
     // A missing or broken source renders a neutral placeholder instead of a broken-image icon.
     return <div style={{ ...imageStyle(element), backgroundColor: "#eceef2" }} role="presentation" />;
   }
 
+  const variants = mediaId === null ? [] : (resolveMediaVariants?.(mediaId) ?? []);
+  const srcSet =
+    mediaId === null || resolveMediaVariantUrl === undefined
+      ? ""
+      : buildSrcSet(variants, (width) => resolveMediaVariantUrl(mediaId, width));
+
+  // Widest variant is the intrinsic size for the purpose of reserving space. Without width and
+  // height the browser cannot hold the slot, and everything below shifts as the image arrives.
+  const largest = variants.at(-1);
+
   return (
     <img
       src={src}
+      {...(srcSet === "" ? {} : { srcSet, sizes: IMAGE_SIZES })}
+      {...(largest === undefined ? {} : { width: largest.width, height: largest.height })}
       alt={element.decorative ? "" : element.alt}
       {...(element.decorative ? { role: "presentation" } : {})}
       loading="lazy"
@@ -50,6 +66,21 @@ export function ImageRenderer({ element }: { element: ImageElement }) {
     />
   );
 }
+
+/**
+ * How much horizontal space an image occupies.
+ *
+ * Elements are full-width inside their slot, and the slot narrows with the layout. Claiming a
+ * smaller share would make every screen render a blurry image; claiming a larger one would send
+ * desktop bytes to phones.
+ */
+const IMAGE_SIZES = buildSizes(
+  [
+    { maxWidth: 640, value: "100vw" },
+    { maxWidth: 1024, value: "50vw" },
+  ],
+  "33vw",
+);
 
 export function ButtonRenderer({ element }: { element: ButtonElement }) {
   const { resolvePagePath, allowHttp } = useRendererContext();
