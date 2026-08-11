@@ -10,6 +10,7 @@ import { aggregateBatch } from "../modules/analytics/aggregate";
 import { AnalyticsRepository, isLikelyBot } from "../modules/analytics/repository";
 import type { PublishingRepository } from "../modules/publishing/repository";
 import { TtlCache } from "./cache";
+import { TRACKER_SOURCE, TRACKER_VERSION } from "./tracker.generated";
 import { resolveRoute, type SiteResolver } from "./resolver";
 
 /**
@@ -95,23 +96,74 @@ export type AnalyticsIngestionDeps = {
 };
 
 export const ANALYTICS_EVENTS_PATH = "/__wb/events";
+export const ANALYTICS_SCRIPT_PATH = "/__wb/a.js";
+
+/**
+ * The ingestion endpoints plus the settings reader the page renderer needs.
+ *
+ * One loader, shared: the page handler and the beacon handler must agree about whether a site is
+ * collecting, and two caches would eventually disagree — a page could carry the tracker while the
+ * endpoint refused its events, which looks to a customer like measurement that silently loses data.
+ */
+export type AnalyticsRuntime = {
+  router: Router;
+  loadSettings: (projectId: string) => Promise<AnalyticsSettings>;
+  scriptPath: string;
+  scriptVersion: string;
+};
+
+export function createAnalyticsRuntime(deps: AnalyticsIngestionDeps): AnalyticsRuntime {
+  const router = createAnalyticsIngestionRouter(deps);
+  return {
+    router,
+    loadSettings: settingsLoader(deps),
+    scriptPath: ANALYTICS_SCRIPT_PATH,
+    scriptVersion: TRACKER_VERSION,
+  };
+}
+
+/** One cache per runtime, shared by everything that needs to know whether a site is collecting. */
+function settingsLoader(deps: AnalyticsIngestionDeps): (projectId: string) => Promise<AnalyticsSettings> {
+  const cache = new TtlCache<AnalyticsSettings>(Math.max(1, deps.settingsTtlSeconds ?? 60) * 1000);
+
+  return async (projectId: string) => {
+    const cached = cache.get(projectId);
+    if (cached !== undefined) return cached;
+
+    const settings = await deps.analytics.loadPublicSettings(projectId);
+    cache.set(projectId, settings);
+    return settings;
+  };
+}
 
 export function createAnalyticsIngestionRouter(deps: AnalyticsIngestionDeps): Router {
   const limits = deps.limits ?? DEFAULT_INGESTION_LIMITS;
   const now = deps.now ?? (() => new Date());
   const counter = new FixedWindowCounter(limits.windowMs, now().getTime());
-  const settingsCache = new TtlCache<AnalyticsSettings>(Math.max(1, deps.settingsTtlSeconds ?? 60) * 1000);
+  const loadSettings = settingsLoader(deps);
 
   const router = Router();
 
-  const loadSettings = async (projectId: string): Promise<AnalyticsSettings> => {
-    const cached = settingsCache.get(projectId);
-    if (cached !== undefined) return cached;
-
-    const settings = await deps.analytics.loadPublicSettings(projectId);
-    settingsCache.set(projectId, settings);
-    return settings;
-  };
+  /**
+   * The tracker itself.
+   *
+   * Served from a source constant rather than from disk: the backend bundles its sources and the
+   * production image carries no build output beside them, so a filesystem read would work in
+   * development and fail in production. Cached forever because the URL carries a content hash — a
+   * new build is a new URL, so nothing ever needs to be revalidated.
+   *
+   * Served on every hostname, including a site that is not collecting. The file does nothing
+   * without the configuration a page supplies, and having one URL rather than a per-site one keeps
+   * it cacheable.
+   */
+  router.get(ANALYTICS_SCRIPT_PATH, (_request, response) => {
+    response
+      .status(200)
+      .type("application/javascript; charset=utf-8")
+      .set("cache-control", "public, max-age=31536000, immutable")
+      .set("x-content-type-options", "nosniff")
+      .send(TRACKER_SOURCE);
+  });
 
   router.post(
     ANALYTICS_EVENTS_PATH,

@@ -14,7 +14,7 @@ import { createGridFsStorage } from "../src/modules/media/storage";
 import { ProjectRepository, type WorkspaceContext } from "../src/modules/projects/repository";
 import { ensurePublishingIndexes, PublishingRepository } from "../src/modules/publishing/repository";
 import { PublishingService } from "../src/modules/publishing/service";
-import { createAnalyticsIngestionRouter, ANALYTICS_EVENTS_PATH } from "../src/renderer/analytics";
+import { createAnalyticsRuntime, ANALYTICS_EVENTS_PATH, ANALYTICS_SCRIPT_PATH } from "../src/renderer/analytics";
 import { createRendererApp } from "../src/renderer/app";
 import { SiteResolver } from "../src/renderer/resolver";
 import { testEnv, testLogger } from "./helpers";
@@ -37,17 +37,17 @@ const B: WorkspaceContext = { workspaceId: "workspace-b", userId: "user-b" };
 
 const BROWSER = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15";
 
-function app(overrides: Parameters<typeof createAnalyticsIngestionRouter>[0] extends infer T ? Partial<T> : never = {}) {
-  const router = createAnalyticsIngestionRouter({
+function app(overrides: Partial<Parameters<typeof createAnalyticsRuntime>[0]> = {}) {
+  const runtime = createAnalyticsRuntime({
     resolver,
     analytics,
     publishing,
     logger: testLogger(),
     trustsProxy: false,
     ...overrides,
-  } as Parameters<typeof createAnalyticsIngestionRouter>[0]);
+  } as Parameters<typeof createAnalyticsRuntime>[0]);
 
-  return createRendererApp({ env: testEnv(), logger: testLogger(), resolver, analytics: router });
+  return createRendererApp({ env: testEnv(), logger: testLogger(), resolver, analytics: runtime });
 }
 
 let counter = 0;
@@ -369,5 +369,96 @@ describe("the endpoint's place in the renderer", () => {
     const page = await request(app()).get("/").set("Host", "alpha.example.test").set("User-Agent", BROWSER);
     expect(page.status).toBe(200);
     expect(page.headers["content-type"]).toContain("text/html");
+  });
+});
+
+describe("the tracker asset", () => {
+  it("is served on the site's own origin, so no third party is involved", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+
+    const response = await request(app()).get(ANALYTICS_SCRIPT_PATH).set("Host", "alpha.example.test");
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toContain("application/javascript");
+    expect(response.text.length).toBeGreaterThan(1000);
+  });
+
+  it("is immutable, because its URL carries a content hash", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+    const response = await request(app()).get(ANALYTICS_SCRIPT_PATH).set("Host", "alpha.example.test");
+
+    expect(response.headers["cache-control"]).toContain("immutable");
+    expect(response.headers["x-content-type-options"]).toBe("nosniff");
+  });
+
+  it("contains no external origin it could fetch from", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+    const response = await request(app()).get(ANALYTICS_SCRIPT_PATH).set("Host", "alpha.example.test");
+
+    // Bundled, not linked. A tracker that loaded anything at runtime would be a way for a third
+    // party to reach a customer's visitors later, whatever it does today.
+    expect(response.text).not.toMatch(/https?:\/\/(?!127\.0\.0\.1|localhost)/);
+  });
+});
+
+describe("what a published page carries", () => {
+  it("ships no script and the strict policy while collection is off", async () => {
+    const project = await projects.create(A, { name: "Quiet" });
+    const published = await service.publish(A, project.id);
+    if (published.status !== "published") throw new Error("fixture did not publish");
+    await publishing.ensurePlatformDomain(A, project.id, "quiet", "example.test");
+    resolver.invalidateAll();
+
+    const page = await request(app()).get("/").set("Host", "quiet.example.test").set("User-Agent", BROWSER);
+
+    expect(page.text).not.toContain("<script");
+    expect(page.headers["content-security-policy"]).toContain("script-src 'none'");
+  });
+
+  it("carries a deferred script and the policy that admits it once collection is on", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+
+    const page = await request(app()).get("/").set("Host", "alpha.example.test").set("User-Agent", BROWSER);
+
+    expect(page.text).toContain("<script defer");
+    expect(page.text).toContain(ANALYTICS_SCRIPT_PATH);
+    expect(page.headers["content-security-policy"]).toContain("script-src 'self'");
+    expect(page.headers["content-security-policy"]).toContain("connect-src 'self'");
+  });
+
+  it("tells the tracker which layout it is running on", async () => {
+    const site = await liveSite(A, "Alpha", "alpha.example.test");
+
+    const page = await request(app()).get("/").set("Host", "alpha.example.test").set("User-Agent", BROWSER);
+
+    // Without this a visitor still on an older layout would have their clicks attributed to the one
+    // that replaced it — the stale overlay heatmaps exist to avoid.
+    expect(page.text).toContain(`data-version="${site.versionId}"`);
+  });
+
+  it("carries the site's own consent and sampling choices, not a default", async () => {
+    const site = await liveSite(A, "Alpha", "alpha.example.test");
+    await analytics.saveSettings(A, site.projectId, {
+      ...DEFAULT_ANALYTICS_SETTINGS,
+      enabled: true,
+      consentRequired: false,
+      sampleRate: 0.5,
+      categories: ["traffic"],
+    });
+
+    // A fresh app, because settings are cached per runtime for the life of a TTL.
+    const page = await request(app()).get("/").set("Host", "alpha.example.test").set("User-Agent", BROWSER);
+
+    expect(page.text).toContain('data-consent="0"');
+    expect(page.text).toContain('data-sample="0.5"');
+    expect(page.text).toContain('data-categories="traffic"');
+  });
+
+  it("never injects an inline script, which the policy forbids", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+    const page = await request(app()).get("/").set("Host", "alpha.example.test").set("User-Agent", BROWSER);
+
+    // Configuration travels on attributes precisely so that `script-src` needs no inline allowance.
+    expect(page.text).not.toMatch(/<script(?![^>]*\ssrc=)[^>]*>/);
   });
 });

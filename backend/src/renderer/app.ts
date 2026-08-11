@@ -1,10 +1,11 @@
-import express, { type Express, type Request, type Router } from "express";
+import express, { type Express, type Request } from "express";
 import { pinoHttp } from "pino-http";
 import type { Logger } from "pino";
 
 import type { Env } from "../config/env";
 import { isLikelyBot } from "../modules/analytics/repository";
-import { renderRouteHtml } from "./html";
+import { ANALYTICS_EVENTS_PATH, type AnalyticsRuntime } from "./analytics";
+import { renderRouteHtml, type AnalyticsScript } from "./html";
 import { normalizePath, resolveRoute, SiteResolver } from "./resolver";
 
 /**
@@ -79,8 +80,8 @@ export function createRendererApp(options: {
   logger: Logger;
   resolver?: SiteResolver;
   recordView?: ViewRecorder;
-  /** Analytics endpoints. Absent means the renderer serves pages and nothing else. */
-  analytics?: Router;
+  /** Analytics endpoints and the settings reader that decides whether a page carries the tracker. */
+  analytics?: AnalyticsRuntime;
 }): Express {
   const { env, logger, resolver, recordView, analytics } = options;
 
@@ -111,7 +112,7 @@ export function createRendererApp(options: {
   // Before the page catch-all, and before the unknown-host guard: these paths belong to the
   // platform, not to any tenant's route table, so a site cannot shadow them by publishing a page at
   // the same address.
-  if (analytics !== undefined) app.use(analytics);
+  if (analytics !== undefined) app.use(analytics.router);
 
   if (resolver === undefined) {
     app.use((_req, res) => {
@@ -151,6 +152,23 @@ export function createRendererApp(options: {
         return;
       }
 
+      // A site that has not enabled collection carries no script and is served the policy that
+      // forbids one. Both halves are read from the same place, so a page can never carry a tracker
+      // whose events the endpoint would refuse.
+      const settings = analytics === undefined ? null : await analytics.loadSettings(site.version.projectId);
+      const tracker: AnalyticsScript | undefined =
+        analytics === undefined || settings === null || !settings.enabled
+          ? undefined
+          : {
+              src: `${analytics.scriptPath}?v=${analytics.scriptVersion}`,
+              endpoint: ANALYTICS_EVENTS_PATH,
+              versionId: site.version.id,
+              consentRequired: settings.consentRequired,
+              honorPrivacySignals: settings.honorPrivacySignals,
+              sampleRate: settings.sampleRate,
+              categories: settings.categories,
+            };
+
       const html = renderRouteHtml({
         route,
         document: site.document,
@@ -158,6 +176,7 @@ export function createRendererApp(options: {
         // Same origin as the application: the API has no public hostname of its own, and a
         // published page must not reference one that does not exist.
         mediaBaseUrl: `${env.PLATFORM_PUBLIC_ORIGIN}/api/v1/public/media`,
+        ...(tracker === undefined ? {} : { analytics: tracker }),
       });
 
       // Counted after the page is known to be a real one, and from the manifest's path rather than
@@ -171,7 +190,7 @@ export function createRendererApp(options: {
         .status(outcome.kind === "route" ? 200 : 404)
         .type("text/html; charset=utf-8")
         .set("cache-control", `public, max-age=0, s-maxage=${env.PUBLIC_SITE_CACHE_TTL_SECONDS}`)
-        .set("content-security-policy", PUBLISHED_SITE_CSP)
+        .set("content-security-policy", tracker === undefined ? PUBLISHED_SITE_CSP : PUBLISHED_SITE_CSP_WITH_ANALYTICS)
         .set("x-content-type-options", "nosniff")
         .set("referrer-policy", "strict-origin-when-cross-origin")
         .set("permissions-policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()")

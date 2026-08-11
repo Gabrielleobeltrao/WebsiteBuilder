@@ -5,7 +5,7 @@ import { createLogger } from "./config/logger";
 import { installGracefulShutdown } from "./lifecycle";
 import { AnalyticsRepository, ensureAnalyticsIndexes, SiteViewRepository } from "./modules/analytics/repository";
 import { ensurePublishingIndexes, PublishingRepository } from "./modules/publishing/repository";
-import { createAnalyticsIngestionRouter } from "./renderer/analytics";
+import { createAnalyticsRuntime } from "./renderer/analytics";
 import { createRendererApp, type ViewRecorder } from "./renderer/app";
 import { SiteResolver } from "./renderer/resolver";
 
@@ -27,7 +27,7 @@ async function start(): Promise<void> {
   // report the process as unhealthy rather than as missing.
   let resolver: SiteResolver | undefined;
   let recordView: ViewRecorder | undefined;
-  let analytics: ReturnType<typeof createAnalyticsIngestionRouter> | undefined;
+  let analytics: ReturnType<typeof createAnalyticsRuntime> | undefined;
   if (env.MONGODB_URI && env.MONGODB_DB_NAME) {
     const database = await connectDatabase(env, logger);
     await ensurePublishingIndexes(database.db);
@@ -35,7 +35,7 @@ async function start(): Promise<void> {
     const publishing = new PublishingRepository(database.db, database.db.collection(COLLECTIONS.projects));
     resolver = new SiteResolver(publishing, env.PUBLIC_SITE_CACHE_TTL_SECONDS);
 
-    analytics = createAnalyticsIngestionRouter({
+    analytics = createAnalyticsRuntime({
       resolver,
       analytics: new AnalyticsRepository(database.db),
       publishing,

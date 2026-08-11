@@ -8,13 +8,13 @@
  * Run from the backend workspace with the launcher's environment. It is idempotent only in the
  * sense that the database is thrown away between runs.
  */
-import { createEmptySection, createPage } from "@websitebuilder/shared";
+import { createEmptySection, createPage, DEFAULT_ANALYTICS_SETTINGS, type AnalyticsSettings } from "@websitebuilder/shared";
 
 import { connectDatabase } from "../../../backend/src/db/client";
 import { loadEnv } from "../../../backend/src/config/env";
 import { createLogger } from "../../../backend/src/config/logger";
 import { COLLECTIONS, ensureIndexes } from "../../../backend/src/db/indexes";
-import { ensureAnalyticsIndexes } from "../../../backend/src/modules/analytics/repository";
+import { AnalyticsRepository, ensureAnalyticsIndexes } from "../../../backend/src/modules/analytics/repository";
 import { BlogRepository } from "../../../backend/src/modules/blog/repository";
 import { MediaRepository } from "../../../backend/src/modules/media/repository";
 import { createGridFsStorage } from "../../../backend/src/modules/media/storage";
@@ -22,8 +22,16 @@ import { ProjectRepository } from "../../../backend/src/modules/projects/reposit
 import { ensurePublishingIndexes, PublishingRepository } from "../../../backend/src/modules/publishing/repository";
 import { PublishingService } from "../../../backend/src/modules/publishing/service";
 
-/** The hostname browser tests visit. Kept in one place because the tests and the seed must agree. */
+/**
+ * The hostnames browser tests visit. Kept in one place because the tests and the seed must agree.
+ *
+ * Three sites rather than one, because the states worth testing are properties of a site's
+ * settings: a site that measures nothing must be provably free of script, and a site that requires
+ * consent must be provably silent until it is given.
+ */
 export const E2E_SITE_SLUG = "e2e-site";
+export const E2E_TRACKED_SLUG = "e2e-tracked";
+export const E2E_CONSENT_SLUG = "e2e-consent";
 export const E2E_WORKSPACE_ID = "e2e-workspace";
 
 const context = { workspaceId: E2E_WORKSPACE_ID, userId: "e2e-user" };
@@ -46,38 +54,54 @@ async function main(): Promise<void> {
     media: new MediaRepository(db, createGridFsStorage(db)),
   });
 
-  const project = await projects.create(context, { name: "E2E Site" });
-  const { id, workspaceId, createdByUserId, revision, createdAt, updatedAt, ...document } = project;
+  const analytics = new AnalyticsRepository(db);
 
-  const home = document.pages[0]!;
-  home.seo.title = "E2E home";
-  home.seo.description = "A published page that exists so browser tests have somewhere to go.";
-  // Taller than any test viewport, so scroll-depth behaviour is observable rather than trivially
-  // complete on load.
-  home.canvas = { ...home.canvas, minHeight: 4000 };
-  home.sections = [
-    section("hero", 800, [heading("Published by the E2E fixture"), button("cta-primary", "Read more", "/about")]),
-    section("middle", 1600, [heading("Halfway down")]),
-    section("foot", 1600, [heading("The bottom")]),
-  ];
+  const publish = async (name: string, slug: string, settings?: Partial<AnalyticsSettings>) => {
+    const project = await projects.create(context, { name });
+    const { id, workspaceId, createdByUserId, revision, createdAt, updatedAt, ...document } = project;
 
-  const about = createPage({ name: "About", slug: "about", order: 1 });
-  about.seo = { ...about.seo, title: "E2E about", description: "The fixture's second route." };
-  about.sections = [section("about-hero", 900, [heading("About the fixture")])];
-  document.pages.push(about);
+    const home = document.pages[0]!;
+    home.seo.title = "E2E home";
+    home.seo.description = "A published page that exists so browser tests have somewhere to go.";
+    // Taller than any test viewport, so scroll-depth behaviour is observable rather than trivially
+    // complete on load.
+    home.canvas = { ...home.canvas, minHeight: 4000 };
+    home.sections = [
+      section("hero", 800, [heading("Published by the E2E fixture"), button("cta-primary", "Read more", "/about")]),
+      section("middle", 1600, [heading("Halfway down")]),
+      section("foot", 1600, [heading("The bottom")]),
+    ];
 
-  const saved = await projects.saveDocument(context, project.id, revision, document as never);
-  if (saved === null) throw new Error("the seed document was rejected");
+    const about = createPage({ name: "About", slug: "about", order: 1 });
+    about.seo = { ...about.seo, title: "E2E about", description: "The fixture's second route." };
+    about.sections = [section("about-hero", 900, [heading("About the fixture")])];
+    document.pages.push(about);
 
-  const published = await service.publish(context, project.id);
-  if (published.status !== "published") {
-    throw new Error(`seeding could not publish: ${published.status} ${JSON.stringify(published)}`);
-  }
+    const saved = await projects.saveDocument(context, project.id, revision, document as never);
+    if (saved === null) throw new Error(`the seed document for ${slug} was rejected`);
 
-  const domain = await publishing.ensurePlatformDomain(context, project.id, E2E_SITE_SLUG, env.PLATFORM_ROOT_DOMAIN);
-  if (domain === null) throw new Error("the seed site got no platform hostname");
+    const published = await service.publish(context, project.id);
+    if (published.status !== "published") {
+      throw new Error(`seeding could not publish ${slug}: ${published.status} ${JSON.stringify(published)}`);
+    }
 
-  logger.info({ hostname: domain.hostname, projectId: project.id }, "seeded a published site");
+    const domain = await publishing.ensurePlatformDomain(context, project.id, slug, env.PLATFORM_ROOT_DOMAIN);
+    if (domain === null) throw new Error(`${slug} got no platform hostname`);
+
+    if (settings !== undefined) {
+      await analytics.saveSettings(context, project.id, { ...DEFAULT_ANALYTICS_SETTINGS, ...settings });
+    }
+
+    logger.info({ hostname: domain.hostname, projectId: project.id }, "seeded a published site");
+  };
+
+  // Collection off: what every existing customer has, and the state that must ship no script.
+  await publish("E2E Site", E2E_SITE_SLUG);
+  // Collection on with no consent gate, so measurement is observable in one page load.
+  await publish("E2E Tracked", E2E_TRACKED_SLUG, { enabled: true, consentRequired: false });
+  // Collection on behind consent, so silence before an answer is observable too.
+  await publish("E2E Consent", E2E_CONSENT_SLUG, { enabled: true, consentRequired: true });
+
   await close();
 }
 

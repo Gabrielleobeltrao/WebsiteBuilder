@@ -10,11 +10,28 @@ import { renderToStaticMarkup } from "react-dom/server";
  * a crawler's view cannot drift apart. Everything a crawler needs is present in this response
  * before any client JavaScript runs.
  */
+/**
+ * The analytics tracker, when the site has collection enabled.
+ *
+ * Configuration travels on the script tag's attributes rather than in an inline script, because the
+ * policy this page is served under forbids inline scripts — and that is worth keeping.
+ */
+export type AnalyticsScript = {
+  src: string;
+  endpoint: string;
+  versionId: string;
+  consentRequired: boolean;
+  honorPrivacySignals: boolean;
+  sampleRate: number;
+  categories: readonly string[];
+};
+
 export function renderRouteHtml(input: {
   route: RouteManifestEntry;
   document: BuilderProject;
   canonicalUrl: string;
   mediaBaseUrl: string;
+  analytics?: AnalyticsScript;
 }): string {
   const { route, document } = input;
   const page = document.pages.find((candidate) => candidate.id === route.resourceId) ?? null;
@@ -42,7 +59,12 @@ export function renderRouteHtml(input: {
   return document_(
     {
       lang: document.seo.locale,
-      head: headTags({ route, site: document.seo, canonicalUrl: input.canonicalUrl }),
+      head: headTags({
+        route,
+        site: document.seo,
+        canonicalUrl: input.canonicalUrl,
+        ...(input.analytics === undefined ? {} : { analytics: input.analytics }),
+      }),
     },
     body,
   );
@@ -52,6 +74,7 @@ function headTags(input: {
   route: RouteManifestEntry;
   site: SiteSeoSettings;
   canonicalUrl: string;
+  analytics?: AnalyticsScript;
 }): string {
   const seo = input.route.seo as { title?: string; description?: string; robots?: { index: boolean; follow: boolean } };
   const title = seo.title ?? input.site.siteName;
@@ -76,6 +99,20 @@ function headTags(input: {
 
   if (input.site.searchConsoleVerification !== undefined) {
     tags.push(`<meta name="google-site-verification" content="${escapeHtml(input.site.searchConsoleVerification)}">`);
+  }
+
+  const analytics = input.analytics;
+  if (analytics !== undefined) {
+    // `defer` so it cannot block anything a visitor came for. Last in head so it is also last in
+    // the parser's queue. Every value is escaped: they are configuration, but they travel through
+    // the same attribute syntax site content does, and the rule here is that nothing reaches the
+    // page unescaped regardless of where it came from.
+    tags.push(
+      `<script defer src="${escapeHtml(analytics.src)}" data-endpoint="${escapeHtml(analytics.endpoint)}" ` +
+        `data-version="${escapeHtml(analytics.versionId)}" data-consent="${analytics.consentRequired ? "1" : "0"}" ` +
+        `data-signals="${analytics.honorPrivacySignals ? "1" : "0"}" data-sample="${escapeHtml(String(analytics.sampleRate))}" ` +
+        `data-categories="${escapeHtml(analytics.categories.join(","))}"></script>`,
+    );
   }
 
   return tags.join("\n    ");

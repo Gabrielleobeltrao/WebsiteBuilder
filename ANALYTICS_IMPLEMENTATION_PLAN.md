@@ -568,7 +568,7 @@ they are listed as P1-T0a through P1-T0e below.
 
 ### Phase 3 — Public tracker and ingestion
 
-- [ ] **P3-T1 — Build and self-host the tracker**
+- [x] **P3-T1 — Build and self-host the tracker**
   - Produce a separately built browser asset with no external runtime dependency.
   - Serve it from a generated source constant, not the filesystem: the backend bundles its sources,
     so reading a sibling asset works in development and fails in the built image. Commit the
@@ -578,12 +578,12 @@ they are listed as P1-T0a through P1-T0e below.
   - Update CSP to allow only self-hosted script and connections.
   - Acceptance: published pages work with JavaScript disabled and tracker failure is non-fatal.
 
-- [ ] **P3-T2 — Implement page, engagement, scroll, section, and click collection**
+- [x] **P3-T2 — Implement page, engagement, scroll, section, and click collection**
   - Implement the behavior in Section 9 with client-side batching and coarse coordinates.
   - Add desktop, tablet, mobile, hidden-tab, idle, short-page, no-scroll, and bfcache tests.
   - Acceptance: automated browser tests produce the expected bounded event sequence.
 
-- [ ] **P3-T3 — Implement Web Vitals collection**
+- [x] **P3-T3 — Implement Web Vitals collection**
   - Pin and bundle the official `web-vitals` package or an equivalently tested local implementation.
   - Collect LCP, INP, CLS, FCP, and TTFB without blocking rendering.
   - Acceptance: supported metrics arrive with device/page/version identity and unsupported cases remain absent, not zero.
@@ -802,6 +802,7 @@ Append entries; do not erase history.
 | 2026-08-11 | P2-T1/P2-T2 storage and aggregation | n/a | `npx vitest run backend/tests/analytics-{aggregate,repository}.test.ts` | 37 tests: 17 fixture tests of the arithmetic with no database, 20 against a real MongoDB covering index shape, retention ordering, deduplication, tenant isolation and version lifetime |
 | 2026-08-11 | P2-T3 version lifetime | n/a | `npx vitest run backend/tests/publishing-{repository,service}.test.ts` | Pruning now reports the ids it removed instead of a count, and publishing deletes the matching bins through an injected hook — awaited so state stays consistent, swallowed so a failed cleanup cannot fail a publish |
 | 2026-08-11 | P3-T4 ingestion | n/a | `npx vitest run backend/tests/analytics-ingestion.test.ts` | 20 tests against the real renderer: forged tenant fields, unpublished paths, another tenant's version, non-JSON bodies, oversize bodies, over-long batches, unknown hosts, replays, crawlers, both rate-limit buckets, and a disabled site |
+| 2026-08-11 | P3-T1..T3 tracker | n/a | `npm run build:tracker`, `npx vitest run backend/tests/{bundle-budget,analytics-ingestion}.test.ts`, `npx playwright test --project=published-site` | 4,224 bytes Brotli against a 15,000 ceiling and an 8,000 target. 18 browser tests on real published pages: origin isolation, scroll depth reported once each, click attribution, Web Vitals, silence while hidden, consent before/after/withdrawn, JavaScript disabled, tracker blocked, ingestion failing |
 | 2026-08-11 | P1-T0a..e prerequisites | n/a | `npm run typecheck && npm run test && npm run build && npm run test:e2e` | 1436 unit tests and 28 E2E green, including a new `published-site` browser project. Two pre-existing defects found and fixed: elements outside free-layout sections carried no id at all, and the renderer could not run under `tsx` because the frontend components it renders were outside the backend tsconfig's `include` — so `npm run dev:renderer` had never served a page. |
 
 ## 19. Decision Log
