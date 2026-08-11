@@ -26,9 +26,9 @@ type LoadState =
   | { status: "error"; code: string }
   | { status: "ready"; project: BuilderProject };
 
-export function PreviewRoute({ workspaceId }: { workspaceId: string }) {
+export function PreviewRoute() {
   const { t } = useTranslation(["builder", "errors", "public"]);
-  const { projectId = "", "*": trailing = "" } = useParams();
+  const { workspaceId = "", projectId = "", "*": trailing = "" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const [state, setState] = useState<LoadState>({ status: "loading" });
 
@@ -74,7 +74,7 @@ export function PreviewRoute({ workspaceId }: { workspaceId: string }) {
       const page = project?.pages.find((candidate) => candidate.id === pageId);
       if (!page) return null;
       const suffix = pagePath(page);
-      return `/preview/${projectId}${suffix === "/" ? "" : suffix}`;
+      return `/preview/${workspaceId}/${projectId}${suffix === "/" ? "" : suffix}`;
     },
     [project, projectId],
   );

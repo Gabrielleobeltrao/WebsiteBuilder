@@ -25,7 +25,5 @@ export function App() {
     );
   }
 
-  const previewWorkspaceId = session.data?.session?.activeOrganizationId ?? "";
-
-  return <AppRoutes authenticated={authenticated} previewWorkspaceId={previewWorkspaceId} />;
+  return <AppRoutes authenticated={authenticated} />;
 }

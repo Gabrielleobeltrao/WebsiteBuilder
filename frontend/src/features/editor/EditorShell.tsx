@@ -80,13 +80,13 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
         </p>
         <div className="mt-6 flex flex-wrap gap-2">
           <Link
-            to={`/preview/${projectId}`}
+            to={`/preview/${workspaceId}/${projectId}`}
             className="rounded-md border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700"
           >
             {t("builder:gate.previewMobile")}
           </Link>
           <Link
-            to={`/preview/${projectId}?viewport=desktop`}
+            to={`/preview/${workspaceId}/${projectId}?viewport=desktop`}
             className="rounded-md border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700"
           >
             {t("builder:gate.previewDesktop")}
@@ -156,13 +156,13 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
             <Redo2 aria-hidden className="size-4" />
           </button>
           <Link
-            to={`/preview/${projectId}?viewport=desktop`}
+            to={`/preview/${workspaceId}/${projectId}?viewport=desktop`}
             className="rounded-md border border-ink-200 px-3 py-1.5 text-xs font-medium text-ink-700"
           >
             {t("builder:topBar.previewDesktop")}
           </Link>
           <Link
-            to={`/preview/${projectId}`}
+            to={`/preview/${workspaceId}/${projectId}`}
             className="rounded-md border border-ink-200 px-3 py-1.5 text-xs font-medium text-ink-700"
           >
             {t("builder:topBar.previewMobile")}

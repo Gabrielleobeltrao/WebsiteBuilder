@@ -11,12 +11,15 @@ import { workspacesApi } from "@/api/workspaces";
  * login page — which then returned them to `/app`, because that is the default return path. Signing
  * in put people in a loop between the two.
  *
- * The active workspace from the session is used when the session has one; otherwise the user's own
- * workspaces are read from the server, which is the only source that can be trusted for it.
+ * The workspace is read from the server, which is the only source that can be trusted for it. This
+ * used to prefer the session's active organisation and fall back to the server — but nothing in this
+ * application ever set an active organisation, so the preference never applied and the fallback was
+ * the whole behaviour. The same value was passed to the preview route, which had no fallback and
+ * therefore asked the API for an empty workspace every time.
  */
-export function WorkspaceEntryRoute({ activeWorkspaceId }: { activeWorkspaceId: string }) {
+export function WorkspaceEntryRoute() {
   const { t } = useTranslation("common");
-  const [resolved, setResolved] = useState<string | null>(activeWorkspaceId || null);
+  const [resolved, setResolved] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {

@@ -131,25 +131,25 @@ afterEach(() => vi.unstubAllGlobals());
 const renderPreview = (route: string) =>
   renderWithProviders(
     <Routes>
-      <Route path="/preview/:projectId/*" element={<PreviewRoute workspaceId="w1" />} />
-      <Route path="/preview/:projectId" element={<PreviewRoute workspaceId="w1" />} />
+      <Route path="/preview/:workspaceId/:projectId/*" element={<PreviewRoute />} />
+      <Route path="/preview/:workspaceId/:projectId" element={<PreviewRoute />} />
     </Routes>,
     { route },
   );
 
 describe("preview routing", () => {
   it("renders the homepage at the project root", async () => {
-    renderPreview("/preview/aaaaaaaaaaaaaaaaaaaaaaaa");
+    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
     expect(await screen.findByRole("heading", { level: 1, name: "Home page" })).toBeInTheDocument();
   });
 
   it("resolves a trailing slug to its page", async () => {
-    renderPreview("/preview/aaaaaaaaaaaaaaaaaaaaaaaa/about");
+    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa/about");
     expect(await screen.findByRole("heading", { level: 1, name: "About page" })).toBeInTheDocument();
   });
 
   it("shows a project-scoped not-found view for an unknown slug", async () => {
-    renderPreview("/preview/aaaaaaaaaaaaaaaaaaaaaaaa/missing");
+    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa/missing");
     expect(await screen.findByRole("heading", { level: 1, name: "Page not found" })).toBeInTheDocument();
   });
 
@@ -164,14 +164,14 @@ describe("preview routing", () => {
           }),
       ),
     );
-    renderPreview("/preview/aaaaaaaaaaaaaaaaaaaaaaaa");
+    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
     expect(await screen.findByRole("alert")).toHaveTextContent("could not find");
   });
 });
 
 describe("preview isolation", () => {
   it("contains no editor chrome", async () => {
-    renderPreview("/preview/aaaaaaaaaaaaaaaaaaaaaaaa");
+    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
     await screen.findByRole("heading", { level: 1, name: "Home page" });
 
     expect(screen.queryByRole("complementary", { name: "Builder controls" })).toBeNull();
@@ -180,20 +180,20 @@ describe("preview isolation", () => {
   });
 
   it("excludes hidden elements from what a visitor sees", async () => {
-    renderPreview("/preview/aaaaaaaaaaaaaaaaaaaaaaaa");
+    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
     await screen.findByRole("heading", { level: 1, name: "Home page" });
     expect(screen.queryByText("Hidden from visitors")).toBeNull();
   });
 
   it("keeps internal navigation inside the preview route", async () => {
-    renderPreview("/preview/aaaaaaaaaaaaaaaaaaaaaaaa");
+    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
     const link = await screen.findByRole("link", { name: "Go to About" });
-    expect(link).toHaveAttribute("href", "/preview/aaaaaaaaaaaaaaaaaaaaaaaa/about");
+    expect(link).toHaveAttribute("href", "/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa/about");
   });
 
   it("never issues a write request", async () => {
     const user = userEvent.setup();
-    renderPreview("/preview/aaaaaaaaaaaaaaaaaaaaaaaa");
+    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
     await screen.findByRole("heading", { level: 1, name: "Home page" });
 
     await user.click(screen.getByRole("button", { name: "Preview mobile" }));
@@ -204,7 +204,7 @@ describe("preview isolation", () => {
 describe("desktop and mobile preview", () => {
   it("offers both viewports and marks the active one", async () => {
     const user = userEvent.setup();
-    renderPreview("/preview/aaaaaaaaaaaaaaaaaaaaaaaa");
+    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
     await screen.findByRole("heading", { level: 1, name: "Home page" });
 
     const desktop = screen.getByRole("button", { name: "Preview desktop" });
@@ -218,7 +218,7 @@ describe("desktop and mobile preview", () => {
 
   it("renders the same document under both viewports", async () => {
     const user = userEvent.setup();
-    renderPreview("/preview/aaaaaaaaaaaaaaaaaaaaaaaa");
+    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
     await screen.findByRole("heading", { level: 1, name: "Home page" });
 
     await user.click(screen.getByRole("button", { name: "Preview desktop" }));

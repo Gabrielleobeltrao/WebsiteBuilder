@@ -52,14 +52,9 @@ function OverviewRoute() {
   return <DashboardPage workspaceId={workspaceId ?? ""} />;
 }
 
-function PreviewRouteWithWorkspace({ workspaceId }: { workspaceId: string }) {
-  return <PreviewRoute workspaceId={workspaceId} />;
-}
 
-export function AppRoutes({
-  authenticated = false,
-  previewWorkspaceId = "",
-}: { authenticated?: boolean; previewWorkspaceId?: string } = {}) {
+
+export function AppRoutes({ authenticated = false }: { authenticated?: boolean } = {}) {
   return (
     <Routes>
       {/* The builder owns the full viewport, so it is declared before the shell's nested routes. */}
@@ -76,7 +71,7 @@ export function AppRoutes({
       */}
       {authenticated ? (
         <>
-        <Route path="app" element={<WorkspaceEntryRoute activeWorkspaceId={previewWorkspaceId} />} />
+        <Route path="app" element={<WorkspaceEntryRoute />} />
 
         <Route path="app/:workspaceId" element={<AuthenticatedAppShell />}>
           {/* The overview is where a workspace opens: what happened is the first question, and the
@@ -102,9 +97,15 @@ export function AppRoutes({
 
       <Route path="app/*" element={<RequireAuthenticatedArea />} />
 
-      {/* Preview mounts neither shell: it is a clean rendering of the saved document. */}
-      <Route path="preview/:projectId/*" element={<PreviewRouteWithWorkspace workspaceId={previewWorkspaceId} />} />
-      <Route path="preview/:projectId" element={<PreviewRouteWithWorkspace workspaceId={previewWorkspaceId} />} />
+      {/*
+        Preview mounts neither shell: it is a clean rendering of the saved document.
+
+        The workspace is in the path, like every other business route. It used to be read from the
+        session's active organisation, which nothing in this application ever set — so the preview
+        asked the API for `/workspaces//projects/…` and got a 404 for every user, every time.
+      */}
+      <Route path="preview/:workspaceId/:projectId/*" element={<PreviewRoute />} />
+      <Route path="preview/:workspaceId/:projectId" element={<PreviewRoute />} />
 
       <Route element={<PublicShell authenticated={authenticated} />}>
         <Route index element={<LandingPage />} />

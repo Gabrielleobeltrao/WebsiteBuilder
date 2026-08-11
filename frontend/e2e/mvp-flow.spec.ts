@@ -127,6 +127,33 @@ test.describe("language preference", () => {
   });
 });
 
+test.describe("preview", () => {
+  test("opens from the site's own link and renders the saved document", async ({ page }) => {
+    // Clicking the application's own link, rather than navigating to a URL this test composed. The
+    // defect this guards was exactly that: the route worked and the link the app built did not,
+    // because it carried no workspace and the preview asked the API for an empty one. Every unit
+    // test passed, because each supplied the workspace itself.
+    await signUp(page);
+    await createSite(page, "Preview Site");
+
+    await page.getByRole("link", { name: "Open" }).first().click();
+    await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
+
+    const workspacePath = new URL(page.url()).pathname.split("/").slice(0, 3).join("/");
+    await page.goto(`${workspacePath}/sites`);
+    await page.getByRole("link", { name: "Open" }).first().click();
+    await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
+
+    // The desktop preview link in the editor.
+    await page.getByRole("link", { name: /Preview desktop|Desktop preview/ }).first().click();
+
+    await expect(page).toHaveURL(/\/preview\//, { timeout: 20_000 });
+    // The workspace must be in the address, because the API refuses a request without one.
+    expect(new URL(page.url()).pathname.split("/").filter(Boolean)).toHaveLength(3);
+    await expect(page.getByRole("alert")).toHaveCount(0);
+  });
+});
+
 test.describe("the workspace overview", () => {
   test("opens on measured zeros and follows what the account actually has", async ({ page }) => {
     await signUp(page);
