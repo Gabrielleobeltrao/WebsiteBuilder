@@ -16,6 +16,12 @@ const baseSchema = z.object({
   FRONTEND_ORIGIN: z.string().url().default("http://localhost:5173"),
   PLATFORM_ROOT_DOMAIN: z.string().min(3).default("localhost"),
   PLATFORM_PUBLIC_ORIGIN: z.string().url().default("http://localhost:5173"),
+  /**
+   * Where the API answers publicly. Separate from the application origin because the two are
+   * deployed as different hosts; the renderer needs it to build media URLs, and it is the origin
+   * Better Auth issues its session cookie for.
+   */
+  API_PUBLIC_ORIGIN: z.string().url().default("http://localhost:5173"),
   PLATFORM_RESERVED_SUBDOMAINS: z.string().default(""),
   /** How long a proxy may serve a published page before revalidating. */
   PUBLIC_SITE_CACHE_TTL_SECONDS: z.coerce.number().int().nonnegative().max(86_400).default(60),

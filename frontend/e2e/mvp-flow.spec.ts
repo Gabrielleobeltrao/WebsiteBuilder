@@ -79,9 +79,10 @@ test.describe("the MVP flow", () => {
     // Switching the interface language must not translate or otherwise touch what the user wrote.
     const workspacePath = new URL(page.url()).pathname.split("/sites")[0] ?? "";
     await page.goto(`${workspacePath}/settings`);
-    // Clicked rather than checked: the control is controlled by state that settles after the
-    // preference is saved, so asserting the box changed synchronously races that save. What
-    // matters is the outcome below.
+    // The current locale's radio being checked proves React has rendered its controlled state, and
+    // therefore that a click will reach a handler. Clicking a radio that is merely present races
+    // that, and the change event lands nowhere.
+    await expect(page.getByRole("radio", { name: "English (United States)" })).toBeChecked();
     await page.getByRole("radio", { name: "Português (Brasil)" }).click();
     await expect(page.locator("html")).toHaveAttribute("lang", "pt-BR");
 
@@ -97,9 +98,10 @@ test.describe("language preference", () => {
 
     const workspacePath = new URL(page.url()).pathname.split("/sites")[0] ?? "";
     await page.goto(`${workspacePath}/settings`);
-    // Clicked rather than checked: the control is controlled by state that settles after the
-    // preference is saved, so asserting the box changed synchronously races that save. What
-    // matters is the outcome below.
+    // The current locale's radio being checked proves React has rendered its controlled state, and
+    // therefore that a click will reach a handler. Clicking a radio that is merely present races
+    // that, and the change event lands nowhere.
+    await expect(page.getByRole("radio", { name: "English (United States)" })).toBeChecked();
     await page.getByRole("radio", { name: "Português (Brasil)" }).click();
     await expect(page.locator("html")).toHaveAttribute("lang", "pt-BR");
 

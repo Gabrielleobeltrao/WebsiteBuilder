@@ -3,11 +3,34 @@ import { API_BASE_PATH, apiErrorSchema, type ApiErrorCode, type ApiErrorDetail }
 /**
  * Typed fetch wrapper.
  *
- * Requests are same-origin by construction: the base path is relative, which mirrors production
- * where the gateway proxies `/api/*` to the private backend. Nothing here may build an absolute
- * API URL, because that would reintroduce the cross-origin cookie and CORS problems the
- * single-origin decision exists to avoid.
+ * The API base comes from build configuration: a relative path when the API shares the origin, or
+ * an absolute origin when it is deployed as its own host. It is never derived from anything a
+ * request or a document supplies — an API URL that user data can influence is how a session token
+ * ends up being sent somewhere nobody intended.
+ *
+ * `credentials: "include"` is what carries the session cookie to a different host on the same
+ * registrable domain. The server answers only the one origin it was configured with.
  */
+const API_BASE = resolveApiBase();
+
+function resolveApiBase(): string {
+  const configured = import.meta.env.VITE_API_URL;
+  if (typeof configured !== "string" || configured.trim() === "") return API_BASE_PATH;
+
+  const trimmed = configured.trim().replace(/\/+$/, "");
+
+  // A relative path is used as given. An absolute one must be a real origin, so a typo becomes a
+  // build-time failure rather than requests quietly going nowhere.
+  if (trimmed.startsWith("/")) return trimmed;
+
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("unsupported scheme");
+    return trimmed;
+  } catch {
+    throw new Error("VITE_API_URL must be a relative path or an absolute http(s) URL");
+  }
+}
 export class ApiError extends Error {
   constructor(
     public readonly code: ApiErrorCode | "NETWORK_ERROR",
@@ -30,7 +53,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_PATH}${path}`, {
+    response = await fetch(`${API_BASE}${path}`, {
       method,
       credentials: "include",
       headers: body === undefined ? undefined : { "content-type": "application/json" },

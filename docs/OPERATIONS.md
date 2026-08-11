@@ -14,17 +14,33 @@ secrets and no screenshots of a token.
 
 | Service | Public address | Role |
 |---|---|---|
-| Frontend gateway | `https://${PLATFORM_ROOT_DOMAIN}` | Marketing, auth, `/app/*`, and the reverse proxy for `/api/*` |
-| API | none — reachable only through `https://${PLATFORM_ROOT_DOMAIN}/api/*` | Auth, data, publishing, domain jobs |
-| Public renderer | `https://origin.${PLATFORM_ROOT_DOMAIN}` plus every validated project and customer host | Serves published customer sites |
+| Application | `https://websitebuilder.oneplataforma.com` | Marketing, auth, `/app/*` |
+| API | `https://api.websitebuilder.oneplataforma.com` | Auth, data, publishing, domain jobs |
+| Public renderer | `https://origin.websitebuilder.oneplataforma.com` plus every project and customer host | Serves published customer sites |
 | MongoDB | none | Application data |
 
-The API deliberately has no domain of its own. A single public origin is what keeps session cookies
-same-origin and removes CORS from the product; giving the API its own hostname reintroduces both.
+`api` and `origin` sit inside the same space as customer sites, `*.websitebuilder.oneplataforma.com`.
+That is safe for two reasons that both have to hold: an explicit DNS record beats the wildcard, and
+`PLATFORM_RESERVED_SUBDOMAINS` refuses both names as project slugs. Remove either and a project
+called `api` would take over the API's hostname.
 
-The renderer has a *separate* hostname for the opposite reason: it serves customer content, and
-sharing an origin with the authenticated dashboard would put a customer's published page and your
-admin session cookie on one domain.
+### Why the cookie is safe across these
+
+The application and the API are different origins on one registrable domain. The session cookie is
+**host-only to the API** — Better Auth sets no `Domain` attribute — so the browser sends it on
+credentialed requests to `api.` and nowhere else. It is never transmitted to a published customer
+site, whatever that site contains.
+
+That is the whole reason not to widen it. A cookie with `Domain=.oneplataforma.com` would be sent on
+every request to every customer subdomain, and the people writing those pages are not the people you
+are protecting the session from.
+
+CORS carries the other half: the API answers exactly one origin, `FRONTEND_ORIGIN`, with
+credentials. An allowlist that reflected the request's own origin would let any site on the internet
+use a signed-in visitor's session.
+
+Customer sites live under `websitebuilder.oneplataforma.com` — deliberately not under the
+application's own hostname.
 
 ---
 
@@ -60,19 +76,27 @@ Without this, every `/api/*` request returns 502.
 
 ## 3. DNS
 
+All records are in the `oneplataforma.com` zone. Names are relative to it.
+
 | Record | Type | Points to | Why |
 |---|---|---|---|
-| `${PLATFORM_ROOT_DOMAIN}` | A | VPS | The application |
-| `www` | CNAME | root | Convention; redirect to the root |
-| `*` | A | VPS | Every project subdomain, `acme.${PLATFORM_ROOT_DOMAIN}` |
-| `origin` | A | VPS | Technical renderer host and the Cloudflare fallback origin |
-| `customers` | CNAME | `origin.${PLATFORM_ROOT_DOMAIN}` | The target customers point their own domain at |
+| `websitebuilder` | A | VPS | The application |
+| `api.websitebuilder` | A | VPS | The API |
+| `origin.websitebuilder` | A | VPS | Technical renderer host and the Cloudflare fallback origin |
+| `*.websitebuilder` | A | VPS | Every project subdomain, `acme.websitebuilder.oneplataforma.com` |
+| `customers.websitebuilder` | CNAME | `origin.websitebuilder.oneplataforma.com` | What customers point their own domain at |
 
-Explicit records win over the wildcard, which is why `origin` and `customers` are listed
-separately even though `*` would otherwise match them.
+Explicit records win over the wildcard, which is why `origin` and `customers` are listed separately
+even though `*` would otherwise match them.
 
-Never advertise `app.` or `api.` as product URLs. `PLATFORM_RESERVED_SUBDOMAINS` refuses them as
-project slugs for the same reason.
+Set all of these to **DNS only** (grey cloud) in Cloudflare. The free Universal SSL covers
+`oneplataforma.com` and one level of subdomain; `origin.websitebuilder.oneplataforma.com` is three
+labels deep and outside it, so a proxied record there serves a certificate error. Grey cloud lets
+Traefik issue the certificates on the VPS instead.
+
+`PLATFORM_RESERVED_SUBDOMAINS` still refuses `app`, `api` and the rest as project slugs. They are in
+a different part of the tree now, but a project called `api` producing
+`api.websitebuilder.oneplataforma.com` would still be a hostname nobody intended to hand out.
 
 ### Certificates for the wildcard
 
@@ -86,8 +110,9 @@ HTTP-01 on first request — this works, at the cost of latency on that first hi
 
 Traefik must send the exact apex host to the gateway and everything else validated to the renderer:
 
-- Host is exactly `${PLATFORM_ROOT_DOMAIN}` → frontend gateway.
-- Any other host → renderer. The renderer resolves the hostname against active domain records and
+- Host is exactly `websitebuilder.oneplataforma.com` → the application.
+- Host is `api.websitebuilder.oneplataforma.com` → the API.
+- Any other host under the wildcard → renderer. The renderer resolves the hostname against active domain records and
   answers a neutral 404 for anything it does not recognise, so a catch-all rule here cannot leak a
   tenant.
 

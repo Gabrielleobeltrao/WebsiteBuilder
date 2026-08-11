@@ -13,6 +13,10 @@ import { isSupportedLocale, readStoredLocale, resolveLocale } from "@/i18n/local
  * is applied. Only when the account has none is the pre-login choice (or the browser locale) seeded
  * and persisted. A later sign-in from a differently configured browser must never silently
  * overwrite a language the user chose.
+ *
+ * Neither must a slow read. Someone who changes the language while this request is in flight would
+ * otherwise watch it revert when the older answer arrives, so a response is discarded if the
+ * language moved after it was asked for.
  */
 export function useAccountLocale(isAuthenticated: boolean): void {
   const { i18n } = useTranslation();
@@ -22,9 +26,13 @@ export function useAccountLocale(isAuthenticated: boolean): void {
     const controller = new AbortController();
 
     void (async () => {
+      // What the interface was showing when this was asked. A change after that point belongs to
+      // the user, and a reply about the state before it is stale.
+      const languageWhenRequested = i18n.language;
+
       try {
         const stored = await preferencesApi.load({ signal: controller.signal });
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || i18n.language !== languageWhenRequested) return;
 
         if (isSupportedLocale(stored.locale)) {
           if (stored.locale !== i18n.language) await changeLocale(i18n, stored.locale);
@@ -35,6 +43,7 @@ export function useAccountLocale(isAuthenticated: boolean): void {
           storedLocale: readStoredLocale(globalThis.localStorage),
           browserLanguages: globalThis.navigator?.languages ?? [],
         });
+        if (i18n.language !== languageWhenRequested) return;
         await preferencesApi.save(seeded);
         await changeLocale(i18n, seeded);
       } catch {

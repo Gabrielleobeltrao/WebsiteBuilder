@@ -33,8 +33,10 @@ export function createAuth(options: { db: Db; env: Env }) {
       updateAge: 60 * 60 * 24,
     },
     advanced: {
-      // The SaaS has one origin, so the session cookie does not need to be shared across
-      // subdomains — narrower is safer.
+      // No `domain` attribute, so the cookie is host-only to the API. The browser still sends it
+      // on credentialed requests to that host from the application, because the two share a
+      // registrable domain — and it never reaches a published customer site, which is the whole
+      // reason not to widen it.
       useSecureCookies: env.isProduction,
       defaultCookieAttributes: {
         httpOnly: true,

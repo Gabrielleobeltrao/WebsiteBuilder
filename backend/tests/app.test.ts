@@ -92,3 +92,36 @@ describe("hardening", () => {
     expect(response.headers["x-powered-by"]).toBeUndefined();
   });
 });
+
+describe("cross-origin access", () => {
+  /**
+   * With the API on its own host, CORS is what decides which application may use a visitor's
+   * session. An allowlist that reflects the request's own origin would let any site do it.
+   */
+  const app = () => createApp({ env: { ...testEnv(), FRONTEND_ORIGIN: "https://app.example.com" }, logger: testLogger() });
+
+  it("allows the configured application origin with credentials", async () => {
+    const response = await request(app())
+      .get("/api/v1/health")
+      .set("Origin", "https://app.example.com");
+
+    expect(response.headers["access-control-allow-origin"]).toBe("https://app.example.com");
+    expect(response.headers["access-control-allow-credentials"]).toBe("true");
+  });
+
+  it("does not reflect an origin it was not configured with", async () => {
+    const response = await request(app())
+      .get("/api/v1/health")
+      .set("Origin", "https://evil.example.com");
+
+    expect(response.headers["access-control-allow-origin"]).not.toBe("https://evil.example.com");
+  });
+
+  it("does not allow a lookalike host", async () => {
+    const response = await request(app())
+      .get("/api/v1/health")
+      .set("Origin", "https://app.example.com.evil.test");
+
+    expect(response.headers["access-control-allow-origin"]).not.toBe("https://app.example.com.evil.test");
+  });
+});
