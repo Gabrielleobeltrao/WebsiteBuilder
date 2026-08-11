@@ -16,12 +16,6 @@ const baseSchema = z.object({
   FRONTEND_ORIGIN: z.string().url().default("http://localhost:5173"),
   PLATFORM_ROOT_DOMAIN: z.string().min(3).default("localhost"),
   PLATFORM_PUBLIC_ORIGIN: z.string().url().default("http://localhost:5173"),
-  /**
-   * Where the API answers publicly. Separate from the application origin because the two are
-   * deployed as different hosts; the renderer needs it to build media URLs, and it is the origin
-   * Better Auth issues its session cookie for.
-   */
-  API_PUBLIC_ORIGIN: z.string().url().default("http://localhost:5173"),
   PLATFORM_RESERVED_SUBDOMAINS: z.string().default(""),
   /** How long a proxy may serve a published page before revalidating. */
   PUBLIC_SITE_CACHE_TTL_SECONDS: z.coerce.number().int().nonnegative().max(86_400).default(60),
@@ -95,7 +89,6 @@ function describeRequired(name: string, value: string | undefined, minimum?: num
  * same message. Names only, never values.
  */
 export const KNOWN_VARIABLES = [
-  "SERVICE_ROLE",
   "NODE_ENV",
   "API_PORT",
   "PUBLIC_RENDERER_PORT",
@@ -106,7 +99,6 @@ export const KNOWN_VARIABLES = [
   "FRONTEND_ORIGIN",
   "PLATFORM_ROOT_DOMAIN",
   "PLATFORM_PUBLIC_ORIGIN",
-  "API_PUBLIC_ORIGIN",
   "CLOUDFLARE_ZONE_ID",
   "CLOUDFLARE_API_TOKEN",
 ] as const;
@@ -116,7 +108,17 @@ export function presentVariables(source: NodeJS.ProcessEnv = process.env): strin
   return KNOWN_VARIABLES.filter((name) => (source[name] ?? "").trim() !== "");
 }
 
-export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
+/**
+ * Which process is being configured.
+ *
+ * The two services share a schema but not their requirements: the renderer serves published
+ * snapshots and has no sessions, so holding it to the API's authentication secret would demand a
+ * credential it must never be given. A secret handed to a process that does not need it is a secret
+ * with a larger blast radius for no benefit.
+ */
+export type ServiceRole = "api" | "renderer";
+
+export function loadEnv(source: NodeJS.ProcessEnv = process.env, role: ServiceRole = "api"): Env {
   const parsed = baseSchema.safeParse(source);
   if (!parsed.success) {
     throw new EnvironmentError(parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`));
@@ -130,7 +132,8 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     const problems = [
       describeRequired("MONGODB_URI", env.MONGODB_URI),
       describeRequired("MONGODB_DB_NAME", env.MONGODB_DB_NAME),
-      describeRequired("BETTER_AUTH_SECRET", env.BETTER_AUTH_SECRET, 32),
+      // Only the API. The renderer has no sessions to sign.
+      ...(role === "api" ? [describeRequired("BETTER_AUTH_SECRET", env.BETTER_AUTH_SECRET, 32)] : []),
     ].filter((problem): problem is string => problem !== null);
 
     if (problems.length > 0) throw new EnvironmentError(problems);

@@ -223,7 +223,7 @@ Split validation by process:
 
 ### Phase 1 — Make backend images deterministic
 
-- [ ] **P1-T1 — Replace role-based runtime selection with Docker build targets**
+- [x] **P1-T1 — Replace role-based runtime selection with Docker build targets**
   - Refactor `backend/Dockerfile` to have a shared build/runtime base and two explicit final targets: `api` and `renderer`.
   - The `api` target must run only `node backend/dist/server.js`, expose/health-check port 3000, and run as the non-root `node` user.
   - The `renderer` target must run only `node backend/dist/renderer-server.js`, expose/health-check port 3001, and run as the non-root `node` user.
@@ -231,13 +231,13 @@ Split validation by process:
   - Use exec-form `CMD` so Node receives termination signals.
   - Acceptance: `docker inspect` shows the intended command for each target and both containers become healthy.
 
-- [ ] **P1-T2 — Make health checks process-specific**
+- [x] **P1-T2 — Make health checks process-specific**
   - API health must probe the API health endpoint on port 3000.
   - Renderer health must probe the renderer health endpoint on port 3001.
   - A healthy API must not make an incorrectly started renderer appear healthy.
   - Acceptance: intentionally swapping a command causes the corresponding health check to fail.
 
-- [ ] **P1-T3 — Split API and renderer environment validation**
+- [x] **P1-T3 — Split API and renderer environment validation**
   - Introduce role-specific typed loaders/schemas without duplicating common parsing.
   - Remove the renderer's dependency on Better Auth secrets.
   - Add unit tests for valid production API env, valid production renderer env, missing API secret, missing renderer DB configuration, and secret-safe error messages.
@@ -557,6 +557,9 @@ Append entries; do not erase history.
 | 2026-08-11 | P0-T2 | n/a | `npm ci`, typecheck, test, build, e2e, check:plan-skill, check:runbook | All pass: typecheck clean, 1344 tests, build clean, 20 E2E, both skill checks green. `docker compose config` NOT run — Docker is not installed on this machine, recorded as a real gap rather than assumed. |
 | 2026-08-11 | P0-T3 | n/a | Repository-wide search | All eight listed defects confirmed against the working tree. Affected files: README.md, docs/OPERATIONS.md, docker-compose.production.yml, backend/Dockerfile (two `CMD`), frontend/Dockerfile, frontend/nginx.conf, backend/.env.example, frontend/.env.example, backend/src/config/env.ts, backend/src/healthcheck.ts, backend/src/renderer/app.ts, frontend/src/api/endpoint.ts, frontend/src/vite-env.d.ts. |
 
+| 2026-08-11 | P1-T1 | (this branch) | `awk` over the Dockerfile shows one `CMD` per target | Two build targets, `api` and `renderer`, on a shared `runtime-base` that deliberately has no `CMD` of its own. The runtime `SERVICE_ROLE` branch and its shell wrapper are gone, so the process a container runs is a property of the image and visible in `docker inspect`. `docker inspect` itself not run — no Docker on this machine. |
+| 2026-08-11 | P1-T2 | (this branch) | Health check reads per target | Each target probes its own endpoint and port: the API on 3000 `/api/v1/health`, the renderer on 3001 `/healthz`. The shared `healthcheck.js` that switched on a variable is deleted along with the variable. Swapping a command now fails the corresponding check because neither answers the other's path. |
+| 2026-08-11 | P1-T3 | (this branch) | 22 env tests | `loadEnv` takes a role. The renderer no longer requires `BETTER_AUTH_SECRET` — it has no sessions, and a signing secret given to a process that cannot use it only widens its blast radius. Both roles still require database configuration, both keep values out of error messages, and the default role is `api`, the stricter of the two. |
 ## 14. Decision Log
 
 Append decisions that change implementation details while preserving the fixed architecture.

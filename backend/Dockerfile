@@ -36,7 +36,9 @@ RUN npm run build --workspace @websitebuilder/backend
 
 # ---
 
-FROM node:22-slim AS runtime
+# Everything the two services share. It has no CMD of its own: a base that could start something is
+# a base that starts the wrong thing when a target forgets to say otherwise.
+FROM node:22-slim AS runtime-base
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -57,22 +59,32 @@ COPY --from=build /app/backend/dist ./backend/dist
 # Never run as root. A process that only needs to read its own bundle has no reason to.
 USER node
 
-# Both processes live in this image, and which one a container runs is a variable rather than an
-# override of the command. A platform that builds from a Dockerfile takes the image's CMD as given
-# and often exposes no way to change it, so the choice belongs somewhere it can always be set.
-#
-#   SERVICE_ROLE=api        the application API   (default)
-#   SERVICE_ROLE=renderer   the public renderer
-ENV SERVICE_ROLE=api
-EXPOSE 3000 3001
+# ---
 
-# Health follows the role: asking the renderer for the API's health endpoint would report a working
-# process as unhealthy and restart it forever.
+# Two targets rather than one image branching at start-up. Which process a container runs is then a
+# property of the image it was built from, visible in `docker inspect` and impossible to get wrong
+# by forgetting a variable. The previous single image carried two `CMD` lines; Docker honours only
+# the last, so the renderer silently started the API.
+FROM runtime-base AS api
+
+EXPOSE 3000
+
+# Probes this service's own endpoint and port. A renderer answering here, or an API that never
+# started, both fail — which is the point of a health check.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD node backend/dist/healthcheck.js
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.API_PORT||3000)+'/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-# `exec` so node replaces the shell and becomes PID 1. Without it the shell holds that slot, SIGTERM
-# never reaches node, and graceful shutdown is skipped on every deploy.
-CMD ["sh", "-c", "exec node backend/dist/$([ \"$SERVICE_ROLE\" = renderer ] && echo renderer-server || echo server).js"]
-
+# Exec form, so node is PID 1 and receives SIGTERM directly. Behind a shell it never would, and the
+# graceful shutdown this service implements would be skipped on every deploy.
 CMD ["node", "backend/dist/server.js"]
+
+# ---
+
+FROM runtime-base AS renderer
+
+EXPOSE 3001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PUBLIC_RENDERER_PORT||3001)+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+CMD ["node", "backend/dist/renderer-server.js"]

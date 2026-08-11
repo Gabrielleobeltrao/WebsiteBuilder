@@ -80,8 +80,9 @@ export function createRendererApp(options: { env: Env; logger: Logger; resolver?
         route,
         document: site.document,
         canonicalUrl: `https://${site.domain.hostname}${normalizePath(req.path)}`,
-        // Media is served by the API, which is its own host, not by the application.
-        mediaBaseUrl: `${env.API_PUBLIC_ORIGIN}/api/v1/public/media`,
+        // Same origin as the application: the API has no public hostname of its own, and a
+        // published page must not reference one that does not exist.
+        mediaBaseUrl: `${env.PLATFORM_PUBLIC_ORIGIN}/api/v1/public/media`,
       });
 
       res
