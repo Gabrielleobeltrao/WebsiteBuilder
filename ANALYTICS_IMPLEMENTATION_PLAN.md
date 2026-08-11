@@ -549,11 +549,11 @@ they are listed as P1-T0a through P1-T0e below.
 
 ### Phase 2 — Storage and aggregation
 
-- [ ] **P2-T1 — Add analytics repositories and indexes**
+- [x] **P2-T1 — Add analytics repositories and indexes**
   - Implement the collections, TTL indexes, unique deduplication indexes, tenant-first query indexes, and bounded rollup partitioning.
   - Acceptance: index tests cover expiry, tenant scope, and idempotency.
 
-- [ ] **P2-T2 — Implement session and rollup aggregation**
+- [x] **P2-T2 — Implement session and rollup aggregation**
   - Aggregate page views, engagement, bounce, scroll, sections, elements, sources, devices, hostnames, conversions, and vitals.
   - Write-time idempotent upserts with commutative operators only; no lease, no watermark, no raw
     event store (A-007, A-008). Aggregation is a pure function with no database dependency.
@@ -798,6 +798,8 @@ Append entries; do not erase history.
 | 2026-08-11 | P0-T1 baseline | n/a | `npm run typecheck && npm run test` on `development@3223c7f` | Green: 495 shared, 448 backend, 486 frontend. One intermittent failure recorded: `backend/tests/media-api.test.ts` "accepts an image and returns WebP variants" fails occasionally under full-suite load and passes in isolation (Sharp under memory pressure). Pre-existing, unrelated to analytics. Production tag and live topology are `[!]` — no production access. |
 | 2026-08-11 | P0-T2 ADR | n/a | `docs/adr/analytics-first-party.md` written | Eight decisions recorded; four privacy/legal choices left explicitly open |
 | 2026-08-11 | P0-T3 budgets | n/a | `docs/ANALYTICS_OPERATIONS.md` written | Budgets, per-page-view event count, storage formula with a worked example, alert threshold, scale ceiling and its replacement |
+| 2026-08-11 | P1-T1/P1-T2 contracts | `052547e` | `npx vitest run packages/shared/src/analytics.test.ts` | 25 tests |
+| 2026-08-11 | P2-T1/P2-T2 storage and aggregation | n/a | `npx vitest run backend/tests/analytics-{aggregate,repository}.test.ts` | 37 tests: 17 fixture tests of the arithmetic with no database, 20 against a real MongoDB covering index shape, retention ordering, deduplication, tenant isolation and version lifetime |
 | 2026-08-11 | P1-T0a..e prerequisites | n/a | `npm run typecheck && npm run test && npm run build && npm run test:e2e` | 1436 unit tests and 28 E2E green, including a new `published-site` browser project. Two pre-existing defects found and fixed: elements outside free-layout sections carried no id at all, and the renderer could not run under `tsx` because the frontend components it renders were outside the backend tsconfig's `include` — so `npm run dev:renderer` had never served a page. |
 
 ## 19. Decision Log
