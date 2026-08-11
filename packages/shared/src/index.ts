@@ -5,6 +5,7 @@ export * from "./blog";
 export * from "./cms";
 export * from "./dynamic-elements";
 export * from "./containers";
+export * from "./diagnostics";
 export * from "./elements";
 export * from "./features";
 export * from "./forms";

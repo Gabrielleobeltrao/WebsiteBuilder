@@ -1,4 +1,4 @@
-import { findPageBySlug, pagePath, type BuilderProject } from "@websitebuilder/shared";
+import { diagnoseResponsive, findPageBySlug, pagePath, type BuilderProject } from "@websitebuilder/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useSearchParams } from "react-router";
@@ -9,7 +9,9 @@ import { PageMetadata } from "@/components/common/PageMetadata";
 import { ProjectPageRenderer } from "@/components/renderer/ProjectPageRenderer";
 import { resolvePageSections } from "@/features/editor/store/sharedSections";
 import { RendererContext, type RendererContextValue } from "@/components/renderer/RendererContext";
-import { MOBILE_PREVIEW_WIDTH } from "@websitebuilder/shared";
+import { clampPreviewWidth, DESIGN_WIDTH, MOBILE_PREVIEW_WIDTH } from "@websitebuilder/shared";
+import { DiagnosticsPanel } from "@/features/preview/DiagnosticsPanel";
+import { PreviewWidthControl } from "@/features/preview/PreviewWidthControl";
 
 /**
  * Clean preview of a saved project.
@@ -31,6 +33,23 @@ export function PreviewRoute({ workspaceId }: { workspaceId: string }) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
 
   const viewport = searchParams.get("viewport") === "desktop" ? "desktop" : "mobile";
+
+  // The URL carries the width, so a specific rendering can be shared or reloaded.
+  const requestedWidth = Number.parseInt(searchParams.get("width") ?? "", 10);
+  const width = Number.isNaN(requestedWidth)
+    ? viewport === "mobile"
+      ? MOBILE_PREVIEW_WIDTH
+      : DESIGN_WIDTH
+    : clampPreviewWidth(requestedWidth);
+
+  const setWidth = (next: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set("width", String(next));
+    // Below the mobile breakpoint the mobile layout is what a visitor gets, so the toggle follows
+    // the width rather than contradicting it.
+    params.set("viewport", next <= 640 ? "mobile" : "desktop");
+    setSearchParams(params, { replace: true });
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -100,12 +119,22 @@ export function PreviewRoute({ workspaceId }: { workspaceId: string }) {
     );
   }
 
+  // Shared sections are resolved once: the renderer, the diagnostics and the published output must
+  // all be looking at the same page, or a warning can point at something a visitor never sees.
+  const resolvedPage = { ...page, sections: resolvePageSections(state.project, page) };
+  const findings = diagnoseResponsive({
+    page: resolvedPage,
+    path: pagePath(page),
+    breakpoints: state.project.breakpoints,
+  });
+
   return (
     <RendererContext.Provider value={rendererContext}>
       <PageMetadata title={page.seo.title || `${page.name} — ${state.project.name}`} description={page.seo.description} />
 
       <div className="min-h-dvh bg-ink-100">
-        <div className="flex justify-center gap-2 border-b border-ink-200 bg-white px-4 py-2">
+        <div className="space-y-2 border-b border-ink-200 bg-white px-4 py-2">
+          <div className="flex justify-center gap-2">
           {(["desktop", "mobile"] as const).map((mode) => (
             <button
               key={mode}
@@ -120,20 +149,23 @@ export function PreviewRoute({ workspaceId }: { workspaceId: string }) {
               {mode === "desktop" ? t("builder:topBar.previewDesktop") : t("builder:topBar.previewMobile")}
             </button>
           ))}
+          </div>
+
+          <PreviewWidthControl width={width} onChange={setWidth} />
         </div>
+
+        <DiagnosticsPanel findings={findings} />
 
         <div className="flex justify-center p-4">
           {/*
             Mobile preview uses the real available viewport; desktop preview is explicitly a scaled
             rendering of the configured desktop width, never a claim about mobile behaviour.
           */}
-          <div
-            style={viewport === "mobile" ? { width: "100%", maxWidth: MOBILE_PREVIEW_WIDTH } : { width: "100%" }}
-            className="bg-white shadow-sm"
-          >
+          <div style={{ width: "100%", maxWidth: width }} className="bg-white shadow-sm">
             <ProjectPageRenderer
-              page={{ ...page, sections: resolvePageSections(state.project, page) }}
+              page={resolvedPage}
               breakpointId={viewport === "mobile" ? "mobile" : "desktop"}
+              width={width}
             />
           </div>
         </div>

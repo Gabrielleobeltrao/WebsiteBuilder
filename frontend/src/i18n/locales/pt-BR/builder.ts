@@ -131,6 +131,28 @@ export default {
     "hidden": "Oculto",
     "displayName": "Nome de exibição"
   },
+  "preview": {
+      "width": "Largura da previsão",
+      "exactWidth": "Largura exata em pixels",
+      "presets": {
+        "phone-small": "320",
+        "phone": "390",
+        "tablet": "768",
+        "laptop": "1280",
+        "desktop": "1440",
+        "wide": "1920"
+      },
+      "diagnostics": {
+        "title": "{{count}} ponto para conferir",
+        "title_other": "{{count}} pontos para conferir",
+        "clear": "Nenhum problema de layout em nenhuma largura.",
+        "severity": {
+          "error": "Quebra",
+          "warning": "Conferir",
+          "manual-review": "Revisar"
+        }
+      }
+    },
   "options": {
     "autoMode": {
       "fixed": "Número fixo de colunas",

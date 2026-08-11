@@ -234,5 +234,11 @@ export function diagnoseWidths(input: {
   return findings;
 }
 
-/** Widths the audit sweeps: the presets plus enough intermediates to catch between-breakpoint breaks. */
-export const SWEEP_WIDTHS = [320, 375, 390, 480, 640, 768, 834, 1024, 1180, 1280, 1440, 1600, 1920] as const;
+/**
+ * Widths the audit sweeps: the presets, enough intermediates to catch between-breakpoint breaks,
+ * and both sides of the default breakpoint boundaries — 640/641 and 1024/1025 — because a layout
+ * that breaks one pixel past a boundary is exactly what a preset-only sweep misses.
+ */
+export const SWEEP_WIDTHS = [
+  320, 375, 390, 480, 640, 641, 768, 834, 1024, 1025, 1180, 1280, 1440, 1600, 1920,
+] as const;

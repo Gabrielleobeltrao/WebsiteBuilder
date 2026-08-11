@@ -131,6 +131,28 @@ export default {
     "hidden": "Hidden",
     "displayName": "Display name"
   },
+  "preview": {
+      "width": "Preview width",
+      "exactWidth": "Exact width in pixels",
+      "presets": {
+        "phone-small": "320",
+        "phone": "390",
+        "tablet": "768",
+        "laptop": "1280",
+        "desktop": "1440",
+        "wide": "1920"
+      },
+      "diagnostics": {
+        "title": "{{count}} thing to check",
+        "title_other": "{{count}} things to check",
+        "clear": "No layout problems found at any width.",
+        "severity": {
+          "error": "Breaks",
+          "warning": "Check",
+          "manual-review": "Review"
+        }
+      }
+    },
   "options": {
     "autoMode": {
       "fixed": "Fixed number of columns",
