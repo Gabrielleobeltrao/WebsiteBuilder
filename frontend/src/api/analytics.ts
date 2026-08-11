@@ -59,6 +59,14 @@ export type AnalyticsVitals = {
   minimumSamples: number;
 };
 
+export type AnalyticsSnapshot = {
+  versionId: string;
+  version: number;
+  createdAt: string;
+  document: unknown;
+  pages: Array<{ pageId: string; path: string }>;
+};
+
 export type AnalyticsFilters = { days?: number; device?: DeviceCategory; pageIds?: string[] };
 
 function query(filters: AnalyticsFilters): string {
@@ -103,6 +111,12 @@ export const analyticsApi = {
   ) {
     const params = new URLSearchParams(filter);
     return apiRequest<AnalyticsHeatmap>(base(workspaceId, projectId, `heatmap?${params.toString()}`), {
+      ...(options.signal ? { signal: options.signal } : {}),
+    });
+  },
+
+  snapshot(workspaceId: string, projectId: string, versionId: string, options: { signal?: AbortSignal } = {}) {
+    return apiRequest<AnalyticsSnapshot>(base(workspaceId, projectId, `snapshot/${versionId}`), {
       ...(options.signal ? { signal: options.signal } : {}),
     });
   },

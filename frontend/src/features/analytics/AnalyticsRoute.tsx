@@ -7,11 +7,12 @@ import { ApiError } from "@/api/client";
 import { analyticsApi, type AnalyticsFilters } from "@/api/analytics";
 import { PageMetadata } from "@/components/common/PageMetadata";
 import { AnalyticsOverviewTab } from "./OverviewTab";
+import { AnalyticsHeatmapTab } from "./HeatmapTab";
 import { AnalyticsPagesTab } from "./PagesTab";
 import { AnalyticsSettingsTab } from "./SettingsTab";
 import { AnalyticsVitalsTab } from "./VitalsTab";
 
-const TABS = ["overview", "pages", "vitals", "settings"] as const;
+const TABS = ["overview", "pages", "heatmap", "vitals", "settings"] as const;
 type Tab = (typeof TABS)[number];
 
 type SettingsState =
@@ -138,6 +139,15 @@ export function AnalyticsRoute() {
                 )}
                 {tab === "pages" && (
                   <AnalyticsPagesTab workspaceId={workspaceId} projectId={projectId} filters={filters} />
+                )}
+                {tab === "heatmap" && (
+                  <AnalyticsHeatmapTab
+                    workspaceId={workspaceId}
+                    projectId={projectId}
+                    versionId={params.get("version") ?? undefined}
+                    device={device}
+                    onVersionChange={(version) => update({ version })}
+                  />
                 )}
                 {tab === "vitals" && (
                   <AnalyticsVitalsTab workspaceId={workspaceId} projectId={projectId} filters={filters} />

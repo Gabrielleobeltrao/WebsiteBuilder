@@ -643,7 +643,7 @@ they are listed as P1-T0a through P1-T0e below.
   - Add sortable page table, scroll distribution, section attention, CTA clicks, form success, and conversion indicators.
   - Acceptance: labels resolve stable IDs to the selected published-version names without leaking deleted draft content.
 
-- [ ] **P6-T4 — Build the heatmap viewer**
+- [x] **P6-T4 — Build the heatmap viewer**
   - Render the correct immutable version snapshot and overlay click, scroll, and attention aggregates.
   - Provide accessible table fallback and mobile read-only inspection.
   - Acceptance: changing page/version/device reloads compatible bins; layout alignment tests pass at supported breakpoints.

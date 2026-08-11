@@ -71,6 +71,26 @@ export function createAnalyticsRouter(options: {
     }
   });
 
+  /**
+   * The layout a heatmap is drawn over.
+   *
+   * The dashboard renders it with the same component that produced the published page, so the
+   * overlay's coordinates land where they were recorded. It is served here rather than framing the
+   * live site: published pages set `frame-ancestors 'none'`, and a cross-origin frame could not be
+   * measured for alignment even if they did not.
+   */
+  router.get("/snapshot/:versionId", async (req, res, next) => {
+    try {
+      const context = await resolveWorkspace(req);
+      const snapshot = await queries.snapshot(context, projectIdOf(req.params), req.params["versionId"] ?? "");
+      if (snapshot === null) throw new ApiProblem("NOT_FOUND", "That published version is no longer available");
+
+      res.json({ data: snapshot });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.get("/heatmap", async (req, res, next) => {
     try {
       const context = await resolveWorkspace(req);

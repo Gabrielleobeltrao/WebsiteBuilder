@@ -91,8 +91,27 @@ export type AnalyticsVitals = {
   minimumSamples: number;
 };
 
+/** The parts of a published version a heatmap needs. */
+export type VersionSnapshot = {
+  id: string;
+  workspaceId: string;
+  version: number;
+  createdAt: string;
+  document: unknown;
+  routes: Array<{ kind: string; statusCode: number; resourceId: string; path: string }>;
+};
+
 /** Resolves a page identifier to the path a person recognises. */
 export type PathResolver = (context: WorkspaceContext, projectId: string) => Promise<Map<string, string>>;
+
+/** A published layout, and which of its versions still exist to be drawn over. */
+export type AnalyticsSnapshot = {
+  versionId: string;
+  version: number;
+  createdAt: string;
+  document: unknown;
+  pages: Array<{ pageId: string; path: string }>;
+};
 
 export class AnalyticsQueries {
   private readonly sessions: Collection<SessionDocument>;
@@ -105,6 +124,9 @@ export class AnalyticsQueries {
     db: Db,
     /** Page identifiers mean nothing to a reader; the published manifest turns them into paths. */
     private readonly resolvePaths: PathResolver,
+    /** Loads one immutable version. Injected so this module keeps no dependency on publishing. */
+    private readonly loadVersion: (projectId: string, versionId: string) => Promise<VersionSnapshot | null> = async () =>
+      null,
   ) {
     this.sessions = db.collection<SessionDocument>(ANALYTICS_COLLECTIONS.sessions);
     this.daily = db.collection<DailyDocument>(ANALYTICS_COLLECTIONS.daily);
@@ -274,6 +296,28 @@ export class AnalyticsQueries {
     }
 
     return { metrics, minimumSamples: WEB_VITAL_MIN_SAMPLES };
+  }
+
+  /**
+   * One immutable version, with the document the dashboard renders to place an overlay.
+   *
+   * Scoped by workspace before anything is returned. A version whose retention window has passed is
+   * gone, and saying so is the honest answer — the alternative would be drawing a customer's old
+   * coordinates over a layout that did not produce them.
+   */
+  async snapshot(context: WorkspaceContext, projectId: string, versionId: string): Promise<AnalyticsSnapshot | null> {
+    const version = await this.loadVersion(projectId, versionId);
+    if (version === null || version.workspaceId !== context.workspaceId) return null;
+
+    return {
+      versionId: version.id,
+      version: version.version,
+      createdAt: version.createdAt,
+      document: version.document,
+      pages: version.routes
+        .filter((route) => route.kind === "page" && route.statusCode === 200)
+        .map((route) => ({ pageId: route.resourceId, path: route.path })),
+    };
   }
 
   private dailyRows(

@@ -161,7 +161,9 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
           const version = await publishing.findActiveForProject(projectId);
           if (version === null || version.workspaceId !== context.workspaceId) return new Map();
           return new Map(version.routes.map((route) => [route.resourceId, route.path]));
-        }),
+        },
+        // Scoped by the caller's workspace inside the query itself; this only loads.
+        async (projectId, versionId) => publishing.findActive(projectId, versionId)),
         resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
       }),
     },
