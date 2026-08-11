@@ -3,10 +3,13 @@
 FROM node:22-slim AS build
 WORKDIR /app
 
-# Vite and TypeScript are devDependencies. A platform that exposes NODE_ENV=production at build time
-# would make npm skip them, so this stage states its own value rather than inheriting one that
-# breaks it.
-ENV NODE_ENV=development
+# Stated rather than inherited, and `production` on purpose: Vite reads NODE_ENV to choose its build
+# mode. Setting it to `development` here to satisfy a warning about npm shipped a development bundle
+# to production once, with `import.meta.env.DEV` true and every guard reading it inverted.
+#
+# npm 10 does not omit devDependencies for NODE_ENV — only `--omit=dev` does that — so the warning
+# it was answering did not apply. `--include=dev` below says the intent out loud anyway.
+ENV NODE_ENV=production
 
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/

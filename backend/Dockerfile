@@ -6,10 +6,13 @@
 FROM node:22-slim AS build
 WORKDIR /app
 
-# The build needs TypeScript, tsup and the workspace tooling, all of which are devDependencies. A
-# platform that exposes NODE_ENV=production at build time would make npm skip exactly those, so this
-# stage states its own value rather than inheriting one that breaks it.
-ENV NODE_ENV=development
+# Stated rather than inherited, and `production` on purpose: bundlers read NODE_ENV to choose a
+# build mode, so telling this stage `development` to satisfy a warning about npm would ship a
+# development build.
+#
+# npm 10 does not omit devDependencies for NODE_ENV — only `--omit=dev` does that. `--include=dev`
+# below says the intent out loud regardless of which npm runs the build.
+ENV NODE_ENV=production
 
 # Manifests first so dependency installation is cached until they actually change.
 COPY package.json package-lock.json ./
@@ -19,8 +22,8 @@ COPY frontend/package.json frontend/
 
 # The renderer server-renders the frontend's renderer components, so that workspace is installed
 # and its source is copied in — the bundler reads them directly rather than a built artefact.
-# `--include=dev` as well as the environment above: two ways of saying it, because a missing build
-# tool fails late and confusingly, and the cost of saying it twice is a flag.
+# The build needs TypeScript and tsup, which are devDependencies. Stated explicitly so it holds
+# whatever the platform passes and whichever npm resolves it.
 RUN npm ci --include=dev --workspace @websitebuilder/backend --workspace @websitebuilder/shared \
   --workspace @websitebuilder/frontend --include-workspace-root
 
