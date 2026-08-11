@@ -7,7 +7,9 @@ import { createLogger } from "./config/logger";
 import { connectDatabase, createDatabaseHealthProbe, type Database } from "./db/client";
 import { installGracefulShutdown } from "./lifecycle";
 import { createWorkspaceResolver } from "./middleware/session";
-import { ensureAnalyticsIndexes } from "./modules/analytics/repository";
+import { AnalyticsQueries } from "./modules/analytics/queries";
+import { AnalyticsRepository, ensureAnalyticsIndexes } from "./modules/analytics/repository";
+import { createAnalyticsRouter } from "./modules/analytics/routes";
 import { createAuth } from "./modules/auth/auth";
 import { PreferencesRepository } from "./modules/preferences/repository";
 import { createPreferencesRouter } from "./modules/preferences/routes";
@@ -83,6 +85,7 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
   const blog = new BlogRepository(database.db);
   const cms = new CmsRepository(database.db);
   const publishing = new PublishingRepository(database.db, database.db.collection(COLLECTIONS.projects));
+  const analytics = new AnalyticsRepository(database.db);
   const domains = new DomainService(database.db, createHostnameProvider(env, logger), env.PLATFORM_ROOT_DOMAIN);
   await ensureBlogIndexes(database.db);
   await ensurePublishingIndexes(database.db);
@@ -148,6 +151,23 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
       }),
     },
     {
+      path: "/workspaces/:workspaceId/projects/:projectId/analytics",
+      router: createAnalyticsRouter({
+        repository: analytics,
+        queries: new AnalyticsQueries(database.db, async (context, projectId) => {
+          // Page identifiers come from the published manifest, which is also the only place that
+          // knows what path each one answers on. A page deleted since keeps its history and loses
+          // its name rather than being given an invented one.
+          const version = await publishing.findActiveForProject(projectId);
+          if (version === null || version.workspaceId !== context.workspaceId) return new Map();
+          return new Map(version.routes.map((route) => [route.resourceId, route.path]));
+        },
+        // Scoped by the caller's workspace inside the query itself; this only loads.
+        async (projectId, versionId) => publishing.findActive(projectId, versionId)),
+        resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
+      }),
+    },
+    {
       path: "/workspaces/:workspaceId/projects/:projectId/cms",
       router: createCmsRouter({
         repository: cms,
@@ -190,6 +210,11 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
             })),
           maxDocumentBytes: env.PUBLISH_MAX_DOCUMENT_BYTES,
           retentionCount: env.PUBLISHED_VERSION_RETENTION_COUNT,
+          // Heatmap coordinates are meaningless without the layout that produced them, so they are
+          // deleted by the same operation that deletes the layout.
+          onVersionsPruned: async (context, projectId, versionIds) => {
+            await analytics.dropVersionData(context, projectId, versionIds);
+          },
         }),
         repository: publishing,
         domains,

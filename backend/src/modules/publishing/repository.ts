@@ -192,13 +192,17 @@ export class PublishingRepository {
    * Removes old versions beyond the retention count, never the active one.
    *
    * Deleting the version a site is currently serving would take it offline to save disk.
+   *
+   * Returns the ids it removed rather than a count, because a version is not the only thing that
+   * describes a layout: analytics stores click and attention coordinates against it, and those
+   * coordinates cannot be drawn once the layout is gone. The caller is what connects the two.
    */
   async pruneVersions(
     context: WorkspaceContext,
     projectId: string,
     keep: number,
     activeVersionId: string | undefined,
-  ): Promise<number> {
+  ): Promise<string[]> {
     const all = await this.versions
       .find({ workspaceId: context.workspaceId, projectId }, { projection: { _id: 1, version: 1 }, sort: { version: -1 } })
       .toArray();
@@ -207,10 +211,12 @@ export class PublishingRepository {
       .slice(keep)
       .filter((version) => version._id.toHexString() !== activeVersionId)
       .map((version) => version._id);
-    if (removable.length === 0) return 0;
+    if (removable.length === 0) return [];
 
-    const result = await this.versions.deleteMany({ _id: { $in: removable } });
-    return result.deletedCount;
+    // Scoped by `_id` alone, which is safe because the ids came from a workspace-scoped query — but
+    // the scope is repeated so that stays true if the query above ever changes.
+    await this.versions.deleteMany({ workspaceId: context.workspaceId, projectId, _id: { $in: removable } });
+    return removable.map((id) => id.toHexString());
   }
 
   /** Every project gets exactly one platform hostname, created idempotently. */

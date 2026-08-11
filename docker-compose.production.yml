@@ -159,6 +159,13 @@ services:
       # Published pages reference media at this origin, which is where the API answers.
       PLATFORM_PUBLIC_ORIGIN: ${PLATFORM_PUBLIC_ORIGIN}
       PUBLIC_SITE_CACHE_TTL_SECONDS: ${PUBLIC_SITE_CACHE_TTL_SECONDS:-60}
+      # Analytics ingestion. Off unless an operator turns it on, so a deployment never starts with an
+      # open write endpoint by accident — and each site has its own switch besides this one.
+      ANALYTICS_INGESTION_ENABLED: ${ANALYTICS_INGESTION_ENABLED:-false}
+      # Batches per minute. The address bucket needs TRUSTED_PROXY_CIDRS below to be meaningful:
+      # without it every visitor presents the gateway's address and would share one allowance.
+      ANALYTICS_RATE_LIMIT_PER_ADDRESS: ${ANALYTICS_RATE_LIMIT_PER_ADDRESS:-60}
+      ANALYTICS_RATE_LIMIT_PER_PROJECT: ${ANALYTICS_RATE_LIMIT_PER_PROJECT:-600}
       # Must match the real Coolify/Traefik proxy range before any forwarded header is trusted.
       # Empty trusts nothing, which is the safe default on a host-routed multi-tenant renderer.
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}

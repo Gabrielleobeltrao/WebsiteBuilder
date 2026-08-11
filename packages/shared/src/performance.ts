@@ -19,10 +19,19 @@ export const PERFORMANCE_BUDGETS = {
   documentBytes: 500_000,
   /**
    * Compressed JavaScript a *visitor to a published site* downloads. The renderer serves server
-   * HTML, so this is currently zero and the budget exists to keep it that way: any script added to
-   * public output has to be argued for against this number.
+   * HTML, so this is zero for a site with no analytics, and the budget exists to keep it that way:
+   * any script added to public output has to be argued for against this number.
    */
   publishedSiteJavaScriptBytes: 60_000,
+  /**
+   * The analytics tracker, compressed, and the only script a published page may carry.
+   *
+   * Far below the budget above on purpose. This runs on a stranger's phone on a connection nobody
+   * chose, to answer a question the site owner has — so it is charged against the visitor and must
+   * stay small enough that they could not tell whether it is there. The target is 8 KiB; this is
+   * the ceiling at which the build fails.
+   */
+  publishedSiteTrackerBytes: 15_000,
   /**
    * Compressed JavaScript for the authenticated application — dashboard and editor. It is allowed
    * to be far heavier: it is loaded by someone who chose to open a design tool, once, behind a

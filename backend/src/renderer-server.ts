@@ -3,8 +3,9 @@ import { COLLECTIONS } from "./db/indexes";
 import { EnvironmentError, loadEnv } from "./config/env";
 import { createLogger } from "./config/logger";
 import { installGracefulShutdown } from "./lifecycle";
-import { ensureAnalyticsIndexes, SiteViewRepository } from "./modules/analytics/repository";
+import { AnalyticsRepository, ensureAnalyticsIndexes, SiteViewRepository } from "./modules/analytics/repository";
 import { ensurePublishingIndexes, PublishingRepository } from "./modules/publishing/repository";
+import { createAnalyticsRuntime } from "./renderer/analytics";
 import { createRendererApp, type ViewRecorder } from "./renderer/app";
 import { SiteResolver } from "./renderer/resolver";
 
@@ -26,14 +27,31 @@ async function start(): Promise<void> {
   // report the process as unhealthy rather than as missing.
   let resolver: SiteResolver | undefined;
   let recordView: ViewRecorder | undefined;
+  let analytics: ReturnType<typeof createAnalyticsRuntime> | undefined;
   if (env.MONGODB_URI && env.MONGODB_DB_NAME) {
     const database = await connectDatabase(env, logger);
     await ensurePublishingIndexes(database.db);
     await ensureAnalyticsIndexes(database.db);
-    resolver = new SiteResolver(
-      new PublishingRepository(database.db, database.db.collection(COLLECTIONS.projects)),
-      env.PUBLIC_SITE_CACHE_TTL_SECONDS,
-    );
+    const publishing = new PublishingRepository(database.db, database.db.collection(COLLECTIONS.projects));
+    resolver = new SiteResolver(publishing, env.PUBLIC_SITE_CACHE_TTL_SECONDS);
+
+    analytics = createAnalyticsRuntime({
+      resolver,
+      analytics: new AnalyticsRepository(database.db),
+      publishing,
+      logger,
+      settingsTtlSeconds: env.PUBLIC_SITE_CACHE_TTL_SECONDS,
+      // Address-keyed limiting is only meaningful where a forwarded address can be believed.
+      trustsProxy: env.trustedProxyCidrs.length > 0,
+      // Off unless an operator says otherwise. Two locks in two places: this one, and each site's
+      // own setting.
+      enabled: env.ANALYTICS_INGESTION_ENABLED === "true",
+      limits: {
+        perAddress: env.ANALYTICS_RATE_LIMIT_PER_ADDRESS,
+        perProject: env.ANALYTICS_RATE_LIMIT_PER_PROJECT,
+        windowMs: 60_000,
+      },
+    });
 
     // Counting must never delay or fail a page. The response has already been decided by the time
     // this runs, and a failed counter is a logged warning — a site that stops rendering because its
@@ -48,7 +66,7 @@ async function start(): Promise<void> {
     logger.warn("MONGODB_URI is not set; the renderer cannot serve sites");
   }
 
-  const app = createRendererApp({ env, logger, resolver, recordView });
+  const app = createRendererApp({ env, logger, resolver, recordView, analytics });
   const server = app.listen(env.PUBLIC_RENDERER_PORT, () => {
     logger.info({ port: env.PUBLIC_RENDERER_PORT, env: env.NODE_ENV }, "public renderer listening");
   });

@@ -1,11 +1,20 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2023"],
+    // The renderer components below are React, and React's types reference DOM types.
+    "lib": ["ES2023", "DOM"],
     "types": ["node"],
     // The public renderer server-renders the same React components the editor uses.
     "jsx": "react-jsx",
     "noEmit": true
   },
-  "include": ["src", "tests"]
+  // The renderer server-renders components that live in the frontend workspace. They have to be
+// *included* here, not merely imported: esbuild picks a file's JSX setting from the tsconfig
+// that includes it, so while they were outside this list `tsx` compiled them with the classic
+// runtime and every render threw `React is not defined` — which is why `npm run dev:renderer`
+// could not serve a page. Only the bundled build worked, because tsup is told the setting
+// directly.
+  "include": ["src", "tests", "../frontend/src/components/renderer"],
+  // Their own tests belong to the frontend, which has the DOM matchers they use.
+  "exclude": ["../frontend/src/components/renderer/**/*.test.tsx"]
 }

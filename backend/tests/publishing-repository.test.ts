@@ -175,9 +175,35 @@ describe("retention", () => {
     const oldest = await activeVersionId(project.id);
 
     const deleted = await publishing.pruneVersions(A, project.id, 2, oldest);
-    expect(deleted).toBeGreaterThan(0);
+    expect(deleted.length).toBeGreaterThan(0);
     expect(await publishing.findActive(project.id, oldest!)).not.toBeNull();
     expect(active).not.toBe("");
+  });
+
+  it("reports which versions it removed, so what described them can be removed too", async () => {
+    // Analytics stores heatmap coordinates against a layout. A count would tell the caller that
+    // something was deleted but not which layouts stopped existing, and coordinates whose layout is
+    // gone can only be drawn over a layout that did not produce them.
+    const project = await projects.create(A, { name: "Acme" });
+    const published: string[] = [];
+    for (let index = 0; index < 4; index += 1) {
+      const reloaded = await projects.findById(A, project.id);
+      published.push((await publishing.publish(A, project.id, snapshot({ sourceRevision: reloaded!.revision }))).id);
+    }
+
+    const active = published.at(-1)!;
+    const deleted = await publishing.pruneVersions(A, project.id, 2, active);
+
+    expect(deleted).not.toContain(active);
+    expect(published).toEqual(expect.arrayContaining(deleted));
+    for (const id of deleted) expect(await publishing.findActive(project.id, id)).toBeNull();
+  });
+
+  it("reports an empty list rather than a zero when nothing was old enough", async () => {
+    const project = await projects.create(A, { name: "Acme" });
+    const version = await publishing.publish(A, project.id, snapshot({ sourceRevision: project.revision }));
+
+    expect(await publishing.pruneVersions(A, project.id, 20, version.id)).toEqual([]);
   });
 });
 

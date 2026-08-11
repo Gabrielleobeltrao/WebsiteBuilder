@@ -45,7 +45,7 @@ export function SiteDashboard({
   pageCount: number;
   updatedAt: string;
 }) {
-  const { t } = useTranslation(["dashboard", "cms", "publishing", "errors", "common"]);
+  const { t } = useTranslation(["dashboard", "cms", "publishing", "analytics", "errors", "common"]);
   const [state, setState] = useState<LoadState>({ status: "loading" });
 
   const load = useCallback(
@@ -184,6 +184,14 @@ export function SiteDashboard({
                   className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
                 >
                   {t("publishing:publish.title")}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to={`${base}/analytics`}
+                  className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
+                >
+                  {t("analytics:title")}
                 </Link>
               </li>
               <li>

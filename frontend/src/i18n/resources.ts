@@ -1,3 +1,4 @@
+import enAnalytics from "./locales/en-US/analytics";
 import enAuth from "./locales/en-US/auth";
 import enBlog from "./locales/en-US/blog";
 import enBuilder from "./locales/en-US/builder";
@@ -8,6 +9,7 @@ import enErrors from "./locales/en-US/errors";
 import enPublic from "./locales/en-US/public";
 import enPublishing from "./locales/en-US/publishing";
 import enReadiness from "./locales/en-US/readiness";
+import ptAnalytics from "./locales/pt-BR/analytics";
 import ptAuth from "./locales/pt-BR/auth";
 import ptBlog from "./locales/pt-BR/blog";
 import ptBuilder from "./locales/pt-BR/builder";
@@ -25,10 +27,10 @@ import ptReadiness from "./locales/pt-BR/readiness";
  * error rather than an English string leaking into a Portuguese screen.
  */
 export const resources = {
-  "en-US": { common: enCommon, public: enPublic, dashboard: enDashboard, builder: enBuilder, auth: enAuth, blog: enBlog, cms: enCms, publishing: enPublishing, readiness: enReadiness, errors: enErrors },
-  "pt-BR": { common: ptCommon, public: ptPublic, dashboard: ptDashboard, builder: ptBuilder, auth: ptAuth, blog: ptBlog, cms: ptCms, publishing: ptPublishing, readiness: ptReadiness, errors: ptErrors },
+  "en-US": { common: enCommon, public: enPublic, dashboard: enDashboard, builder: enBuilder, auth: enAuth, blog: enBlog, cms: enCms, publishing: enPublishing, readiness: enReadiness, analytics: enAnalytics, errors: enErrors },
+  "pt-BR": { common: ptCommon, public: ptPublic, dashboard: ptDashboard, builder: ptBuilder, auth: ptAuth, blog: ptBlog, cms: ptCms, publishing: ptPublishing, readiness: ptReadiness, analytics: ptAnalytics, errors: ptErrors },
 } as const;
 
-export const NAMESPACES = ["common", "public", "dashboard", "builder", "auth", "blog", "cms", "publishing", "readiness", "errors"] as const;
+export const NAMESPACES = ["common", "public", "dashboard", "builder", "auth", "blog", "cms", "publishing", "readiness", "analytics", "errors"] as const;
 export type Namespace = (typeof NAMESPACES)[number];
 export const DEFAULT_NAMESPACE: Namespace = "common";

@@ -100,6 +100,14 @@ describe("bundle", () => {
     expect(auditBundle(100_000, "published-site")).not.toEqual([]);
     expect(auditBundle(100_000, "application")).toEqual([]);
   });
+
+  it("holds the analytics tracker to a stricter budget than the page it runs on", () => {
+    // The tracker is charged against a visitor who did not ask for it, so it is bounded well inside
+    // the page's own allowance rather than being permitted to consume it.
+    expect(PERFORMANCE_BUDGETS.publishedSiteTrackerBytes).toBeLessThan(
+      PERFORMANCE_BUDGETS.publishedSiteJavaScriptBytes / 2,
+    );
+  });
 });
 
 describe("honesty", () => {

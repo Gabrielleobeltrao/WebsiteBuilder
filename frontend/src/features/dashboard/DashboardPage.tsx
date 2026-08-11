@@ -229,7 +229,7 @@ function Overview({
           <ul className="mt-3 divide-y divide-ink-100">
             {dashboard.recentSites.map((site) => (
               <li key={site.id} className="flex items-center justify-between gap-4 py-2">
-                <Link to={`/app/${workspaceId}/sites/${site.id}/dashboard`} className="text-sm font-medium text-ink-900">
+                <Link to={`/app/${workspaceId}/sites/${site.id}/analytics`} className="text-sm font-medium text-ink-900">
                   {site.name}
                 </Link>
                 <span className="text-sm tabular-nums text-ink-600">
