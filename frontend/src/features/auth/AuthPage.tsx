@@ -35,8 +35,10 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
         : await signIn.email({ email, password });
 
     if (result.error) {
-      // Provider messages are developer-facing; the user reads localised copy.
-      setStatus({ kind: "error", message: t("auth:failed") });
+      // Provider messages are developer-facing; the user reads localised copy. Which copy matters:
+      // telling someone creating an account that their credentials did not match one sends them to
+      // fix a password that was never the problem.
+      setStatus({ kind: "error", message: t(`auth:${failureKey(mode, result.error)}` as "auth:failed") });
       return;
     }
     setStatus({ kind: "idle" });
@@ -129,4 +131,32 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
       </div>
     </div>
   );
+}
+
+/**
+ * Which failure a visitor is actually looking at.
+ *
+ * Three of these are worth telling apart. A rejected sign-in is a credentials problem. A rejected
+ * sign-up is usually an address already registered. And a request that never reached the server is
+ * neither — it is the one case where nothing the person types will help, so saying "check your
+ * password" wastes their time on the wrong thing entirely.
+ */
+function failureKey(mode: "login" | "signup", error: { status?: number; message?: string }): string {
+  // Positive evidence only. An absent status is not proof the request never landed — the provider
+  // omits it on some rejections too — and calling a mistyped password a server outage is the worse
+  // of the two mistakes: it tells someone nothing they do will help, when retyping would have.
+  const unreachable =
+    error.status === 0 ||
+    (error.status !== undefined && error.status >= 500) ||
+    /failed to fetch|network|econnrefused|load failed/i.test(error.message ?? "");
+
+  if (unreachable) return "unreachable";
+
+  if (mode === "signup") {
+    return error.status === 422 || /exist|taken|already/i.test(error.message ?? "")
+      ? "emailTaken"
+      : "signupFailed";
+  }
+
+  return "failed";
 }
