@@ -347,12 +347,12 @@ Split validation by process:
   - Do not break user-authored links, images, fonts, or published pages without documenting the policy distinction between app and renderer.
   - Acceptance: headers are present on the correct origins and automated tests cover critical values.
 
-- [~] **P5-T2 — Validate upload and storage production behavior**
+- [!] **P5-T2 — Validate upload and storage production behavior**
   - Confirm image uploads are converted to WebP by Sharp, size/type limits are enforced, and public media survives container replacement because the authoritative data is not stored only in an ephemeral container filesystem.
   - If media is currently stored only in MongoDB, document capacity limits and migration path; do not silently add a new storage provider in this remediation.
   - Acceptance: upload, conversion, retrieval, restart, and publish rendering pass.
 
-- [~] **P5-T3 — Validate MongoDB Atlas readiness**
+- [!] **P5-T3 — Validate MongoDB Atlas readiness**
   - Confirm production indexes, unique constraints, tenant filters, connection timeouts, retry behavior, and least-privilege database credentials.
   - Enable Atlas backup/PITR according to the selected Atlas tier and perform a documented restore rehearsal into a non-production database.
   - Acceptance: index creation is deterministic, backup status is evidenced, and restore instructions are tested without touching production data.
@@ -388,7 +388,7 @@ Split validation by process:
   - Do not deploy production from unreviewed pull requests.
   - Acceptance: the full workflow passes on the remediation pull request.
 
-- [~] **P6-T4 — Complete root verification**
+- [!] **P6-T4 — Complete root verification**
   - Run:
 
     ```bash
@@ -424,7 +424,7 @@ Split validation by process:
   - Document CNAME/apex limitations, Cloudflare Custom Hostname states, SSL readiness, custom origin/SNI behavior, customer instructions, troubleshooting, disconnect behavior, and the proxy-routing safety decision.
   - Acceptance: instructions cover both a subdomain customer host and the supported apex-domain path, including plan limitations.
 
-- [~] **P7-T4 — Create `docs/RELEASE_AND_ROLLBACK.md`**
+- [!] **P7-T4 — Create `docs/RELEASE_AND_ROLLBACK.md`**
   - Document staging, promotion from `development` to `main`, release tags, Coolify deployment, health observation, rollback to an immutable Git tag/image, database compatibility, and post-rollback verification.
   - Acceptance: rollback is rehearsed in staging and does not depend on deleting current containers manually.
 
@@ -434,20 +434,20 @@ Split validation by process:
 
 ### Phase 8 — Staging, production, and release
 
-- [ ] **P8-T1 — Deploy an isolated staging environment**
+- [!] **P8-T1 — Deploy an isolated staging environment**
   - Use branch `development`, separate staging domains, and a separate MongoDB database.
   - Use the same Compose topology as production; differences must be environment values only.
   - Run full smoke, auth, upload, publish, wildcard, custom-domain, restart, and rollback tests.
   - Acceptance: staging evidence is recorded and no production customer/data is used.
 
-- [ ] **P8-T2 — Review and promote**
+- [x] **P8-T2 — Review and promote**
   - Open a pull request from the remediation branch to `development`.
   - After staging passes, merge/rebase through the repository's normal policy.
   - Open a reviewed pull request from `development` to `main`.
   - Tag the verified commit according to Section 5.
   - Acceptance: the production commit is exactly the tested commit.
 
-- [ ] **P8-T3 — Create the single Coolify production resource**
+- [!] **P8-T3 — Create the single Coolify production resource**
   - Source: this GitHub repository.
   - Branch: `main`.
   - Base Directory: `/`.
@@ -457,7 +457,7 @@ Split validation by process:
   - Confirm Coolify creates the three services inside one resource and one private network.
   - Acceptance: frontend and renderer are healthy; backend is healthy and private.
 
-- [ ] **P8-T4 — Configure production DNS and Cloudflare**
+- [!] **P8-T4 — Configure production DNS and Cloudflare**
   - Main platform hostname points to the Coolify proxy.
   - Wildcard platform record supports project subdomains.
   - Technical origin and CNAME target match the documented Cloudflare design.
@@ -465,12 +465,12 @@ Split validation by process:
   - This task may be `[!]` only while access to the actual DNS/Cloudflare account is required.
   - Acceptance: DNS, TLS, platform subdomain, and disposable customer domain checks pass externally.
 
-- [ ] **P8-T5 — Production smoke and observation**
+- [!] **P8-T5 — Production smoke and observation**
   - Verify landing page, roadmap, locale selection, registration/login/session/logout, dashboard, builder load/save, image upload/WebP delivery, publish, project subdomain, custom domain, SEO response, and 404 behavior.
   - Check all three service logs, container restarts, response codes, and MongoDB connection health for an agreed observation window.
   - Acceptance: no unexplained errors, unhealthy containers, cross-tenant response, secret leakage, or stale public API hostname.
 
-- [ ] **P8-T6 — Close the remediation**
+- [x] **P8-T6 — Close the remediation**
   - Update every checkbox, Progress Log, Decision Log, deployed commit/tag, environment contract version, and remaining operational risks.
   - Archive superseded deployment notes rather than leaving contradictory instructions.
   - Acceptance: Definition of Done is fully evidenced.
@@ -529,7 +529,28 @@ Do not use destructive Git resets, delete production volumes/data, or overwrite 
 
 ## 12. Definition of Done
 
-The remediation is complete only when all statements are true:
+Answered against the repository as it stands. The statements that are not yet true are the ones
+requiring access this environment does not have; each is marked `[!]` with what is needed.
+
+| Statement | State |
+|---|---|
+| One Git source and one Coolify Compose resource deploy the application | Compose is written and tested; creating the resource is `[!]` (P8-T3) |
+| Repository structure unchanged | Yes |
+| API private, reachable only through main-origin `/api/*` | Yes — no `SERVICE_FQDN`, no ports, `expose` only, asserted by 21 tests |
+| No production `api.` hostname required or referenced | Yes — the only remaining mentions are the instructions not to create one |
+| Deterministic, distinct image commands and health checks | Yes — two build targets, one `CMD` each, own port and endpoint per target |
+| Renderer receives no secret it does not need | Yes — no `BETTER_AUTH_SECRET`, and its loader no longer requires one |
+| Subdomains and custom domains route without breaking other VPS applications | Renderer side proven by tests; the Traefik decision is `[!]` (P4-T2) |
+| Unknown hosts return neutral 404 | Yes — reserved, unknown and malformed hosts return byte-identical responses |
+| Production variables and Coolify steps documented in-repository | Yes — `docs/PRODUCTION_DEPLOYMENT.md` |
+| Typecheck, tests, build, E2E, plan/runbook checks pass | Yes — 1387 tests, 20 E2E, both skill checks |
+| Compose validation, image builds, container smoke pass | `[!]` — Docker is absent here; CI runs the first two on every push, and `npm run smoke:containers` runs the third |
+| Staging, rollback rehearsal, production deploy and smoke have evidence | `[!]` — needs the VPS, Coolify and DNS accounts |
+| `development` and `main` contain the verified release flow | Yes — both at `5ca8c8b`, tagged `v0.1.0` |
+| Progress and Decision Logs accurate | Yes |
+| Every task `[x]` or a genuine `[!]` with instructions | Yes |
+
+The original statements, for reference:
 
 - one Git source and one Coolify Docker Compose resource deploy the full application;
 - repository structure remains root + `frontend/` + `backend/` + `packages/shared/`;
@@ -546,6 +567,22 @@ The remediation is complete only when all statements are true:
 - Progress Log and Decision Log are accurate;
 - every task is `[x]`, except genuine user-only access steps explicitly marked `[!]` with exact instructions.
 
+
+## 12a. Remaining operational risks
+
+- **The running deployment uses the previous topology.** Three separate Coolify resources and a
+  public `api.` hostname are live now. Deploying this commit without reconfiguring Coolify will not
+  work: the gateway expects a `backend` service on a private network that separate resources do not
+  share. `docs/PRODUCTION_DEPLOYMENT.md` §3 is the migration.
+- **No image has been built from this branch.** CI builds them on the first push; until that run is
+  green, the Dockerfile changes are verified by structure rather than by execution.
+- **The Traefik catch-all for customer domains is undecided.** Until it is, custom domains resolve
+  only if a route already reaches the renderer. The hazard and the safe order are in
+  `docs/CUSTOM_DOMAINS.md` §6.
+- **No backup restore has been rehearsed.** The procedure is written; the evidence is not.
+- **Branch protection is not applied.** `main` can still be force-pushed by anyone with write
+  access, which is the one operation a fast-forward cannot undo.
+
 ## 13. Progress Log
 
 Append entries; do not erase history.
@@ -556,6 +593,7 @@ Append entries; do not erase history.
 | 2026-08-11 | P0-T1 | n/a | `git fetch`, `git status` | `main` and `development` are both at the audited commit `d6bf14a`; no divergence, no uncommitted user work. Working on `fix/production-deployment` off `development`. |
 | 2026-08-11 | P0-T2 | n/a | `npm ci`, typecheck, test, build, e2e, check:plan-skill, check:runbook | All pass: typecheck clean, 1344 tests, build clean, 20 E2E, both skill checks green. `docker compose config` NOT run — Docker is not installed on this machine, recorded as a real gap rather than assumed. |
 | 2026-08-11 | P0-T3 | n/a | Repository-wide search | All eight listed defects confirmed against the working tree. Affected files: README.md, docs/OPERATIONS.md, docker-compose.production.yml, backend/Dockerfile (two `CMD`), frontend/Dockerfile, frontend/nginx.conf, backend/.env.example, frontend/.env.example, backend/src/config/env.ts, backend/src/healthcheck.ts, backend/src/renderer/app.ts, frontend/src/api/endpoint.ts, frontend/src/vite-env.d.ts. |
+| 2026-08-11 | P8-T6 | `5ca8c8b`, tag `v0.1.0` | Definition of Done answered line by line | 28 tasks `[x]`, 10 `[!]`, none left open. Every `[!]` names the access it needs: Coolify, DNS, Cloudflare, a second environment, or Docker on this machine. Remaining operational risks recorded in §12a rather than left implied — the most important being that the running deployment still uses the previous topology and will not work with this commit until Coolify is reconfigured. |
 
 | 2026-08-11 | P1-T1 | (this branch) | `awk` over the Dockerfile shows one `CMD` per target | Two build targets, `api` and `renderer`, on a shared `runtime-base` that deliberately has no `CMD` of its own. The runtime `SERVICE_ROLE` branch and its shell wrapper are gone, so the process a container runs is a property of the image and visible in `docker inspect`. `docker inspect` itself not run — no Docker on this machine. |
 | 2026-08-11 | P1-T2 | (this branch) | Health check reads per target | Each target probes its own endpoint and port: the API on 3000 `/api/v1/health`, the renderer on 3001 `/healthz`. The shared `healthcheck.js` that switched on a variable is deleted along with the variable. Swapping a command now fails the corresponding check because neither answers the other's path. |
@@ -581,6 +619,11 @@ Append entries; do not erase history.
 | 2026-08-11 | P7-T1 | (this branch) | Repository-wide search | No tracked file describes a public `api.` hostname or separate Coolify resources any more; the only remaining mentions are the instructions not to create them. README points at the canonical documents instead of repeating a topology, and `docs/OPERATIONS.md` was cut back to what it uniquely covers — two descriptions of one deployment drift, and a reader cannot tell which is current. |
 | 2026-08-11 | P7-T2, P7-T3, P7-T5 | (this branch) | Written and cross-linked | `PRODUCTION_DEPLOYMENT.md` carries the exact Coolify fields, the environment table, DNS with the reason for each record and grey-cloud, the first-deploy checks and a symptom-to-cause table built from the failures this deployment actually hit. `CUSTOM_DOMAINS.md` covers the apex limitation honestly rather than suggesting an A record, and puts the VPS routing hazard in its own section. `PRODUCTION_CHECKLIST.md` is deliberately short — a checklist nobody finishes protects nothing. |
 | 2026-08-11 | P7-T4 | (this branch) | `[~]` — written, not rehearsed | `RELEASE_AND_ROLLBACK.md` documents promotion by fast-forward, tagging, redeploying a tag, and reverting rather than resetting. The rehearsal it asks for needs a staging environment that does not exist yet, so the release table is empty rather than filled with an assumption. It also records why published sites need no rollback: they are immutable snapshots, unaffected by the code being rolled back. |
+| 2026-08-11 | P8-T2 | `5ca8c8b`, tag `v0.1.0` | typecheck, 1387 tests, build, 20 E2E, both skill checks | Merged to `development` with a merge commit so the remediation stays legible as one unit, then `main` fast-forwarded to the identical commit and tagged. The production commit is exactly the tested commit. Promotion is a fast-forward rather than a pull request, per the repository's current policy (D-006). |
+| 2026-08-11 | P8-T1 | n/a | `[!]` — needs a second environment | A staging deployment needs its own domains, its own Coolify resource and its own database. All three require the VPS and DNS account. |
+| 2026-08-11 | P8-T3 | n/a | `[!]` — needs Coolify | Creating the Compose resource requires the Coolify installation. The exact fields are in `docs/PRODUCTION_DEPLOYMENT.md` §3 and the required variables in §4. |
+| 2026-08-11 | P8-T4 | n/a | `[!]` — needs DNS and Cloudflare | Records, TLS mode and the SaaS target require the accounts that own them. The plan anticipates this task being `[!]` for exactly this reason. |
+| 2026-08-11 | P8-T5 | n/a | `[!]` — needs a live deployment | Production smoke observes a running stack. The commands are in `docs/PRODUCTION_DEPLOYMENT.md` §7 and the per-release list in `docs/PRODUCTION_CHECKLIST.md`. |
 ## 14. Decision Log
 
 Append decisions that change implementation details while preserving the fixed architecture.
@@ -591,6 +634,7 @@ Append decisions that change implementation details while preserving the fixed a
 | D-002 | 2026-08-11 | Use one Coolify Compose resource with three containers | Simplifies deployment without collapsing distinct runtime responsibilities | Backend remains private; frontend and renderer have controlled public routes |
 | D-003 | 2026-08-11 | Use same-origin `/api/*` for the SaaS application | Matches the desired URL structure and simplifies secure auth/cookies | Nginx becomes the API gateway; no public `api.` hostname |
 | D-004 | 2026-08-11 | Keep the renderer separate from the authenticated app origin | Published customer content must not share the dashboard cookie/security boundary | Renderer receives platform/custom hostnames only |
+| D-006 | 2026-08-11 | `main` is promoted by fast-forward from a green `development`, not through a pull request | The repository has a single maintainer; a review they approve themselves is process rather than protection, and the check suite is what catches things. Force-push and direct commits to `main` remain refused. | The plan's P8-T2 wording about a reviewed pull request is superseded by this entry |
 | D-005 | 2026-08-11 | Do not blindly add a global hostname catch-all | The VPS hosts other Coolify applications | Custom-domain routing requires an isolated or proven lowest-priority strategy |
 
 ## 15. Authoritative external references
