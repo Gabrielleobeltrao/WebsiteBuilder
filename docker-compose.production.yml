@@ -37,12 +37,12 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    command: ["node", "backend/dist/server.js"]
     restart: unless-stopped
     environment:
       # The API is publicly routable on its own hostname. It answers only the application origin
       # below, and only with credentials.
       SERVICE_FQDN_BACKEND: ${API_PUBLIC_ORIGIN}
+      SERVICE_ROLE: api
       NODE_ENV: production
       API_PORT: 3000
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -58,16 +58,6 @@ services:
       PLATFORM_RESERVED_SUBDOMAINS: ${PLATFORM_RESERVED_SUBDOMAINS:-www,app,api,admin,origin,customers,coolify,status,mail,cdn,assets,static,docs,support}
       JSON_BODY_LIMIT: ${JSON_BODY_LIMIT:-8mb}
       SHUTDOWN_TIMEOUT_MS: ${SHUTDOWN_TIMEOUT_MS:-30000}
-    healthcheck:
-      test:
-        - CMD
-        - node
-        - -e
-        - "fetch('http://127.0.0.1:3000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
     deploy:
       resources:
         limits:
@@ -77,12 +67,13 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    command: ["node", "backend/dist/renderer-server.js"]
     restart: unless-stopped
     environment:
       # Technical hostname plus the wildcard for project subdomains. Never advertised as a product
       # URL — customers reach their sites through their own hostname.
       SERVICE_FQDN_RENDERER: ${PUBLIC_RENDERER_ORIGIN}
+      # Which of the two servers in this image runs, and which health endpoint is probed.
+      SERVICE_ROLE: renderer
       NODE_ENV: production
       PUBLIC_RENDERER_PORT: 3001
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -95,16 +86,6 @@ services:
       PUBLIC_SITE_CACHE_TTL_SECONDS: ${PUBLIC_SITE_CACHE_TTL_SECONDS:-60}
       # Must match the real Coolify/Traefik proxy range before any forwarded header is trusted.
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
-    healthcheck:
-      test:
-        - CMD
-        - node
-        - -e
-        - "fetch('http://127.0.0.1:3001/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
     deploy:
       resources:
         limits:

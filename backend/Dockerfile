@@ -47,12 +47,22 @@ COPY --from=build /app/backend/dist ./backend/dist
 # Never run as root. A process that only needs to read its own bundle has no reason to.
 USER node
 
-# Both processes live in this image; Coolify runs one container per command.
-# API:      node backend/dist/server.js
-# Renderer: node backend/dist/renderer-server.js
+# Both processes live in this image, and which one a container runs is a variable rather than an
+# override of the command. A platform that builds from a Dockerfile takes the image's CMD as given
+# and often exposes no way to change it, so the choice belongs somewhere it can always be set.
+#
+#   SERVICE_ROLE=api        the application API   (default)
+#   SERVICE_ROLE=renderer   the public renderer
+ENV SERVICE_ROLE=api
 EXPOSE 3000 3001
 
+# Health follows the role: asking the renderer for the API's health endpoint would report a working
+# process as unhealthy and restart it forever.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.API_PORT||3000)+'/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node backend/dist/healthcheck.js
+
+# `exec` so node replaces the shell and becomes PID 1. Without it the shell holds that slot, SIGTERM
+# never reaches node, and graceful shutdown is skipped on every deploy.
+CMD ["sh", "-c", "exec node backend/dist/$([ \"$SERVICE_ROLE\" = renderer ] && echo renderer-server || echo server).js"]
 
 CMD ["node", "backend/dist/server.js"]

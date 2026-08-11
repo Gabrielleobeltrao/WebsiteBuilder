@@ -68,8 +68,15 @@ Without this, every `/api/*` request returns 502.
 | Build pack | Dockerfile | Dockerfile | Dockerfile |
 | Base directory | `/` | `/` | `/` |
 | Dockerfile | `/frontend/Dockerfile` | `/backend/Dockerfile` | `/backend/Dockerfile` |
-| Start command | *(image default)* | `node backend/dist/server.js` | `node backend/dist/renderer-server.js` |
+| Start command | *(image default)* | *(image default)* | *(image default)* |
+| `SERVICE_ROLE` | — | `api` | `renderer` |
 | Port | 8080 | 3000 | 3001 |
+
+The API and the renderer are the same image. Which server a container runs comes from
+`SERVICE_ROLE`, not from a start command: a platform building from a Dockerfile takes the image's
+`CMD` as given and often offers no field to override it, while environment is always available. The
+health probe reads the same variable, because asking the renderer for the API's health endpoint
+would report a working process as unhealthy and restart it forever.
 | Domain | `${PLATFORM_ROOT_DOMAIN}` | **none** | `origin.${PLATFORM_ROOT_DOMAIN}` and `*.${PLATFORM_ROOT_DOMAIN}` |
 
 ---
