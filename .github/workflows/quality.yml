@@ -1,0 +1,74 @@
+# The checks branch protection requires before `development` may merge into `main`.
+#
+# Every one of these is the same command a developer runs locally, so a green pull request means
+# what it appears to mean. Nothing here reaches a real database, DNS, Cloudflare or Coolify: the
+# backend suite starts its own in-memory MongoDB per file and the E2E suite starts one for itself.
+
+name: Quality
+
+on:
+  pull_request:
+    branches: [main, development]
+  push:
+    branches: [development]
+
+# A superseded run has nothing to say about the commit that replaced it.
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # `ci` rather than `install`: it installs exactly the lockfile and fails if the manifests and
+      # the lockfile disagree, which is the difference between reproducing a build and approximating
+      # one.
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      # After the build, so the bundle scan and the JavaScript budget have an artefact to read.
+      - name: Install browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end
+        run: npm run test:e2e
+
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # Advisories only at high and above. A build that fails on every low-severity transitive
+      # advisory gets ignored, and an ignored gate protects nothing.
+      - name: Dependency audit
+        run: npm audit --audit-level=high

@@ -214,7 +214,67 @@ sites until their TTL expires, then answers 404. Restore from §6.
 
 ---
 
-## 10. Rehearsal record
+## 10. Branch and deployment protection
+
+> **Not applied automatically.** These rules need an authenticated session with admin rights on the
+> repository, which this environment does not have. The exact configuration is below; until it is
+> applied, the residual risk is stated with it.
+
+### What to configure
+
+GitHub → Settings → Branches → Add branch ruleset.
+
+**Ruleset `main`** — target branch `main`:
+
+| Setting | Value |
+|---|---|
+| Restrict deletions | on |
+| Block force pushes | on |
+| Require a pull request before merging | on, 1 approval |
+| Require status checks to pass | on — `verify` and `audit` |
+| Require branches to be up to date before merging | on |
+| Allow bypass | nobody, including administrators |
+
+**Ruleset `development`** — target branch `development`:
+
+| Setting | Value |
+|---|---|
+| Restrict deletions | on |
+| Block force pushes | on |
+| Require status checks to pass | on — `verify` |
+| Require a pull request | **off** |
+
+Pull requests are deliberately not required on `development`. Task branches merge back into it
+constantly, and a review gate there would either be rubber-stamped or worked around — neither of
+which is a control. The gate that matters is the one on `main`.
+
+Also set the default branch to `development` (Settings → General → Default branch), so a clone and
+a new pull request start where work belongs.
+
+### Deployment sources
+
+| Environment | Branch | Where |
+|---|---|---|
+| Production | `main` | Coolify → each resource → Configuration → Branch |
+| Staging (optional) | `development` | A separate set of resources with their own database and secrets |
+
+A task branch cannot deploy production because no resource watches it. Confirm this by looking at
+the branch field on all three production resources; it is one screen and worth checking after any
+Coolify upgrade.
+
+### Residual risk until the rules are applied
+
+- `main` can be force-pushed or deleted by anyone with write access.
+- `development` can be merged into `main` without the checks having passed.
+- The checks in `.github/workflows/quality.yml` still run on every pull request and their failure is
+  visible; nothing prevents merging past a red one.
+
+The local gates are unchanged and unweakened: `npm run typecheck && npm run test && npm run build &&
+npm run test:e2e` is the same command the workflow runs.
+
+---
+
+## 11. Rehearsal record
 
 | Date | Action | Result |
 |---|---|---|

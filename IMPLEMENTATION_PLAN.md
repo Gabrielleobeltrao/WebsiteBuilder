@@ -2218,7 +2218,7 @@ Checkbox meanings: `[ ]` pending, `[~]` in progress, `[x]` verified, `[!]` block
   - Acceptance: a new developer can run the project using only the documentation.
   - Verify: follow README from a clean install state where practical.
 
-- [ ] **P19-T4 — Enforce GitHub promotion and deployment policy**
+- [!] **P19-T4 — Enforce GitHub promotion and deployment policy**
   - Confirm `development` is the default collaboration branch and repository rules prevent force-push/deletion of `main`. Require pull requests and the available typecheck/test/build/security checks before `development` can merge into `main`; configure equivalent protection for `development` where it will not block the planned task-branch flow.
   - Configure/document Coolify production deployment from `main` only and optional isolated staging from `development`. Verify a task branch cannot deploy production and a failed required check cannot promote `development` to `main`.
   - If GitHub plan/permissions prevent an automated rule, document the exact manual configuration and residual risk; do not weaken local/CI quality gates silently.
@@ -2668,4 +2668,5 @@ Append one concise line after each completed task.
 | 2026-08-10 | P19-T1 | Coverage completed across schemas, resolvers, repositories, renderers, i18n parity and hardcoded-copy detection | 1307 tests, every one of them deterministic: the backend suite runs its own in-memory database per file and no test reads a developer's data |
 | 2026-08-10 | P19-T2 | Playwright MVP journey against the production build and a throwaway in-memory database, plus the public shell in both locales | 20 tests. It found three shipped defects on its first run: `/app` had no route, signing up raced the session and bounced to login, and the sites list had no way to open a site |
 | 2026-08-10 | P19-T3 | README, operations guide and per-service `.env.example` files completed | States plainly what has not been rehearsed rather than implying otherwise |
+| 2026-08-10 | P19-T4 | `[!]` Branch protection needs an authenticated GitHub session with admin rights, which this environment does not have | The checks the rules would require now exist in `.github/workflows/quality.yml`, and the exact ruleset configuration and the residual risk until it is applied are documented in docs/OPERATIONS.md |
 | YYYY-MM-DD | Example | Workspace created | `npm run typecheck && npm run build` |
