@@ -34,7 +34,8 @@ const baseSchema = z.object({
   CLOUDFLARE_API_TOKEN: z.string().min(1).optional(),
   /** The CNAME target customers point their hostname at. */
   CLOUDFLARE_SAAS_CNAME_TARGET: z.string().min(3).default("customers.localhost"),
-  PUBLIC_RENDERER_ORIGIN: z.string().min(3).default("origin.localhost"),
+  /** Hostname, not an origin: it is used as a DNS name in routing rules and as a CNAME target. */
+  PUBLIC_RENDERER_HOST: z.string().min(3).default("origin.localhost"),
   /** Versions kept per project. The active one is never pruned regardless of this number. */
   PUBLISHED_VERSION_RETENTION_COUNT: z.coerce.number().int().min(1).max(500).default(20),
   PUBLISH_MAX_DOCUMENT_BYTES: z.coerce.number().int().positive().default(4_000_000),
@@ -99,6 +100,7 @@ export const KNOWN_VARIABLES = [
   "FRONTEND_ORIGIN",
   "PLATFORM_ROOT_DOMAIN",
   "PLATFORM_PUBLIC_ORIGIN",
+  "PUBLIC_RENDERER_HOST",
   "CLOUDFLARE_ZONE_ID",
   "CLOUDFLARE_API_TOKEN",
 ] as const;

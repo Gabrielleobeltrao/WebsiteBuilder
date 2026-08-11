@@ -86,6 +86,11 @@ domain back.
 Cloudflare for SaaS forwards the customer's **original** `Host` header. The VPS must route on that
 header to the renderer, without claiming traffic belonging to anything else Coolify hosts.
 
+The platform's own routers are already in place and deliberately narrow: an exact host for the
+technical origin and a single-label pattern for project subdomains, both defined as labels on the
+renderer service. Neither matches an arbitrary customer hostname, which is why connecting one needs
+a decision on the VPS rather than a change in this repository.
+
 Before adding any rule:
 
 1. Inspect every existing Traefik router on the VPS and record its rule and priority.

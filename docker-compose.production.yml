@@ -8,6 +8,20 @@
 # sharing an origin with the authenticated dashboard would put a published customer page and the
 # admin session cookie on one host.
 #
+# ROUTING
+#
+# Exactly one domain is configured by hand, in Coolify, on this resource:
+#
+#     https://websitebuilder.oneplataforma.com:8080
+#
+# The `:8080` is Coolify's way of naming the container port behind that hostname; it is not part of
+# the public URL. Coolify generates the Traefik router for it.
+#
+# Every other public hostname — the technical renderer origin, project subdomains and verified
+# customer domains — is routed by the labels on the `renderer` service below. They are not separate
+# Coolify applications: a resource per customer site would mean a build, a container and a
+# certificate for each, which is the thing this architecture exists to avoid.
+#
 # Required variables have no default on purpose: `${VAR:?message}` stops the deployment rather than
 # starting a service configured with an empty string.
 
@@ -17,9 +31,10 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
     restart: unless-stopped
-    environment:
-      # Coolify reads this to route the domain to this service.
-      SERVICE_FQDN_FRONTEND: ${PLATFORM_PUBLIC_ORIGIN:?set the public application origin}
+    # No routing labels and no SERVICE_FQDN: the application's domain is the one field configured by
+    # hand in Coolify, and Coolify generates its router. Declaring it twice would produce two routers
+    # for one hostname and leave which one wins to rule-length arithmetic.
+    #
     # Health-gated so the gateway is not published while its upstream is still starting. The
     # gateway's own health does not depend on the API, so a later backend restart does not take the
     # frontend down with it.
@@ -61,7 +76,7 @@ services:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?set a session signing secret of at least 32 characters}
       # The application origin: the API answers under it at /api/auth, so the cookie is issued for
       # the host the browser is already on.
-      BETTER_AUTH_URL: ${PLATFORM_PUBLIC_ORIGIN}
+      BETTER_AUTH_URL: ${PLATFORM_PUBLIC_ORIGIN:?set the public application origin}
       BETTER_AUTH_BASE_PATH: /api/auth
       FRONTEND_ORIGIN: ${PLATFORM_PUBLIC_ORIGIN}
       PLATFORM_ROOT_DOMAIN: ${PLATFORM_ROOT_DOMAIN:?set the platform root domain}
@@ -90,10 +105,37 @@ services:
       dockerfile: backend/Dockerfile
       target: renderer
     restart: unless-stopped
+    # Routed by label rather than by a Coolify domain field, because these hostnames are open-ended:
+    # every project gets one and every customer may bring their own. Priorities are explicit and
+    # deliberately low — Traefik defaults to rule length, under which a long regexp outranks a short
+    # exact host, and the application's own domain would lose to the project wildcard.
+    #
+    # Verify the generated routers after the first deploy rather than trusting this comment:
+    #   docker inspect <renderer container> --format '{{json .Config.Labels}}' | jq
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${COOLIFY_PROXY_NETWORK:-coolify}
+      - traefik.http.services.wb-renderer.loadbalancer.server.port=3001
+
+      # The technical origin: an exact host, and the Cloudflare fallback origin. Highest of the
+      # renderer's routers so it is never swallowed by the wildcard below.
+      - traefik.http.routers.wb-renderer-origin.rule=Host(`${PUBLIC_RENDERER_HOST:?set the technical renderer hostname, without a scheme}`)
+      - traefik.http.routers.wb-renderer-origin.entrypoints=https
+      - traefik.http.routers.wb-renderer-origin.tls=true
+      - traefik.http.routers.wb-renderer-origin.tls.certresolver=letsencrypt
+      - traefik.http.routers.wb-renderer-origin.service=wb-renderer
+      - traefik.http.routers.wb-renderer-origin.priority=100
+
+      # Project subdomains. The pattern requires a label before the root domain, so the application's
+      # own apex does not match it — that hostname belongs to the frontend and must never reach here.
+      - traefik.http.routers.wb-renderer-projects.rule=HostRegexp(`^[a-z0-9][a-z0-9-]*\.${PLATFORM_ROOT_DOMAIN_REGEX:?set the root domain with dots escaped, e.g. websitebuilder\.oneplataforma\.com}$$`)
+      - traefik.http.routers.wb-renderer-projects.entrypoints=https
+      - traefik.http.routers.wb-renderer-projects.tls=true
+      - traefik.http.routers.wb-renderer-projects.tls.certresolver=letsencrypt
+      - traefik.http.routers.wb-renderer-projects.service=wb-renderer
+      # Below any exact-host router, including every other application on this VPS.
+      - traefik.http.routers.wb-renderer-projects.priority=10
     environment:
-      # Technical hostname plus the wildcard for project subdomains. Never advertised as a product
-      # URL — customers reach their sites through their own hostname.
-      SERVICE_FQDN_RENDERER: ${PUBLIC_RENDERER_ORIGIN:?set the technical renderer origin}
       NODE_ENV: production
       PUBLIC_RENDERER_PORT: 3001
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -108,7 +150,10 @@ services:
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
     # No BETTER_AUTH_SECRET: the renderer has no sessions, and a signing secret handed to a process
     # that cannot use it only widens what a compromise reaches.
-    networks: [internal]
+    #
+    # On both networks: `internal` for nothing in particular today, and the proxy network because
+    # Traefik routes to it by label and cannot reach a container it does not share a network with.
+    networks: [internal, proxy]
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
@@ -120,3 +165,8 @@ services:
 networks:
   internal:
     driver: bridge
+  # Coolify's own proxy network, created outside this file. Declared external so Compose attaches to
+  # it rather than creating a second one that Traefik is not on.
+  proxy:
+    external: true
+    name: ${COOLIFY_PROXY_NETWORK:-coolify}

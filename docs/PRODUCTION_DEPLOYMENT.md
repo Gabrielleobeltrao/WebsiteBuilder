@@ -51,6 +51,16 @@ Create **one** resource. Not three.
 | Branch | `main` |
 | Base Directory | `/` |
 | Docker Compose Location | `/docker-compose.production.yml` |
+| Domains | `https://websitebuilder.oneplataforma.com:8080` |
+
+**One domain field, one value, and the `:8080` matters.** It is how Coolify names the container port
+behind that hostname — the frontend listens on 8080 inside its container. It never appears in the
+public URL; visitors reach `https://websitebuilder.oneplataforma.com`.
+
+Do not add the renderer's hostnames here. They are routed by labels in the Compose file, described
+in §6, because they are open-ended: every project gets a subdomain and every customer may bring
+their own hostname. A domain field cannot express that, and a Coolify application per customer site
+would mean a build, a container and a certificate for each.
 
 `Base Directory` is `/` and not `/backend`. It sets the Docker build context — what the build can
 see — and both images need the root lockfile and `packages/shared`, which live above those folders.
@@ -68,14 +78,29 @@ Set these on the resource. Compose passes each one only to the service that need
 
 ```
 PLATFORM_PUBLIC_ORIGIN=https://websitebuilder.oneplataforma.com
-PUBLIC_RENDERER_ORIGIN=https://origin.websitebuilder.oneplataforma.com
 PLATFORM_ROOT_DOMAIN=websitebuilder.oneplataforma.com
+PLATFORM_ROOT_DOMAIN_REGEX=websitebuilder\.oneplataforma\.com
+PUBLIC_RENDERER_HOST=origin.websitebuilder.oneplataforma.com
 
 MONGODB_URI=<Atlas connection string>
 MONGODB_DB_NAME=websitebuilder
 
 BETTER_AUTH_SECRET=<openssl rand -base64 48>
 ```
+
+Three of those need a word.
+
+`PLATFORM_ROOT_DOMAIN_REGEX` is the same domain with its dots escaped. It goes into a Traefik
+pattern, where an unescaped `.` matches any character — so `websitebuilderXoneplataforma.com` would
+match a rule written without the backslashes. Copy it exactly as shown.
+
+`PUBLIC_RENDERER_HOST` is a hostname, with no `https://`. It is used as a DNS name in a routing rule
+and as the Cloudflare fallback origin, and neither accepts a scheme.
+
+`COOLIFY_PROXY_NETWORK` defaults to `coolify`. Set it only if your installation named its proxy
+network something else — `docker network ls` shows it. The renderer must share that network with
+Traefik or its routes resolve to a container Traefik cannot reach, which presents as a 502 with no
+obvious cause.
 
 Optional, and only when onboarding a customer's own domain:
 
@@ -128,20 +153,41 @@ the cost of latency on that first hit.
 
 ## 6. Routing
 
-Coolify generates Traefik routes from the `SERVICE_FQDN_*` variables in the Compose file. Verify the
-generated labels rather than assuming:
+Two sources, and only two.
 
-- Exactly `websitebuilder.oneplataforma.com` → `frontend:8080`.
-- `origin.websitebuilder.oneplataforma.com` and `*.websitebuilder.oneplataforma.com` →
-  `renderer:3001`.
-- Nothing routes to `backend`.
+**The application's domain** comes from the single Coolify field in §3. Coolify generates its
+Traefik router.
 
-Exact hosts must take priority over the wildcard, so `origin.` and any future technical name reach
-the intended service. The renderer answers 404 for any hostname without an active record, including
-every reserved label, so a wildcard reaching it cannot expose a tenant.
+**Everything else** comes from labels on the `renderer` service in the Compose file:
 
-**Before adding any catch-all rule**, read [CUSTOM_DOMAINS.md](CUSTOM_DOMAINS.md#routing-safety).
-The VPS hosts other applications, and an untested high-priority rule takes their traffic.
+| Router | Rule | Priority | Goes to |
+|---|---|---|---|
+| `wb-renderer-origin` | exact `origin.websitebuilder.oneplataforma.com` | 100 | `renderer:3001` |
+| `wb-renderer-projects` | any single label under the root domain | 10 | `renderer:3001` |
+
+Nothing routes to `backend`. It is not even on the proxy network, so a stray label could not publish
+it by accident.
+
+**Why the priorities are written down.** Traefik ranks routers by rule length when priority is
+unset, and a long regexp outranks a short exact host. Left to the default, the project wildcard
+would outrank the application's own domain and the dashboard would be served by the renderer. The
+wildcard sits at 10 so every exact-host router on the machine — including other applications' —
+wins against it.
+
+The project pattern requires a label before the root domain, so the apex itself never matches. The
+renderer answers 404 for any hostname without an active record, including every reserved label, so
+even a rule that matched too much could not expose a tenant.
+
+**Verify rather than trust this table.** After the first deploy:
+
+```bash
+docker inspect <renderer container> --format '{{json .Config.Labels}}' | jq
+```
+
+**Customer hostnames are not covered by these two routers.** Adding a rule that matches arbitrary
+hostnames on a VPS that hosts other applications is the one routing decision that can break things
+unrelated to this platform. Read [CUSTOM_DOMAINS.md](CUSTOM_DOMAINS.md#6-routing-safety) before
+adding one.
 
 ---
 

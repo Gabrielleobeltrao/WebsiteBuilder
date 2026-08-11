@@ -95,6 +95,9 @@ Confirmed production defects:
 - Staging branch: `development`.
 - Do not create independent Coolify resources for frontend, backend, or renderer.
 - “One resource” does not mean “one container”: Compose intentionally creates three containers in one private network.
+- Exactly one application domain is configured by hand, on the resource: `https://websitebuilder.oneplataforma.com:8080`. The `:8080` names the frontend container's port and never appears in a public URL.
+- The technical renderer origin, project subdomains, and verified customer hostnames are routed by Docker Compose Traefik labels and DNS, never by additional Coolify applications. A resource per customer site would mean a build, a container, and a certificate for each — the outcome this architecture exists to avoid.
+- The backend stays private at `backend:3000`: no domain field, no published port, and not attached to the proxy network at all.
 
 ### 4.2 Public routes
 
@@ -294,9 +297,9 @@ Split validation by process:
   - Acceptance: API works through `/api/*`; direct public API access does not exist.
 
 - [x] **P3-T3 — Publish only frontend and renderer routes**
-  - Bind the main platform domain to frontend port 8080.
-  - Bind the technical origin and platform wildcard namespace to renderer port 3001.
-  - Use the exact `SERVICE_FQDN_*` syntax supported by the installed Coolify version; verify the generated Traefik labels instead of guessing.
+  - Bind the main platform domain to frontend port 8080 through the single manually configured Coolify domain, written `https://websitebuilder.oneplataforma.com:8080`.
+  - Bind the technical origin and the platform subdomain namespace to renderer port 3001 through Traefik labels in the Compose file, with explicit priorities. Do not add a second Coolify domain field for them.
+  - Verify the generated Traefik labels with `docker inspect` instead of guessing.
   - Do not use host `ports` unless a documented Coolify limitation requires it.
   - Acceptance: generated routes point to the correct container ports and do not expose secrets.
 
@@ -624,6 +627,8 @@ Append entries; do not erase history.
 | 2026-08-11 | P8-T3 | n/a | `[!]` — needs Coolify | Creating the Compose resource requires the Coolify installation. The exact fields are in `docs/PRODUCTION_DEPLOYMENT.md` §3 and the required variables in §4. |
 | 2026-08-11 | P8-T4 | n/a | `[!]` — needs DNS and Cloudflare | Records, TLS mode and the SaaS target require the accounts that own them. The plan anticipates this task being `[!]` for exactly this reason. |
 | 2026-08-11 | P8-T5 | n/a | `[!]` — needs a live deployment | Production smoke observes a running stack. The commands are in `docs/PRODUCTION_DEPLOYMENT.md` §7 and the per-release list in `docs/PRODUCTION_CHECKLIST.md`. |
+| 2026-08-11 | P3-T3 (revised) | (this branch) | 29 deployment-config tests | Routing split by kind rather than by service. The application's domain is the one field configured by hand in Coolify; the renderer's hostnames are Traefik labels in the Compose file, because they are open-ended and a domain field cannot express them. `SERVICE_FQDN_*` is gone from every service — declaring a hostname twice produces two routers for it and leaves which wins to rule-length arithmetic. Priorities are explicit and low, because Traefik's default ranks a long regexp above a short exact host, under which the project wildcard would outrank the dashboard's own domain. The backend is not on the proxy network at all, so no label could publish it by accident. |
+| 2026-08-11 | Config | (this branch) | Typecheck, 1425 tests | `PUBLIC_RENDERER_ORIGIN` became `PUBLIC_RENDERER_HOST`: it is used as a DNS name in a routing rule and as a CNAME target, and neither accepts a scheme. `PLATFORM_ROOT_DOMAIN_REGEX` was added for the subdomain pattern — an unescaped dot in a Traefik regexp matches any character, so the escaped form is required and documented literally rather than derived. |
 ## 14. Decision Log
 
 Append decisions that change implementation details while preserving the fixed architecture.
@@ -634,6 +639,7 @@ Append decisions that change implementation details while preserving the fixed a
 | D-002 | 2026-08-11 | Use one Coolify Compose resource with three containers | Simplifies deployment without collapsing distinct runtime responsibilities | Backend remains private; frontend and renderer have controlled public routes |
 | D-003 | 2026-08-11 | Use same-origin `/api/*` for the SaaS application | Matches the desired URL structure and simplifies secure auth/cookies | Nginx becomes the API gateway; no public `api.` hostname |
 | D-004 | 2026-08-11 | Keep the renderer separate from the authenticated app origin | Published customer content must not share the dashboard cookie/security boundary | Renderer receives platform/custom hostnames only |
+| D-007 | 2026-08-11 | One manually configured Coolify domain; every other hostname routed by Compose Traefik labels | Project subdomains and customer hostnames are open-ended, and a Coolify application per customer site would mean a build, a container and a certificate for each | The renderer joins Coolify's proxy network; router priorities are explicit so the wildcard never outranks an exact host |
 | D-006 | 2026-08-11 | `main` is promoted by fast-forward from a green `development`, not through a pull request | The repository has a single maintainer; a review they approve themselves is process rather than protection, and the check suite is what catches things. Force-push and direct commits to `main` remain refused. | The plan's P8-T2 wording about a reviewed pull request is superseded by this entry |
 | D-005 | 2026-08-11 | Do not blindly add a global hostname catch-all | The VPS hosts other Coolify applications | Custom-domain routing requires an isolated or proven lowest-priority strategy |
 

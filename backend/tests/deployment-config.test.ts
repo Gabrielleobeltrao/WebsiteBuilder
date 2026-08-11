@@ -63,16 +63,27 @@ describe("the API is private", () => {
     expect(compose.networks.internal).toBeDefined();
   });
 
-  it("publishes the frontend and the renderer, and only those", () => {
-    const routed = Object.entries(compose.services)
-      .filter(([, service]) =>
-        Object.keys((service.environment ?? {}) as Record<string, string>).some((key) =>
-          key.startsWith("SERVICE_FQDN"),
-        ),
-      )
-      .map(([name]) => name);
+  it("keeps the backend off the proxy network entirely", () => {
+    // Being on it is what would make a stray label or a future mistake publishable. It is not.
+    expect(compose.services.backend?.networks).not.toContain("proxy");
+    expect(compose.services.renderer?.networks).toContain("proxy");
+    expect((compose.networks.proxy as { external?: boolean }).external).toBe(true);
+  });
 
-    expect(routed.sort()).toEqual(["frontend", "renderer"]);
+  it("declares no Coolify domain field for any service", () => {
+    // Exactly one domain is configured by hand on the resource, and Coolify generates its router.
+    // A SERVICE_FQDN here would produce a second router for the same hostname and leave which one
+    // wins to rule-length arithmetic.
+    for (const service of Object.values(compose.services)) {
+      const environment = (service.environment ?? {}) as Record<string, string>;
+      expect(Object.keys(environment).some((key) => key.startsWith("SERVICE_FQDN"))).toBe(false);
+    }
+  });
+
+  it("routes only the renderer by label, and never the backend", () => {
+    expect(compose.services.frontend?.labels).toBeUndefined();
+    expect(compose.services.backend?.labels).toBeUndefined();
+    expect(Array.isArray(compose.services.renderer?.labels)).toBe(true);
   });
 });
 
@@ -114,7 +125,8 @@ describe("required configuration stops a deployment rather than defaulting", () 
       "MONGODB_DB_NAME",
       "BETTER_AUTH_SECRET",
       "PLATFORM_ROOT_DOMAIN",
-      "PUBLIC_RENDERER_ORIGIN",
+      "PUBLIC_RENDERER_HOST",
+      "PLATFORM_ROOT_DOMAIN_REGEX",
     ]) {
       expect(raw).toMatch(new RegExp(`\\$\\{${variable}:\\?`));
     }
@@ -196,5 +208,51 @@ describe("the gateway", () => {
   it("keeps its own health independent of the API", () => {
     const health = nginx.slice(nginx.indexOf("location = /healthz"));
     expect(health).not.toContain("proxy_pass");
+  });
+});
+
+describe("renderer routing", () => {
+  const labels = (compose.services.renderer?.labels ?? []) as string[];
+  const label = (key: string) => labels.find((entry) => entry.startsWith(`${key}=`))?.split("=").slice(1).join("=");
+
+  it("sends traffic to the renderer's own port", () => {
+    expect(label("traefik.http.services.wb-renderer.loadbalancer.server.port")).toBe("3001");
+  });
+
+  it("gives the technical origin an exact host rule", () => {
+    // Exact, and above the wildcard, so the Cloudflare fallback origin is never swallowed by it.
+    expect(label("traefik.http.routers.wb-renderer-origin.rule")).toContain("Host(`");
+    expect(label("traefik.http.routers.wb-renderer-origin.priority")).toBe("100");
+  });
+
+  it("matches project subdomains but never the application's own apex", () => {
+    const rule = label("traefik.http.routers.wb-renderer-projects.rule") ?? "";
+
+    // A label is required before the root domain. Without that, the pattern would match the apex
+    // and the dashboard would be served by the renderer.
+    expect(rule).toContain("^[a-z0-9][a-z0-9-]*\\.");
+    expect(rule).toContain("$$");
+  });
+
+  it("ranks the wildcard below every exact-host router on the machine", () => {
+    // Traefik defaults to rule length, under which a long regexp outranks a short exact host. That
+    // default is how a catch-all takes another application's traffic.
+    const priority = Number(label("traefik.http.routers.wb-renderer-projects.priority"));
+
+    expect(priority).toBeLessThan(Number(label("traefik.http.routers.wb-renderer-origin.priority")));
+    expect(priority).toBeLessThanOrEqual(10);
+  });
+
+  it("adds no catch-all that would claim hostnames this platform knows nothing about", () => {
+    // A rule matching everything belongs to a deliberate, documented decision on the VPS, not to a
+    // file that deploys to it.
+    for (const entry of labels) {
+      expect(entry).not.toMatch(/HostRegexp\(`\^?\.[*+]/);
+    }
+  });
+
+  it("attaches to the proxy network Traefik is on", () => {
+    // A router that points at a container it cannot reach produces a 502 with no obvious cause.
+    expect(label("traefik.docker.network")).toBeTruthy();
   });
 });

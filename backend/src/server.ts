@@ -52,7 +52,7 @@ function createHostnameProvider(env: Env, logger: ReturnType<typeof createLogger
     }
 
     logger.warn("Cloudflare is not configured; custom domains use the in-memory fake provider");
-    return new FakeHostnameProvider(env.PUBLIC_RENDERER_ORIGIN);
+    return new FakeHostnameProvider(env.PUBLIC_RENDERER_HOST);
   }
 
   return new CloudflareHostnameProvider({

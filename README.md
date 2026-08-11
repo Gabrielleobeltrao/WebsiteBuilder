@@ -165,7 +165,7 @@ fails if a backend variable name or a connection string appears in it.
 
 **Renderer**
 
-`PUBLIC_RENDERER_ORIGIN`, `PUBLIC_SITE_CACHE_TTL_SECONDS`, and `TRUSTED_PROXY_CIDRS`. Forwarded
+`PUBLIC_RENDERER_HOST`, `PUBLIC_SITE_CACHE_TTL_SECONDS`, and `TRUSTED_PROXY_CIDRS`. Forwarded
 headers are trusted from nothing until the last is set to the real proxy range.
 
 ---
@@ -277,9 +277,15 @@ E2E runs against the production build, so what is tested is what ships.
 
 ## Deployment
 
-One Coolify resource, three containers, one private network. The application serves the SPA and
-proxies `/api/*` to a backend that has no public route at all; the renderer has its own hostname
-because it serves customer content and must not share an origin with the authenticated dashboard.
+One Coolify resource, three containers, one private network — not one resource per service. The
+application serves the SPA and proxies `/api/*` to a backend with no public route at all; the
+renderer has its own hostnames because it serves customer content and must not share an origin with
+the authenticated dashboard.
+
+Exactly one domain is configured by hand, on the resource:
+`https://websitebuilder.oneplataforma.com:8080`. Project subdomains and the technical renderer
+origin are routed by Traefik labels in the Compose file, because they are open-ended — a Coolify
+application per customer site would mean a build, a container and a certificate for each.
 
 Everything an operator needs is in `docs/`:
 
