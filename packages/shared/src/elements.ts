@@ -11,12 +11,12 @@ import {
 
 import { safeLinkSchema, type SafeLink } from "./links";
 import {
-  geometrySchema,
-  responsiveElementLayoutSchema,
+  elementBaseShape,
   responsiveLengthSchema,
   type Geometry,
   type ResponsiveElementLayout,
   type ResponsiveLength,
+  type ResponsiveStyleOverride,
 } from "./responsive";
 
 export const ELEMENT_TYPES = ["text", "image", "button", "container"] as const;
@@ -34,33 +34,29 @@ const colorSchema = z
     message: "must be a hex or rgb/rgba colour",
   });
 
-const baseElementShape = {
-  id: z.string().min(1),
-  name: z.string().max(120),
-  geometry: geometrySchema,
-  responsiveLayout: responsiveElementLayoutSchema,
-  breakpointOverrides: z
-    .record(
-      z.string(),
-      z
-        .object({
-          layout: responsiveElementLayoutSchema.partial().optional(),
-          geometry: geometrySchema.partial().optional(),
-        })
-        .strict(),
-    )
-    .optional(),
-  zIndex: z.number().int(),
-  locked: z.boolean(),
-  hidden: z.boolean(),
-};
+/**
+ * The fields every element carries.
+ *
+ * Taken from the shared definition rather than restated. This file used to hold its own copy, so
+ * the core four elements and the visual ones validated breakpoint overrides against two schemas
+ * that only happened to agree — and a field added to one silently did not exist on the other.
+ */
+const baseElementShape = elementBaseShape;
 
 export type BaseElement = {
   id: string;
   name: string;
   geometry: Geometry;
   responsiveLayout: ResponsiveElementLayout;
-  breakpointOverrides?: Record<string, { layout?: Partial<ResponsiveElementLayout>; geometry?: Partial<Geometry> }>;
+  breakpointOverrides?: Record<
+    string,
+    {
+      layout?: Partial<ResponsiveElementLayout>;
+      geometry?: Partial<Geometry>;
+      style?: ResponsiveStyleOverride;
+      referenceWidth?: number;
+    }
+  >;
   zIndex: number;
   locked: boolean;
   hidden: boolean;

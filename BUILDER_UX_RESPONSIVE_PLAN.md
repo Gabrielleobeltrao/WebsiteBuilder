@@ -463,25 +463,43 @@ Opening a finding sets the current page, device, selection, and inspector contex
 
 ### Phase 1 — Responsive domain model and migration
 
-- [ ] **1.1 Centralize the three device modes.**
+- [x] **1.1 Centralize the three device modes.**
   - Acceptance: builder, preview, renderer, inspector, and tests import one shared device definition.
   - Verify: repository search finds no duplicate 1440/768/390 device configuration.
+  - `packages/shared/src/devices.ts` is the only place a device width exists. `DEFAULT_BREAKPOINTS`,
+    `DESIGN_WIDTH`, `MOBILE_PREVIEW_WIDTH`, the diagnostics presets and the editor's width presets
+    all derive from it. A repository search for a bare 1440/768/390 outside that file finds only
+    the diagnostics sweep's extra widths, which are intermediate probes rather than modes.
 
-- [ ] **1.2 Extend typed breakpoint overrides.**
+- [x] **1.2 Extend typed breakpoint overrides.**
   - Acceptance: geometry, layout, supported style, visibility, and reference-width metadata are type-safe and schema-validated.
   - Verify: valid/invalid schema tests for every element type.
+  - An override now carries geometry, layout, a per-type style subset and the canvas its geometry
+    was authored against. The style subset is a discriminated union, so a text override cannot be
+    written onto a button and no raw CSS string can reach a stylesheet. Found and removed a second
+    copy of the override schema in `elements.ts`: the core four elements and the visual ones were
+    validating against two schemas that only happened to agree.
 
-- [ ] **1.3 Implement pure responsive resolution.**
+- [x] **1.3 Implement pure responsive resolution.**
   - Acceptance: one resolver returns the effective section/element values and value origins for any width.
   - Verify: inheritance tests cover Desktop → Tablet → Mobile and reset behavior.
+  - `resolveElementForDevice` and `resolveSectionForDevice` return the effective values and the
+    device each one came from. Section layout merges rather than replaces, so a device that changes
+    only a gap keeps the columns it inherited.
 
-- [ ] **1.4 Implement schema migration for existing drafts.**
+- [x] **1.4 Implement schema migration for existing drafts.**
   - Acceptance: desktop is byte-equivalent in rendered geometry; unsafe narrow layouts receive deterministic overrides; migration is idempotent.
   - Verify: migration snapshots and repeated-migration test.
+  - `migrateDocumentResponsive` writes narrow overrides only for elements that actually escape,
+    never touches desktop, never replaces an override somebody already made, and returns the same
+    object when there was nothing to do. Applied when the builder opens a draft and again when
+    publishing compiles one, so a site published without ever being opened is still safe.
 
-- [ ] **1.5 Preserve immutable published versions.**
+- [x] **1.5 Preserve immutable published versions.**
   - Acceptance: draft migration cannot rewrite old published snapshots.
   - Verify: publishing repository test compares existing snapshot before/after draft migration.
+  - Migration runs on the draft on its way into a new version. A publishing test serialises an
+    existing snapshot before and after a later publish and compares.
 
 ### Phase 2 — Shared responsive compiler
 
@@ -727,6 +745,7 @@ Add entries in chronological order. Do not replace previous entries.
 | --- | --- | --- | --- | --- |
 | 2026-08-11 | 0.1 baseline | n/a | `git status --short` empty; `development`/`origin/development`/`origin/main` all at `4bb5148` | Audited baseline `2afd955` is an ancestor. Suite green at the starting commit: 1,609 unit, 47 E2E |
 | 2026-08-11 | 0.2 fixtures | n/a | `npm run typecheck` | Shared fixtures compile and are reachable from both workspaces through `@websitebuilder/shared/responsive-fixtures` |
+| 2026-08-11 | 1.1-1.5 responsive model | n/a | `npx vitest run packages/shared` and `backend/tests/publishing-service.test.ts` | 592 shared tests and 20 publishing tests green. Phase 0's 10 captures still fail, as intended |
 | 2026-08-11 | 0.3 failing capture | n/a | `npx vitest run src/components/renderer/responsive-parity.test.tsx src/features/editor/inspector/device-aware-editing.test.tsx` | 10 failures, all specific: 9 renderer/parity, 1 device-aware write. The unit suite is deliberately red until Phase 2 and Phase 3.4 |
 
 | Date/time | Task | Result | Verification | Commit |
@@ -746,4 +765,6 @@ Add material implementation decisions here before or while making them.
 | D-005 | Preserve Desktop and migrate only unsafe narrow states | Protect existing work | Narrow layouts may receive explicit deterministic overrides |
 | D-006 | Keep mobile preview-only | Editing space is insufficient on phones | Mobile route must never mount mutation paths |
 | D-007 | No new deployment resource | Existing frontend/backend/renderer topology is sufficient | Coolify domains and services remain unchanged |
+| D-008 | Migration runs on draft load and on publish compile, not as a stored schema bump | The override field already exists in the schema, so nothing needs versioning; running it in both places means a site published without ever being opened in the builder is still safe | The draft is rewritten only when the author next saves, and publishing never depends on that having happened |
+| D-009 | Migration moves only elements that actually escape | A migration that "improves" a layout nobody complained about changes someone's site without being asked | Elements that already fit keep exactly the geometry they had, at every device |
 

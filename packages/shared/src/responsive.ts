@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { DEVICE_MODES, DEVICE_ORDER } from "./devices";
+
 /**
  * Responsive values are structured data, never CSS strings. `serializeLength` is the only place a
  * length becomes CSS, and it can only emit a finite number joined to an allowlisted unit — so a
@@ -176,6 +178,69 @@ export const geometrySchema = z
 
 export type Geometry = z.infer<typeof geometrySchema>;
 
+/**
+ * The style properties a device may override, per element type.
+ *
+ * A discriminated union rather than an open bag: the type says which element it belongs to, and a
+ * text override cannot be written onto a button. That matters because these values reach a
+ * stylesheet — an untyped `Record<string, string>` here would be a hole through which a persisted
+ * document could put an arbitrary declaration into a published page, which is the one thing the
+ * responsive model exists to make impossible.
+ *
+ * The set is deliberately small. It is the properties whose right value genuinely differs between a
+ * phone and a desktop, not every property an element has.
+ */
+export const responsiveStyleOverrideSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("text"),
+      fontSize: responsiveLengthSchema.optional(),
+      lineHeight: z.number().positive().finite().max(10).optional(),
+      textAlign: z.enum(["left", "center", "right", "justify"]).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("button"),
+      fontSize: responsiveLengthSchema.optional(),
+      horizontalAlign: z.enum(["left", "center", "right"]).optional(),
+      /** `fill` lets a button take the width it is given, which is usually right on a phone. */
+      widthBehavior: z.enum(["auto", "fill"]).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("image"),
+      objectFit: z.enum(["cover", "contain", "fill", "none", "scale-down"]).optional(),
+      objectPosition: z.enum(["top", "center", "bottom", "left", "right"]).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("container"),
+      direction: z.enum(["row", "column", "row-reverse", "column-reverse"]).optional(),
+      wrap: z.enum(["nowrap", "wrap", "wrap-reverse"]).optional(),
+      gap: responsiveLengthSchema.optional(),
+      padding: responsiveLengthSchema.optional(),
+      align: z.enum(["start", "center", "end", "stretch", "baseline"]).optional(),
+      justify: z.enum(["start", "center", "end", "space-between", "space-around", "space-evenly"]).optional(),
+    })
+    .strict(),
+]);
+
+export type ResponsiveStyleOverride = z.infer<typeof responsiveStyleOverrideSchema>;
+
+/**
+ * True when a style override belongs to the element carrying it.
+ *
+ * The schema alone cannot check this: an element's overrides are validated by the shared base
+ * shape, which does not know the element's own type. This is the check that closes the gap, and the
+ * document validator runs it over every element.
+ */
+export function styleOverrideMatchesElement(elementType: string, override: ResponsiveStyleOverride): boolean {
+  return override.type === elementType;
+}
+
 export const BREAKPOINT_PRESETS = ["desktop", "tablet", "mobile"] as const;
 export type BreakpointPreset = (typeof BREAKPOINT_PRESETS)[number];
 
@@ -191,15 +256,24 @@ export const breakpointDefinitionSchema = z
 
 export type BreakpointDefinition = z.infer<typeof breakpointDefinitionSchema>;
 
-/** Desktop is the base rule; narrower breakpoints only store explicit overrides. */
-export const DEFAULT_BREAKPOINTS: BreakpointDefinition[] = [
-  { id: "desktop", name: "Desktop", maxWidth: 10_000, preset: "desktop", order: 0 },
-  { id: "tablet", name: "Tablet", maxWidth: 1024, preset: "tablet", order: 1 },
-  { id: "mobile", name: "Mobile", maxWidth: 640, preset: "mobile", order: 2 },
-];
+/**
+ * Desktop is the base rule; narrower breakpoints only store explicit overrides.
+ *
+ * Derived from `DEVICE_MODES` rather than restated, so a device ceiling cannot mean one thing to
+ * the breakpoint chain and another to the device switcher.
+ */
+export const DEFAULT_BREAKPOINTS: BreakpointDefinition[] = DEVICE_ORDER.map((device) => ({
+  id: device,
+  name: `${device[0]!.toUpperCase()}${device.slice(1)}`,
+  maxWidth: DEVICE_MODES[device].maxWidth,
+  preset: device,
+  order: DEVICE_MODES[device].order,
+}));
 
-export const DESIGN_WIDTH = 1440;
-export const MOBILE_PREVIEW_WIDTH = 390;
+/** The canvas a document's geometry is authored against. */
+export const DESIGN_WIDTH: number = DEVICE_MODES.desktop.referenceWidth;
+export const MOBILE_PREVIEW_WIDTH = DEVICE_MODES.mobile.referenceWidth;
+export const TABLET_PREVIEW_WIDTH = DEVICE_MODES.tablet.referenceWidth;
 
 /**
  * Resolves which breakpoint applies at a given viewport width: the narrowest definition whose
@@ -248,6 +322,16 @@ export const elementBaseShape = {
         .object({
           layout: responsiveElementLayoutSchema.partial().optional(),
           geometry: geometrySchema.partial().optional(),
+          style: responsiveStyleOverrideSchema.optional(),
+          /**
+           * The canvas width this device's geometry was authored against.
+           *
+           * Only meaningful where a person dragged an element while that device was selected: the
+           * numbers are pixels on *that* canvas, and interpreting them against the desktop design
+           * width would move the element. Absent means the desktop design width, which is what
+           * every document written before device-aware editing existed means.
+           */
+          referenceWidth: z.number().int().positive().max(10_000).optional(),
         })
         .strict(),
     )

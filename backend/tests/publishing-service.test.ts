@@ -1,4 +1,5 @@
 import { createProjectDocument, DEFAULT_BLOG_SETTINGS } from "@websitebuilder/shared";
+import { fixtureButton } from "@websitebuilder/shared/responsive-fixtures";
 import { ObjectId } from "mongodb";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -330,5 +331,69 @@ describe("what publishing gives a site", () => {
     }).publish(A, project.id);
 
     expect(await publishing.listDomains(A, project.id)).toEqual([]);
+  });
+});
+
+describe("responsive migration and immutability", () => {
+  /** A project whose free section holds an element far outside a phone. */
+  async function projectWithEscapingElement() {
+    const project = await newProject();
+    await edit(project.id, (document) => {
+      const page = document.pages[0]!;
+      page.sections[0] = {
+        ...page.sections[0]!,
+        layoutMode: "free",
+        elements: [
+          fixtureButton({ id: "far-right", x: 1100, y: 40, width: 280 }) as never,
+        ],
+      };
+    });
+    return project;
+  }
+
+  it("publishes a safe narrow layout even when the draft was never opened in the builder", async () => {
+    const project = await projectWithEscapingElement();
+
+    const result = await service.publish(A, project.id);
+    if (result.status !== "published") throw new Error(`publish returned ${result.status}`);
+
+    const document = result.version.document as { pages: Array<{ sections: Array<{ elements: unknown[] }> }> };
+    const element = document.pages[0]!.sections[0]!.elements[0] as {
+      geometry: { x: number };
+      breakpointOverrides?: Record<string, { geometry?: { x?: number } }>;
+    };
+
+    // Desktop is exactly what the author drew.
+    expect(element.geometry.x).toBe(1100);
+    // The phone gets an explicit layout instead of three screens of empty page.
+    expect(element.breakpointOverrides?.["mobile"]?.geometry?.x).toBeDefined();
+  });
+
+  it("cannot rewrite a snapshot that was already published", async () => {
+    // Migration runs against the draft on its way into a *new* version. An existing version is a
+    // record of what visitors were served, and nothing may edit it after the fact.
+    const project = await projectWithEscapingElement();
+    const first = await service.publish(A, project.id);
+    if (first.status !== "published") throw new Error("fixture did not publish");
+
+    const before = JSON.stringify(await publishing.findActive(project.id, first.version.id));
+
+    await edit(project.id, (document) => (document.pages[0]!.seo.title = "Changed"));
+    await service.publish(A, project.id);
+
+    const after = JSON.stringify(await publishing.findActive(project.id, first.version.id));
+    expect(after).toBe(before);
+  });
+
+  it("publishes the same document on a second identical publish", async () => {
+    // Migration is idempotent, so a republish of untouched content is still recognised as unchanged
+    // rather than producing a version that differs only by the migration running again.
+    const project = await projectWithEscapingElement();
+    await service.publish(A, project.id);
+
+    const again = await service.publish(A, project.id);
+
+    expect(again.status).toBe("published");
+    if (again.status === "published") expect(again.unchanged).toBe(true);
   });
 });

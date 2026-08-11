@@ -1,6 +1,7 @@
 import { MIN_TAP_TARGET, type Finding } from "./audit";
 import { walkElements, type BuilderElement } from "./elements";
 import { isReadableFontSize, type BreakpointDefinition } from "./responsive";
+import { DEVICE_MODES } from "./devices";
 import { resolveLayoutAt, SWEEP_WIDTHS } from "./resolve";
 import type { BuilderPage } from "./project";
 
@@ -31,12 +32,19 @@ export function clampPreviewWidth(width: number): number {
   return Math.min(MAX_PREVIEW_WIDTH, Math.max(MIN_PREVIEW_WIDTH, Math.round(width)));
 }
 
+/**
+ * Widths the diagnostics sweep reports at.
+ *
+ * The three authored devices come from the shared definition; the others exist because a layout
+ * that is correct at 390 and 1440 can still break at 700, and finding that is what diagnostics are
+ * for. Extra widths here are not extra modes anyone authors.
+ */
 export const DEVICE_PRESETS = [
   { id: "phone-small", label: "Small phone", width: 320 },
-  { id: "phone", label: "Phone", width: 390 },
-  { id: "tablet", label: "Tablet", width: 768 },
+  { id: "phone", label: "Phone", width: DEVICE_MODES.mobile.referenceWidth },
+  { id: "tablet", label: "Tablet", width: DEVICE_MODES.tablet.referenceWidth },
   { id: "laptop", label: "Laptop", width: 1280 },
-  { id: "desktop", label: "Desktop", width: 1440 },
+  { id: "desktop", label: "Desktop", width: DEVICE_MODES.desktop.referenceWidth },
   { id: "wide", label: "Wide", width: 1920 },
 ] as const;
 

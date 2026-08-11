@@ -1,5 +1,6 @@
 import {
   compileSite,
+  migrateDocumentResponsive,
   SCHEMA_VERSION,
   type CompileResult,
   type PublishableCmsItem,
@@ -179,8 +180,13 @@ export class PublishingService {
 
     const status = reconcileSiteStatus({ project, facts });
 
+    // The same migration the builder applies when a draft is opened. Publishing must not depend on
+    // somebody having opened the editor first: a site published straight from an old document would
+    // otherwise go live with the layout this whole model exists to prevent.
+    const { document: migrated } = migrateDocumentResponsive(project);
+
     return compileSite({
-      project,
+      project: migrated,
       blog: {
         settings,
         posts: posts.items.map((post) => ({

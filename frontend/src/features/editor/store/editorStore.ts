@@ -1,3 +1,4 @@
+import { migrateDocumentResponsive } from "@websitebuilder/shared";
 import {
   DESIGN_WIDTH,
   resolveBreakpointAt,
@@ -209,7 +210,11 @@ export const useEditorStore = create<EditorState>((set, get) => {
     },
 
     loadFromProject(project) {
-      const document = toDocumentInput(project);
+      // Documents authored before device overrides existed have elements that leave the screen on a
+      // phone. Migration gives those an explicit narrow layout and touches nothing else — desktop
+      // is never written, an override somebody already made is never replaced, and running it twice
+      // changes nothing the second time.
+      const { document } = migrateDocumentResponsive(toDocumentInput(project));
       const home = project.pages.find((page) => page.isHome) ?? project.pages[0];
       set((state) => ({
         projectId: project.id,

@@ -1,4 +1,4 @@
-import { DESIGN_WIDTH, MOBILE_PREVIEW_WIDTH } from "@websitebuilder/shared";
+import { DEVICE_ORDER, deviceReferenceWidth } from "@websitebuilder/shared";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -11,11 +11,7 @@ import { selectEditingBreakpoint, useEditorStore } from "@/features/editor/store
  * between 320 and 1920, which is where layouts that "work on desktop and mobile" actually break.
  * Changing the width never touches the document — it only selects what is being authored.
  */
-const PRESETS = [
-  { id: "desktop", width: DESIGN_WIDTH },
-  { id: "tablet", width: 768 },
-  { id: "mobile", width: MOBILE_PREVIEW_WIDTH },
-] as const;
+const PRESETS = DEVICE_ORDER.map((device) => ({ id: device, width: deviceReferenceWidth(device) }));
 
 export function WidthControl() {
   const { t } = useTranslation("builder");
