@@ -275,63 +275,24 @@ E2E runs against the production build, so what is tested is what ships.
 
 ---
 
-## Deployment on Coolify
+## Deployment
 
-Full operator procedures — DNS records, routing rules, Cloudflare token scope, backups, monitoring,
-the smoke checklist and incident handling — live in [docs/OPERATIONS.md](docs/OPERATIONS.md). The
-summary below is enough to get a first deploy running.
+One Coolify resource, three containers, one private network. The application serves the SPA and
+proxies `/api/*` to a backend that has no public route at all; the renderer has its own hostname
+because it serves customer content and must not share an origin with the authenticated dashboard.
 
-> **Not yet verified against a live environment.** The manifests below are written to the
-> architecture above and reviewed, but Docker is not installed on the development machine, so the
-> images have not been built and no staging deploy has been rehearsed. Treat the first deploy as a
-> test, and expect to adjust. `IMPLEMENTATION_PLAN.md` P18-T7 and P18-T8 cover finishing this
-> properly.
+Everything an operator needs is in `docs/`:
 
-### Services
+| Document | Covers |
+|---|---|
+| [PRODUCTION_DEPLOYMENT.md](docs/PRODUCTION_DEPLOYMENT.md) | Coolify fields, environment, DNS, routing, first deploy |
+| [CUSTOM_DOMAINS.md](docs/CUSTOM_DOMAINS.md) | Customer hostnames, Cloudflare for SaaS, routing safety |
+| [RELEASE_AND_ROLLBACK.md](docs/RELEASE_AND_ROLLBACK.md) | Promotion, tags, rollback |
+| [PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md) | The per-release list |
+| [OPERATIONS.md](docs/OPERATIONS.md) | Backups, monitoring, incidents |
 
-| Service | Domain | Notes |
-|---|---|---|
-| `frontend` | `https://websitebuilder.oneplataforma.com` | nginx: SPA + `/api/*` proxy. The only public entry point for the app. |
-| `backend` | none | Private. Reachable only through the gateway. |
-| `renderer` | `https://origin.websitebuilder.oneplataforma.com` + wildcard | Serves published customer sites. |
-| MongoDB | none | Managed instance or a Coolify database resource. |
-
-### Steps
-
-1. **Point DNS.** `websitebuilder.oneplataforma.com` → the VPS. Do **not** create
-   `api.websitebuilder.oneplataforma.com`; there is no such product URL.
-2. **Create the stack.** Coolify → new resource → Docker Compose, from this repository, using
-   `docker-compose.production.yml`. Deploy from `main`.
-3. **Set environment variables** on the stack (not in the repository):
-
-   ```
-   PLATFORM_ROOT_DOMAIN=websitebuilder.oneplataforma.com
-   PLATFORM_PUBLIC_ORIGIN=https://websitebuilder.oneplataforma.com
-   PUBLIC_RENDERER_ORIGIN=https://origin.websitebuilder.oneplataforma.com
-   MONGODB_URI=<secret>
-   MONGODB_DB_NAME=websitebuilder
-   BETTER_AUTH_SECRET=<openssl rand -base64 48>
-   TRUSTED_PROXY_CIDRS=<the real Traefik range>
-   ```
-
-4. **Wildcard for published sites.** `*.websitebuilder.oneplataforma.com` → the VPS, routed to the
-   `renderer` service. Explicit records take priority over the wildcard, so `origin.` and the apex
-   keep working.
-5. **Smoke test** after the first deploy: the landing page, `/roadmap`, `/api/v1/health` returning
-   JSON rather than HTML, `/healthz` on the renderer, and an unknown host returning a neutral 404.
-
-### Verifying the proxy rule
-
-The single most valuable check, because getting it wrong is silent:
-
-```bash
-curl -i https://websitebuilder.oneplataforma.com/api/v1/health
-```
-
-The response must be `application/json`. If it is `text/html`, the SPA fallback is catching `/api`
-and every API error will masquerade as a successful page load.
-
----
+`npm run smoke:containers` builds the production images and exercises the running stack against a
+throwaway database. It needs Docker and `SMOKE_MONGODB_URI`.
 
 ## Branch and release workflow
 

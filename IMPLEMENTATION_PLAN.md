@@ -408,27 +408,27 @@ Split validation by process:
 
 ### Phase 7 — Documentation inside the repository
 
-- [ ] **P7-T1 — Replace contradictory deployment guidance**
+- [x] **P7-T1 — Replace contradictory deployment guidance**
   - Update `README.md` with a short architecture summary and links to canonical docs.
   - Rewrite `docs/OPERATIONS.md` to match the one-resource, same-origin deployment.
   - Update root/backend/frontend `.env.example` files.
   - Remove every instruction requiring a public `api.` hostname or separate Coolify frontend/backend resources.
   - Acceptance: repository search finds no stale production topology.
 
-- [ ] **P7-T2 — Create `docs/PRODUCTION_DEPLOYMENT.md`**
+- [x] **P7-T2 — Create `docs/PRODUCTION_DEPLOYMENT.md`**
   - Document prerequisites, exact Coolify fields, Git branch, base directory `/`, Compose location, environment-variable table, secret-generation guidance, DNS records, Cloudflare steps, first deployment, health checks, and smoke tests.
   - Include screenshots only if they are current and contain no secrets; otherwise use precise text.
   - Acceptance: a new operator can deploy from a clean VPS/Coolify resource without guessing.
 
-- [ ] **P7-T3 — Create `docs/CUSTOM_DOMAINS.md`**
+- [x] **P7-T3 — Create `docs/CUSTOM_DOMAINS.md`**
   - Document CNAME/apex limitations, Cloudflare Custom Hostname states, SSL readiness, custom origin/SNI behavior, customer instructions, troubleshooting, disconnect behavior, and the proxy-routing safety decision.
   - Acceptance: instructions cover both a subdomain customer host and the supported apex-domain path, including plan limitations.
 
-- [ ] **P7-T4 — Create `docs/RELEASE_AND_ROLLBACK.md`**
+- [~] **P7-T4 — Create `docs/RELEASE_AND_ROLLBACK.md`**
   - Document staging, promotion from `development` to `main`, release tags, Coolify deployment, health observation, rollback to an immutable Git tag/image, database compatibility, and post-rollback verification.
   - Acceptance: rollback is rehearsed in staging and does not depend on deleting current containers manually.
 
-- [ ] **P7-T5 — Create `docs/PRODUCTION_CHECKLIST.md`**
+- [x] **P7-T5 — Create `docs/PRODUCTION_CHECKLIST.md`**
   - Make a short reusable checklist for every release: backup, migrations/indexes, CI, env diff, deploy, health, auth, publish, custom domain, logs, rollback window.
   - Acceptance: checklist is linked from README and release documentation.
 
@@ -578,6 +578,9 @@ Append entries; do not erase history.
 | 2026-08-11 | P6-T3 | (this branch) | Workflow parsed | Three jobs. `verify` runs install, typecheck, tests, build, E2E and both skill checks. `deployment` renders the production Compose with throwaway values and builds all three images, then asserts each image carries its own command — the duplicate-`CMD` defect would fail there. It is a separate job so a Docker problem is never read as a code problem. `audit` stays at high and above, because a gate that fires on every low advisory gets ignored. |
 | 2026-08-11 | P6-T4 | (this branch) | Seven of nine commands | `npm ci`, typecheck, test, build, `test:e2e`, `check:plan-skill` and `check:runbook` all pass: 1387 tests, 20 E2E. The two `docker compose` commands did not run — Docker is absent from this machine. They are in CI, where they will run on the first push. |
 | 2026-08-11 | Tooling | (this branch) | `check:plan-skill` | The plan-skill test asserted a task count above 50, which was a property of the previous plan rather than of the parser. Lowered to a floor that still fails loudly if the plan stops parsing, and commented as such. |
+| 2026-08-11 | P7-T1 | (this branch) | Repository-wide search | No tracked file describes a public `api.` hostname or separate Coolify resources any more; the only remaining mentions are the instructions not to create them. README points at the canonical documents instead of repeating a topology, and `docs/OPERATIONS.md` was cut back to what it uniquely covers — two descriptions of one deployment drift, and a reader cannot tell which is current. |
+| 2026-08-11 | P7-T2, P7-T3, P7-T5 | (this branch) | Written and cross-linked | `PRODUCTION_DEPLOYMENT.md` carries the exact Coolify fields, the environment table, DNS with the reason for each record and grey-cloud, the first-deploy checks and a symptom-to-cause table built from the failures this deployment actually hit. `CUSTOM_DOMAINS.md` covers the apex limitation honestly rather than suggesting an A record, and puts the VPS routing hazard in its own section. `PRODUCTION_CHECKLIST.md` is deliberately short — a checklist nobody finishes protects nothing. |
+| 2026-08-11 | P7-T4 | (this branch) | `[~]` — written, not rehearsed | `RELEASE_AND_ROLLBACK.md` documents promotion by fast-forward, tagging, redeploying a tag, and reverting rather than resetting. The rehearsal it asks for needs a staging environment that does not exist yet, so the release table is empty rather than filled with an assumption. It also records why published sites need no rollback: they are immutable snapshots, unaffected by the code being rolled back. |
 ## 14. Decision Log
 
 Append decisions that change implementation details while preserving the fixed architecture.

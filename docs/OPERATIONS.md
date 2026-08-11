@@ -1,174 +1,32 @@
 # Operations guide
 
-Everything an operator needs to stand up, run and recover this platform. It contains no real
-secrets and no screenshots of a token.
+Running the platform: backups, monitoring, smoke checks and incidents. It contains no real secrets.
 
-> **Status.** The manifests and procedures below are written against the architecture and reviewed,
-> but Docker is not installed on the development machine, so no image has been built and no staging
-> deploy or restore has been rehearsed here. Treat the first deploy as the rehearsal and record the
-> result at the bottom of this file.
+> **Not yet rehearsed.** No restore has been performed and no staging deploy has been run from this
+> repository. The procedures are written and reviewed; the evidence column in §11 is empty on
+> purpose rather than filled with an assumption.
 
 ---
 
-## 1. What runs where
+## 1. Where the deployment is documented
 
-| Service | Public address | Role |
-|---|---|---|
-| Application | `https://websitebuilder.oneplataforma.com` | Marketing, auth, `/app/*` |
-| API | `https://api.websitebuilder.oneplataforma.com` | Auth, data, publishing, domain jobs |
-| Public renderer | `https://origin.websitebuilder.oneplataforma.com` plus every project and customer host | Serves published customer sites |
-| MongoDB | none | Application data |
+Standing the platform up — Coolify fields, environment variables, DNS, routing and the first deploy
+— lives in [PRODUCTION_DEPLOYMENT.md](PRODUCTION_DEPLOYMENT.md). Customer hostnames live in
+[CUSTOM_DOMAINS.md](CUSTOM_DOMAINS.md). Promotion and rollback live in
+[RELEASE_AND_ROLLBACK.md](RELEASE_AND_ROLLBACK.md).
 
-`api` and `origin` sit inside the same space as customer sites, `*.websitebuilder.oneplataforma.com`.
-That is safe for two reasons that both have to hold: an explicit DNS record beats the wildcard, and
-`PLATFORM_RESERVED_SUBDOMAINS` refuses both names as project slugs. Remove either and a project
-called `api` would take over the API's hostname.
+This file is about running it: backups, monitoring, smoke checks and incidents. It deliberately does
+not repeat the topology, because two descriptions of one deployment drift and the reader cannot tell
+which is current.
 
-### Why the cookie is safe across these
-
-The application and the API are different origins on one registrable domain. The session cookie is
-**host-only to the API** — Better Auth sets no `Domain` attribute — so the browser sends it on
-credentialed requests to `api.` and nowhere else. It is never transmitted to a published customer
-site, whatever that site contains.
-
-That is the whole reason not to widen it. A cookie with `Domain=.oneplataforma.com` would be sent on
-every request to every customer subdomain, and the people writing those pages are not the people you
-are protecting the session from.
-
-CORS carries the other half: the API answers exactly one origin, `FRONTEND_ORIGIN`, with
-credentials. An allowlist that reflected the request's own origin would let any site on the internet
-use a signed-in visitor's session.
-
-Customer sites live under `websitebuilder.oneplataforma.com` — deliberately not under the
-application's own hostname.
+For orientation: one Coolify Compose resource, three containers, one private network. The
+application serves the SPA and proxies `/api/*` to a backend that has no public route at all; the
+renderer has its own hostname because it serves customer content and must not share an origin with
+the authenticated dashboard.
 
 ---
 
-## 2. Deployment shapes
-
-Three services, three hostnames, and no internal traffic between them: the browser calls each one
-directly. Nothing needs a shared Docker network, and the frontend is a static server with no
-upstream at all — which is why it cannot be taken down by the API being unavailable.
-
-Either shape works: one Docker Compose resource from `docker-compose.production.yml`, or three
-separate resources. The settings are the same.
-
-| | Frontend | API | Renderer |
-|---|---|---|---|
-| Build pack | Dockerfile | Dockerfile | Dockerfile |
-| Base directory | `/` | `/` | `/` |
-| Dockerfile | `/frontend/Dockerfile` | `/backend/Dockerfile` | `/backend/Dockerfile` |
-| Start command | *(image default)* | *(image default)* | *(image default)* |
-| `SERVICE_ROLE` | — | `api` | `renderer` |
-| Port | 8080 | 3000 | 3001 |
-
-The API and the renderer are the same image. Which server a container runs comes from
-`SERVICE_ROLE`, not from a start command: a platform building from a Dockerfile takes the image's
-`CMD` as given and often offers no field to override it, while environment is always available. The
-health probe reads the same variable, because asking the renderer for the API's health endpoint
-would report a working process as unhealthy and restart it forever.
-| Domain | `${PLATFORM_ROOT_DOMAIN}` | **none** | `origin.${PLATFORM_ROOT_DOMAIN}` and `*.${PLATFORM_ROOT_DOMAIN}` |
-
----
-
-## 3. DNS
-
-All records are in the `oneplataforma.com` zone. Names are relative to it.
-
-| Record | Type | Points to | Why |
-|---|---|---|---|
-| `websitebuilder` | A | VPS | The application |
-| `api.websitebuilder` | A | VPS | The API |
-| `origin.websitebuilder` | A | VPS | Technical renderer host and the Cloudflare fallback origin |
-| `*.websitebuilder` | A | VPS | Every project subdomain, `acme.websitebuilder.oneplataforma.com` |
-| `customers.websitebuilder` | CNAME | `origin.websitebuilder.oneplataforma.com` | What customers point their own domain at |
-
-Explicit records win over the wildcard, which is why `origin` and `customers` are listed separately
-even though `*` would otherwise match them.
-
-Set all of these to **DNS only** (grey cloud) in Cloudflare. The free Universal SSL covers
-`oneplataforma.com` and one level of subdomain; `origin.websitebuilder.oneplataforma.com` is three
-labels deep and outside it, so a proxied record there serves a certificate error. Grey cloud lets
-Traefik issue the certificates on the VPS instead.
-
-`PLATFORM_RESERVED_SUBDOMAINS` still refuses `app`, `api` and the rest as project slugs. They are in
-a different part of the tree now, but a project called `api` producing
-`api.websitebuilder.oneplataforma.com` would still be a hostname nobody intended to hand out.
-
-### Certificates for the wildcard
-
-Let's Encrypt issues a wildcard certificate only through a DNS-01 challenge, which needs a DNS
-provider configured in Coolify. Without that, each project subdomain gets its own certificate via
-HTTP-01 on first request — this works, at the cost of latency on that first hit.
-
----
-
-## 4. Routing rules
-
-Traefik must send the exact apex host to the gateway and everything else validated to the renderer:
-
-- Host is exactly `websitebuilder.oneplataforma.com` → the application.
-- Host is `api.websitebuilder.oneplataforma.com` → the API.
-- Any other host under the wildcard → renderer. The renderer resolves the hostname against active domain records and
-  answers a neutral 404 for anything it does not recognise, so a catch-all rule here cannot leak a
-  tenant.
-
-Inside the gateway, `/api/` is matched **before** the SPA fallback
-([frontend/nginx.conf](../frontend/nginx.conf)). This ordering is the point: if
-`index.html` were ever served for `/api/*`, a backend outage would return 200 with HTML and every
-client would parse a login page as JSON.
-
----
-
-## 5. Environment
-
-Copy [.env.example](../.env.example). Production values go in Coolify per service, never in the
-repository.
-
-Placement rules:
-
-- `VITE_*` is compiled into the browser bundle. Only the public origin and the relative API path
-  belong there. A credential named `VITE_ANYTHING` is a published credential — `npm run test`
-  includes a scan of the built bundle that fails if a backend variable name or a connection string
-  appears in it.
-- `MONGODB_URI`, `BETTER_AUTH_SECRET` and every `CLOUDFLARE_*` value are backend-only. They go on
-  the API resource (and `MONGODB_URI` also on the renderer, which reads published snapshots).
-- `TRUSTED_PROXY_CIDRS` must match the real Coolify/Traefik range. Leave it empty until you know it:
-  empty means no forwarded header is believed, which is safe. A range wider than the actual proxy
-  lets anyone who can set `X-Forwarded-Host` choose which customer's site they are served.
-
-Startup validates everything with Zod and fails naming the variable, never its value.
-
-### Cloudflare token scope
-
-Both values are optional. Without them the platform runs normally and only customer custom domains
-are unavailable — connecting one is refused with a message rather than accepted and silently not
-registered. Set them when you are ready to onboard a customer's own domain.
-
-**Where to find them.**
-
-*Zone ID* — `dash.cloudflare.com` → select `oneplataforma.com` → the Overview page, right-hand
-column, under **API**. A 32-character hex string.
-
-*API token* — `dash.cloudflare.com/profile/api-tokens` → **Create Token** → **Create Custom Token**:
-
-| Field | Value |
-|---|---|
-| Permissions | Zone → **SSL and Certificates** → **Edit** |
-| Zone Resources | Include → Specific zone → `oneplataforma.com` |
-
-Nothing account-wide and nothing broader: this token can manage certificates on one zone and can do
-nothing else, which is the whole point of creating a custom one rather than using a global key. It
-is displayed once — if it is lost, create another and delete the old.
-
-**Before the first customer domain**, also set the fallback origin in Cloudflare: SSL/TLS → Custom
-Hostnames → **Fallback Origin** → `origin.websitebuilder.oneplataforma.com`. Custom hostnames stay
-pending without it. Cloudflare for SaaS has its own plan and per-hostname terms; the dashboard
-states the current ones at the point of enabling it.
-
----
-
-## 6. Backups
+## 2. Backups
 
 MongoDB Atlas (current setup):
 
@@ -177,7 +35,7 @@ MongoDB Atlas (current setup):
 3. Restore rehearsal, quarterly: restore the latest snapshot into a *new* cluster, point a staging
    API at it, confirm sign-in, one published site rendering, and one publish. Never restore over
    production to test a restore.
-4. Record the date, snapshot ID and outcome in §10.
+4. Record the date, snapshot ID and outcome in §7.
 
 Self-hosted MongoDB in Coolify instead: enable the resource's scheduled backup to S3-compatible
 storage with a server-side-encrypted bucket, same retention, same rehearsal.
@@ -186,7 +44,7 @@ GridFS media lives in the same database and is covered by the same snapshot.
 
 ---
 
-## 7. Monitoring and alerts
+## 3. Monitoring and alerts
 
 | Signal | Where | Alert when |
 |---|---|---|
@@ -203,9 +61,12 @@ personal data and never enter a log; neither do form submission bodies.
 
 ---
 
-## 8. Smoke checklist
+## 4. Smoke checklist
 
-Run after every deploy. Replace `example.com` with the real root domain.
+Run after every deploy. The per-release list is
+[PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md); this is the command form.
+
+Replace `example.com` with the real root domain.
 
 ```bash
 ROOT=example.com
@@ -238,7 +99,7 @@ Then, in the application:
 
 ---
 
-## 9. Incidents
+## 5. Incidents
 
 **Cloudflare API unavailable.** Already-active customer domains keep serving: the renderer resolves
 only stored active records and never calls the provider. New activations and re-verification pause
@@ -257,7 +118,7 @@ sites until their TTL expires, then answers 404. Restore from §6.
 
 ---
 
-## 10. Branch and deployment protection
+## 6. Branch and deployment protection
 
 > **Not applied automatically.** These rules need an authenticated session with admin rights on the
 > repository, which this environment does not have. The exact configuration is below; until it is
@@ -322,7 +183,7 @@ npm run test:e2e` is the same command the workflow runs.
 
 ---
 
-## 11. Rehearsal record
+## 7. Rehearsal record
 
 | Date | Action | Result |
 |---|---|---|
