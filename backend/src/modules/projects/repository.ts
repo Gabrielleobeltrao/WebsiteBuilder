@@ -8,6 +8,7 @@ import {
 import { ObjectId, type Collection, type Db } from "mongodb";
 
 import { COLLECTIONS } from "../../db/indexes";
+import { PUBLISHING_COLLECTIONS } from "../publishing/repository";
 
 /**
  * Stored shape. `_id` is the MongoDB identity; the API exposes it as `id`. `workspaceId` is
@@ -47,7 +48,7 @@ function toObjectId(id: string): ObjectId | null {
 export class ProjectRepository {
   private readonly collection: Collection<ProjectDocument>;
 
-  constructor(db: Db) {
+  constructor(private readonly db: Db) {
     this.collection = db.collection<ProjectDocument>(COLLECTIONS.projects);
   }
 
@@ -59,16 +60,39 @@ export class ProjectRepository {
     // Pages are projected away: a listing must never pay the cost of whole builder documents.
     const documents = await this.collection
       .find(query, {
-        projection: { name: 1, slug: 1, clientId: 1, revision: 1, createdAt: 1, updatedAt: 1, pageCount: { $size: "$pages" } },
+        projection: {
+          name: 1,
+          slug: 1,
+          clientId: 1,
+          revision: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          activePublishedVersionId: 1,
+          pageCount: { $size: "$pages" },
+        },
         sort: { updatedAt: -1 },
         limit: 200,
       })
       .toArray();
 
+    // One query for the whole page rather than one per site: a listing that asks the database a
+    // question per row gets slower with every site a customer adds, which is exactly backwards.
+    const serving = documents.filter((document) => Boolean((document as { activePublishedVersionId?: string }).activePublishedVersionId));
+    const hostnames = await this.primaryHostnames(
+      context,
+      serving.map((document) => (document as { _id: ObjectId })._id.toHexString()),
+    );
+
     return documents.map((document) => {
       const { _id, pageCount, ...rest } = document as ProjectDocument & { pageCount: number };
+      const projectId = _id.toHexString();
+      const hostname = hostnames.get(projectId);
+      // Both facts are required. A published site with no live address, and a live address on a
+      // site that was never published, are each a link to nothing.
+      const live = (rest as { activePublishedVersionId?: string }).activePublishedVersionId !== undefined && hostname !== undefined;
+
       return {
-        id: _id.toHexString(),
+        id: projectId,
         name: rest.name,
         slug: rest.slug,
         ...(rest.clientId ? { clientId: rest.clientId } : {}),
@@ -76,8 +100,29 @@ export class ProjectRepository {
         revision: rest.revision,
         createdAt: rest.createdAt,
         updatedAt: rest.updatedAt,
+        ...(live ? { liveUrl: `https://${hostname}` } : {}),
       };
     });
+  }
+
+  /**
+   * The live hostname of each project that has one, scoped to this workspace.
+   *
+   * Only a primary hostname that is active counts. A pending one is an address the platform is
+   * still arranging, and a customer told to open it would find nothing there.
+   */
+  private async primaryHostnames(context: WorkspaceContext, projectIds: string[]): Promise<Map<string, string>> {
+    if (projectIds.length === 0) return new Map();
+
+    const domains = await this.db
+      .collection<{ projectId: string; hostname: string }>(PUBLISHING_COLLECTIONS.domains)
+      .find(
+        { workspaceId: context.workspaceId, projectId: { $in: projectIds }, isPrimary: true, status: "active" },
+        { projection: { projectId: 1, hostname: 1 } },
+      )
+      .toArray();
+
+    return new Map(domains.map((domain) => [domain.projectId, domain.hostname]));
   }
 
   async findById(context: WorkspaceContext, projectId: string): Promise<BuilderProject | null> {

@@ -74,6 +74,14 @@ export type ProjectSummary = {
   revision: number;
   createdAt: string;
   updatedAt: string;
+  /**
+   * The address a visitor can open right now.
+   *
+   * Present only when the site is genuinely serving — it has an active published version *and* a
+   * live primary hostname. A site that was never published, or whose address is still being
+   * verified, has no live URL, and offering one would be a link to a page that does not exist.
+   */
+  liveUrl?: string;
 };
 
 export const createProjectInputSchema = z

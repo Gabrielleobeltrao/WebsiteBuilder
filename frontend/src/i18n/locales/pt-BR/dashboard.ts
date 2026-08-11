@@ -48,6 +48,8 @@ export default {
     confirmCreate: "Criar site",
     cancel: "Cancelar",
     open: "Abrir",
+    visit: "Ver site",
+    notPublished: "Ainda não publicado",
     rename: "Renomear",
     renameTitle: "Renomear site",
     confirmRename: "Salvar nome",

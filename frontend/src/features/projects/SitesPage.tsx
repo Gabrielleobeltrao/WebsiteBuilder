@@ -148,20 +148,28 @@ export function SitesPage({ workspaceId }: { workspaceId: string }) {
                     </h2>
                     <p className="mt-1 text-xs text-ink-500">
                       {t("dashboard:sites.pageCount", { count: project.pageCount })} ·{" "}
-                      {t("dashboard:sites.updatedAt", { when: formatRelative(project.updatedAt) })} · {project.slug}
+                      {t("dashboard:sites.updatedAt", { when: formatRelative(project.updatedAt) })} ·{" "}
+                      {project.liveUrl === undefined
+                        ? t("dashboard:sites.notPublished")
+                        : project.liveUrl.replace(/^https?:\/\//, "")}
                     </p>
                   </div>
                   <div className="flex shrink-0 gap-2">
-                    {/* One tap from the list to a rendered site. It used to be reachable only
-                        through the site page behind the name, and the visible buttons all led to
-                        the editor — which refuses to open on the device most likely to be looking
-                        for a preview. */}
-                    <Link
-                      to={`/preview/${workspaceId}/${project.id}`}
-                      className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
-                    >
-                      {t("dashboard:site.preview")}
-                    </Link>
+                    {/* The published address, when there is one. Not a preview: a preview is a
+                        rehearsal of what a visitor would get, and what someone opening this list
+                        wants is the page their visitors are actually on. It appears only where the
+                        site is genuinely serving — a button to a page that does not exist yet is
+                        worse than no button. */}
+                    {project.liveUrl !== undefined && (
+                      <a
+                        href={project.liveUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
+                      >
+                        {t("dashboard:sites.visit")}
+                      </a>
+                    )}
                     <Link
                       to={`/app/${workspaceId}/sites/${project.id}/builder`}
                       className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"

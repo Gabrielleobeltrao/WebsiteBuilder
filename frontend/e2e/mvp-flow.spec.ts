@@ -154,14 +154,12 @@ test.describe("preview", () => {
   });
 });
 
-test.describe("reaching a preview on a phone", () => {
+test.describe("reaching the live site from a phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("is one tap from the site list", async ({ page }) => {
+  test("says a new site is not published, and offers no address for it", async ({ page }) => {
     await signUp(page);
 
-    // The mobile path: open the menu, go to Sites, tap Preview. No editor in between, because the
-    // editor refuses to open at this width.
     await page.getByRole("button", { name: "Open menu" }).click();
     await page.getByRole("dialog").getByRole("link", { name: "Sites" }).click();
     await page.getByRole("button", { name: "New site" }).click();
@@ -169,11 +167,9 @@ test.describe("reaching a preview on a phone", () => {
     await page.getByRole("button", { name: "Create site" }).click();
     await expect(page.getByText("Phone Site")).toBeVisible();
 
-    await page.getByRole("link", { name: "Preview" }).first().click();
-
-    await expect(page).toHaveURL(/\/preview\//, { timeout: 20_000 });
-    expect(new URL(page.url()).pathname.split("/").filter(Boolean)).toHaveLength(3);
-    await expect(page.getByRole("alert")).toHaveCount(0);
+    // The state most customers see first, and the one a link would lie about.
+    await expect(page.getByText(/Not published yet/)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Visit site" })).toHaveCount(0);
   });
 });
 

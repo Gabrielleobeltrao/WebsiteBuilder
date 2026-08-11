@@ -162,29 +162,36 @@ describe("SitesPage localization", () => {
 });
 
 describe("finding a site from the list", () => {
-  beforeEach(() => {
+  it("opens the published address in one tap", async () => {
+    mockFetch(() => ok([summary({ liveUrl: "https://acme-studio.example.com" })]));
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+
+    const visit = await screen.findByRole("link", { name: "Visit site" });
+    expect(visit).toHaveAttribute("href", "https://acme-studio.example.com");
+    // Another origin, so the site opens beside the dashboard rather than replacing it.
+    expect(visit).toHaveAttribute("target", "_blank");
+    expect(visit.getAttribute("rel")).toContain("noopener");
+  });
+
+  it("shows the address, because it is what a customer types and shares", async () => {
+    mockFetch(() => ok([summary({ liveUrl: "https://acme-studio.example.com" })]));
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+
+    expect(await screen.findByText(/acme-studio\.example\.com/)).toBeInTheDocument();
+  });
+
+  it("offers no address for a site that is not serving one", async () => {
+    // A button to a page that does not exist yet is worse than no button: it teaches a customer
+    // that the product is broken when what happened is that they have not published.
     mockFetch(() => ok([summary()]));
-  });
-
-  it("offers a preview in one tap, without going through the editor", async () => {
-    // The editor refuses to open without a pointer and a wide screen, so on the device most likely
-    // to be looking for a preview, every visible action used to lead somewhere unusable.
     renderWithProviders(<SitesPage workspaceId="w1" />);
 
-    const preview = await screen.findByRole("link", { name: "Preview" });
-    expect(preview).toHaveAttribute("href", "/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
-  });
-
-  it("carries the workspace in the preview address", async () => {
-    // Without it the preview asks the API for an empty workspace and gets a 404, which is how it
-    // was broken for every user before.
-    renderWithProviders(<SitesPage workspaceId="w1" />);
-
-    const href = (await screen.findByRole("link", { name: "Preview" })).getAttribute("href") ?? "";
-    expect(href.split("/").filter(Boolean)).toHaveLength(3);
+    expect(await screen.findByText(/Not published yet/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Visit site" })).toBeNull();
   });
 
   it("shows the site's own page as a link a touch device can see", async () => {
+    mockFetch(() => ok([summary()]));
     // Underlined always rather than on hover: a phone has no hover, and a link that reveals itself
     // only to a pointer is invisible to everyone holding one of these.
     renderWithProviders(<SitesPage workspaceId="w1" />);

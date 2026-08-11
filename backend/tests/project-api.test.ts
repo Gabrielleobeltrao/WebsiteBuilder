@@ -4,6 +4,12 @@ import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { createApp } from "../src/app";
+import { COLLECTIONS } from "../src/db/indexes";
+import { BlogRepository } from "../src/modules/blog/repository";
+import { MediaRepository } from "../src/modules/media/repository";
+import { createGridFsStorage } from "../src/modules/media/storage";
+import { ensurePublishingIndexes, PublishingRepository } from "../src/modules/publishing/repository";
+import { PublishingService } from "../src/modules/publishing/service";
 import { createSeededWorkspaceResolver } from "../src/middleware/workspace";
 import { ProjectRepository } from "../src/modules/projects/repository";
 import { createProjectsRouter } from "../src/modules/projects/routes";
@@ -232,5 +238,56 @@ describe("workspace scoping", () => {
     const response = await request(app).get(`/api/v1/workspaces/${OTHER_WORKSPACE}/projects/${created.id}`);
     expect(response.body.error.code).toBe("FORBIDDEN");
     expect(JSON.stringify(response.body)).not.toContain("Acme");
+  });
+});
+
+describe("the address a visitor can open", () => {
+  it("is absent for a site that was never published", async () => {
+    await createProject("Unpublished");
+
+    const response = await request(app).get(base);
+
+    // A link to a page that does not exist yet teaches a customer the product is broken, when what
+    // happened is that they have not published.
+    expect(response.body.data[0]).not.toHaveProperty("liveUrl");
+  });
+
+  it("appears once the site is both published and addressable", async () => {
+    const project = await createProject("Live");
+    const context = { workspaceId: WORKSPACE, userId: "user-a" };
+
+    const publishing = new PublishingRepository(database.db, database.db.collection(COLLECTIONS.projects));
+    const service = new PublishingService({
+      projects: new ProjectRepository(database.db),
+      publishing,
+      blog: new BlogRepository(database.db),
+      media: new MediaRepository(database.db, createGridFsStorage(database.db)),
+    });
+    await ensurePublishingIndexes(database.db);
+
+    const published = await service.publish(context, project.id);
+    expect(published.status).toBe("published");
+    await publishing.ensurePlatformDomain(context, project.id, "live", "example.test");
+
+    const response = await request(app).get(base);
+    expect(response.body.data[0].liveUrl).toBe("https://live.example.test");
+  });
+
+  it("stays absent while the site is published but has no live address", async () => {
+    const project = await createProject("Published only");
+    const context = { workspaceId: WORKSPACE, userId: "user-a" };
+
+    const publishing = new PublishingRepository(database.db, database.db.collection(COLLECTIONS.projects));
+    await ensurePublishingIndexes(database.db);
+    await new PublishingService({
+      projects: new ProjectRepository(database.db),
+      publishing,
+      blog: new BlogRepository(database.db),
+      media: new MediaRepository(database.db, createGridFsStorage(database.db)),
+    }).publish(context, project.id);
+
+    // Both facts are required: a published version with nowhere to serve it is not a live site.
+    const response = await request(app).get(base);
+    expect(response.body.data[0]).not.toHaveProperty("liveUrl");
   });
 });
