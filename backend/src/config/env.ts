@@ -8,14 +8,27 @@ import { z } from "zod";
 
 const port = z.coerce.number().int().min(1).max(65_535);
 
+/**
+ * Treats an empty value as absent.
+ *
+ * A deployment platform sets a variable to `""` where a developer would leave it unset — Compose's
+ * `${VAR:-}` produces exactly that — and Zod's `.optional()` and `.default()` only recognise
+ * `undefined`. Without this, "leave it blank to disable" is a promise the schema breaks: an empty
+ * string is checked as if someone had typed one deliberately, and a service that needs none of it
+ * refuses to start.
+ */
+function blankAsAbsent<T extends z.ZodTypeAny>(schema: T) {
+  return z.preprocess((value) => (typeof value === "string" && value.trim() === "" ? undefined : value), schema);
+}
+
 const baseSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   API_PORT: port.default(3000),
   PUBLIC_RENDERER_PORT: port.default(3001),
-  FRONTEND_ORIGIN: z.string().url().default("http://localhost:5173"),
-  PLATFORM_ROOT_DOMAIN: z.string().min(3).default("localhost"),
-  PLATFORM_PUBLIC_ORIGIN: z.string().url().default("http://localhost:5173"),
+  FRONTEND_ORIGIN: blankAsAbsent(z.string().url().default("http://localhost:5173")),
+  PLATFORM_ROOT_DOMAIN: blankAsAbsent(z.string().min(3).default("localhost")),
+  PLATFORM_PUBLIC_ORIGIN: blankAsAbsent(z.string().url().default("http://localhost:5173")),
   PLATFORM_RESERVED_SUBDOMAINS: z.string().default(""),
   /** How long a proxy may serve a published page before revalidating. */
   PUBLIC_SITE_CACHE_TTL_SECONDS: z.coerce.number().int().nonnegative().max(86_400).default(60),
@@ -28,14 +41,14 @@ const baseSchema = z.object({
    * Cloudflare for SaaS. Absent means custom domains run against the in-memory fake, which is
    * correct for development and never for production.
    */
-  CLOUDFLARE_API_BASE_URL: z.string().url().default("https://api.cloudflare.com/client/v4"),
-  CLOUDFLARE_ACCOUNT_ID: z.string().min(1).optional(),
-  CLOUDFLARE_ZONE_ID: z.string().min(1).optional(),
-  CLOUDFLARE_API_TOKEN: z.string().min(1).optional(),
+  CLOUDFLARE_API_BASE_URL: blankAsAbsent(z.string().url().default("https://api.cloudflare.com/client/v4")),
+  CLOUDFLARE_ACCOUNT_ID: blankAsAbsent(z.string().min(1).optional()),
+  CLOUDFLARE_ZONE_ID: blankAsAbsent(z.string().min(1).optional()),
+  CLOUDFLARE_API_TOKEN: blankAsAbsent(z.string().min(1).optional()),
   /** The CNAME target customers point their hostname at. */
-  CLOUDFLARE_SAAS_CNAME_TARGET: z.string().min(3).default("customers.localhost"),
+  CLOUDFLARE_SAAS_CNAME_TARGET: blankAsAbsent(z.string().min(3).default("customers.localhost")),
   /** Hostname, not an origin: it is used as a DNS name in routing rules and as a CNAME target. */
-  PUBLIC_RENDERER_HOST: z.string().min(3).default("origin.localhost"),
+  PUBLIC_RENDERER_HOST: blankAsAbsent(z.string().min(3).default("origin.localhost")),
   /** Versions kept per project. The active one is never pruned regardless of this number. */
   PUBLISHED_VERSION_RETENTION_COUNT: z.coerce.number().int().min(1).max(500).default(20),
   PUBLISH_MAX_DOCUMENT_BYTES: z.coerce.number().int().positive().default(4_000_000),
@@ -45,11 +58,11 @@ const baseSchema = z.object({
   JSON_BODY_LIMIT: z.string().default("8mb"),
   PUBLIC_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
-  MONGODB_URI: z.string().min(1).optional(),
-  MONGODB_DB_NAME: z.string().min(1).optional(),
+  MONGODB_URI: blankAsAbsent(z.string().min(1).optional()),
+  MONGODB_DB_NAME: blankAsAbsent(z.string().min(1).optional()),
   /** At least 32 bytes. Sessions signed with a weak secret are forgeable. */
-  BETTER_AUTH_SECRET: z.string().min(32).optional(),
-  BETTER_AUTH_URL: z.string().url().default("http://localhost:5173"),
+  BETTER_AUTH_SECRET: blankAsAbsent(z.string().min(32).optional()),
+  BETTER_AUTH_URL: blankAsAbsent(z.string().url().default("http://localhost:5173")),
   BETTER_AUTH_BASE_PATH: z.string().startsWith("/").default("/api/auth"),
 });
 

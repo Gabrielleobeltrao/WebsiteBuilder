@@ -227,3 +227,58 @@ describe("service roles", () => {
     expect(() => loadEnv(production)).toThrow(EnvironmentError);
   });
 });
+
+describe("a deployment platform sets blanks, not absences", () => {
+  /**
+   * This is the exact shape the production Compose file produces. `${VAR:-}` yields an empty
+   * string, and Zod's `.optional()` and `.default()` recognise only `undefined`, so every
+   * "leave it blank to disable" value was being validated as if someone had typed one deliberately.
+   *
+   * The backend refused to start in production because of it, with three Cloudflare variables it
+   * does not need.
+   */
+  const asComposeWouldPassIt = {
+    NODE_ENV: "production",
+    MONGODB_URI: "mongodb://localhost:27017",
+    MONGODB_DB_NAME: "app",
+    BETTER_AUTH_SECRET: "x".repeat(40),
+    PLATFORM_PUBLIC_ORIGIN: "https://websitebuilder.example.com",
+    PLATFORM_ROOT_DOMAIN: "websitebuilder.example.com",
+    FRONTEND_ORIGIN: "https://websitebuilder.example.com",
+    PUBLIC_RENDERER_HOST: "origin.websitebuilder.example.com",
+    // Unset by the operator; passed as empty by the platform.
+    CLOUDFLARE_ZONE_ID: "",
+    CLOUDFLARE_API_TOKEN: "",
+    CLOUDFLARE_SAAS_CNAME_TARGET: "",
+    TRUSTED_PROXY_CIDRS: "",
+  } as NodeJS.ProcessEnv;
+
+  it("starts with every optional value passed as an empty string", () => {
+    expect(() => loadEnv(asComposeWouldPassIt, "api")).not.toThrow();
+    expect(() => loadEnv(asComposeWouldPassIt, "renderer")).not.toThrow();
+  });
+
+  it("reads a blank optional value as absent rather than as a value", () => {
+    const env = loadEnv(asComposeWouldPassIt, "api");
+
+    expect(env.CLOUDFLARE_ZONE_ID).toBeUndefined();
+    expect(env.CLOUDFLARE_API_TOKEN).toBeUndefined();
+  });
+
+  it("falls back to the default when a defaulted value arrives blank", () => {
+    const env = loadEnv(asComposeWouldPassIt, "api");
+    expect(env.CLOUDFLARE_SAAS_CNAME_TARGET).toBe("customers.localhost");
+  });
+
+  it("still refuses a blank value that is genuinely required", () => {
+    // Blank means absent, and absent is exactly what these may not be.
+    expect(() => loadEnv({ ...asComposeWouldPassIt, MONGODB_URI: "" }, "api")).toThrow(EnvironmentError);
+    expect(() => loadEnv({ ...asComposeWouldPassIt, BETTER_AUTH_SECRET: "   " }, "api")).toThrow(EnvironmentError);
+  });
+
+  it("still refuses a value that is present and wrong", () => {
+    expect(() => loadEnv({ ...asComposeWouldPassIt, BETTER_AUTH_SECRET: "too-short" }, "api")).toThrow(
+      EnvironmentError,
+    );
+  });
+});
