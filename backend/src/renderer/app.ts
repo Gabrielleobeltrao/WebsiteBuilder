@@ -1,4 +1,4 @@
-import express, { type Express, type Request } from "express";
+import express, { type Express, type Request, type Router } from "express";
 import { pinoHttp } from "pino-http";
 import type { Logger } from "pino";
 
@@ -79,8 +79,10 @@ export function createRendererApp(options: {
   logger: Logger;
   resolver?: SiteResolver;
   recordView?: ViewRecorder;
+  /** Analytics endpoints. Absent means the renderer serves pages and nothing else. */
+  analytics?: Router;
 }): Express {
-  const { env, logger, resolver, recordView } = options;
+  const { env, logger, resolver, recordView, analytics } = options;
 
   const app = express();
   app.disable("x-powered-by");
@@ -105,6 +107,11 @@ export function createRendererApp(options: {
   app.get("/healthz", (_req, res) => {
     res.status(200).json({ data: { status: "ok", uptimeSeconds: Math.floor(process.uptime()) } });
   });
+
+  // Before the page catch-all, and before the unknown-host guard: these paths belong to the
+  // platform, not to any tenant's route table, so a site cannot shadow them by publishing a page at
+  // the same address.
+  if (analytics !== undefined) app.use(analytics);
 
   if (resolver === undefined) {
     app.use((_req, res) => {

@@ -588,7 +588,7 @@ they are listed as P1-T0a through P1-T0e below.
   - Collect LCP, INP, CLS, FCP, and TTFB without blocking rendering.
   - Acceptance: supported metrics arrive with device/page/version identity and unsupported cases remain absent, not zero.
 
-- [ ] **P3-T4 — Implement same-origin ingestion**
+- [x] **P3-T4 — Implement same-origin ingestion**
   - Resolve host and route before accepting events; add strict validation, deduplication, rate limiting, bot filtering, body limits, and generic errors.
   - Never log request payloads or raw identifiers.
   - Acceptance: spoofed tenant IDs, unknown hosts, malformed batches, oversized bodies, replayed events, and abuse cases are rejected safely.
@@ -801,6 +801,7 @@ Append entries; do not erase history.
 | 2026-08-11 | P1-T1/P1-T2 contracts | `052547e` | `npx vitest run packages/shared/src/analytics.test.ts` | 25 tests |
 | 2026-08-11 | P2-T1/P2-T2 storage and aggregation | n/a | `npx vitest run backend/tests/analytics-{aggregate,repository}.test.ts` | 37 tests: 17 fixture tests of the arithmetic with no database, 20 against a real MongoDB covering index shape, retention ordering, deduplication, tenant isolation and version lifetime |
 | 2026-08-11 | P2-T3 version lifetime | n/a | `npx vitest run backend/tests/publishing-{repository,service}.test.ts` | Pruning now reports the ids it removed instead of a count, and publishing deletes the matching bins through an injected hook — awaited so state stays consistent, swallowed so a failed cleanup cannot fail a publish |
+| 2026-08-11 | P3-T4 ingestion | n/a | `npx vitest run backend/tests/analytics-ingestion.test.ts` | 20 tests against the real renderer: forged tenant fields, unpublished paths, another tenant's version, non-JSON bodies, oversize bodies, over-long batches, unknown hosts, replays, crawlers, both rate-limit buckets, and a disabled site |
 | 2026-08-11 | P1-T0a..e prerequisites | n/a | `npm run typecheck && npm run test && npm run build && npm run test:e2e` | 1436 unit tests and 28 E2E green, including a new `published-site` browser project. Two pre-existing defects found and fixed: elements outside free-layout sections carried no id at all, and the renderer could not run under `tsx` because the frontend components it renders were outside the backend tsconfig's `include` — so `npm run dev:renderer` had never served a page. |
 
 ## 19. Decision Log
