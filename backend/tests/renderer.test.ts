@@ -9,7 +9,7 @@ import { createGridFsStorage } from "../src/modules/media/storage";
 import { ProjectRepository, type WorkspaceContext } from "../src/modules/projects/repository";
 import { ensurePublishingIndexes, PublishingRepository } from "../src/modules/publishing/repository";
 import { PublishingService } from "../src/modules/publishing/service";
-import { createRendererApp } from "../src/renderer/app";
+import { createRendererApp, PUBLISHED_SITE_CSP } from "../src/renderer/app";
 import { SiteResolver } from "../src/renderer/resolver";
 import { testEnv, testLogger } from "./helpers";
 import { startTestDatabase, type TestDatabase } from "./mongo";
@@ -256,5 +256,111 @@ describe("restart", () => {
     const response = await request(app).get("/").set("Host", "alpha.example.test");
     expect(response.status).toBe(200);
     expect(response.text).toContain("Alpha home");
+  });
+});
+
+describe("host routing safety", () => {
+  /**
+   * One process serves every tenant, so the hostname is the only thing standing between them.
+   * Everything here is an attempt to be served a site the request has no claim to.
+   */
+  it("refuses a reserved platform label even though it matches the wildcard", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+
+    const app = renderer();
+    for (const reserved of ["api", "www", "admin", "origin", "customers", "app"]) {
+      const response = await request(app).get("/").set("Host", `${reserved}.example.test`);
+      expect(response.status).toBe(404);
+    }
+  });
+
+  it("refuses a hostname that is not registered, whatever it looks like", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+
+    const app = renderer();
+    // A trailing dot is deliberately absent here: it denotes the same host in DNS and is asserted
+    // to resolve in the next case.
+    for (const host of ["alpha.example.test.evil.test", "evil.test", "alpha-other.example.test"]) {
+      expect((await request(app).get("/").set("Host", host)).status).toBe(404);
+    }
+  });
+
+  it("resolves a hostname regardless of case and trailing dot", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+
+    const app = renderer();
+    for (const host of ["ALPHA.example.test", "Alpha.Example.Test", "alpha.example.test."]) {
+      const response = await request(app).get("/").set("Host", host);
+      expect(response.status).toBe(200);
+      expect(response.text).toContain("Alpha home");
+    }
+  });
+
+  it("refuses an IP literal, which can never be a customer hostname", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+
+    const app = renderer();
+    for (const host of ["127.0.0.1", "[::1]", "10.0.0.5:3001"]) {
+      expect((await request(app).get("/").set("Host", host)).status).toBe(404);
+    }
+  });
+
+  it("does not let a forwarded-host chain select a tenant", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+    await liveSite(B, "Beta", "beta.example.test");
+
+    // Ambiguous chains are exactly what a spoofing attempt looks like: the real host says one
+    // thing and a header claims another.
+    const response = await request(renderer())
+      .get("/")
+      .set("Host", "beta.example.test")
+      .set("X-Forwarded-Host", "alpha.example.test, beta.example.test");
+
+    expect(response.text).toContain("Beta home");
+    expect(response.text).not.toContain("Alpha");
+  });
+
+  it("answers an unknown host identically however it fails", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+
+    const app = renderer();
+    const reserved = await request(app).get("/").set("Host", "api.example.test");
+    const unknown = await request(app).get("/").set("Host", "nothing.example.test");
+    const malformed = await request(app).get("/").set("Host", "not a host");
+
+    // Three different reasons, one response. A difference here is a way to discover which
+    // hostnames exist.
+    expect(reserved.status).toBe(unknown.status);
+    expect(unknown.status).toBe(malformed.status);
+    expect(reserved.text).toBe(unknown.text);
+    expect(unknown.text).toBe(malformed.text);
+  });
+});
+
+describe("published page security headers", () => {
+  it("forbids scripts outright, because a published page ships none", () => {
+    // The policy is the truth written down rather than a compromise. If a script is ever added to
+    // public output, this line refuses it until someone argues for the change.
+    expect(PUBLISHED_SITE_CSP).toContain("script-src 'none'");
+    expect(PUBLISHED_SITE_CSP).toContain("default-src 'none'");
+  });
+
+  it("allows inline styles, which are serialised by the renderer and never supplied by a designer", () => {
+    expect(PUBLISHED_SITE_CSP).toContain("style-src 'self' 'unsafe-inline'");
+  });
+
+  it("limits frames to the two providers whose embed URLs this code builds", () => {
+    expect(PUBLISHED_SITE_CSP).toContain("frame-src https://www.youtube-nocookie.com https://player.vimeo.com");
+    expect(PUBLISHED_SITE_CSP).toContain("frame-ancestors 'none'");
+  });
+
+  it("sends the policy with every rendered page", async () => {
+    await liveSite(A, "Alpha", "alpha.example.test");
+    const response = await request(renderer()).get("/").set("Host", "alpha.example.test");
+
+    expect(response.headers["content-security-policy"]).toBe(PUBLISHED_SITE_CSP);
+    expect(response.headers["x-content-type-options"]).toBe("nosniff");
+    expect(response.headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+    expect(response.headers["permissions-policy"]).toContain("camera=()");
   });
 });

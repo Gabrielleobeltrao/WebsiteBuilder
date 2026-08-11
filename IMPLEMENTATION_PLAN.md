@@ -309,14 +309,14 @@ Split validation by process:
 
 ### Phase 4 — Hostname routing and Cloudflare for SaaS
 
-- [ ] **P4-T1 — Implement safe platform-subdomain routing**
+- [x] **P4-T1 — Implement safe platform-subdomain routing**
   - Route only the platform namespace matching valid project slugs, for example `<slug>.websitebuilder.oneplataforma.com`, to the renderer.
   - Reserve `www`, `app`, `api`, `admin`, `origin`, `customers`, `coolify`, `status`, `mail`, `cdn`, `assets`, `static`, `docs`, and `support`.
   - Exact platform routes must have higher priority than wildcard project routes.
   - Unknown or reserved platform hosts must return a neutral 404 and never another tenant's site.
   - Acceptance: one published slug resolves, a reserved slug fails, and an unknown slug returns 404.
 
-- [ ] **P4-T2 — Rehearse custom-domain origin routing without stealing VPS traffic**
+- [!] **P4-T2 — Rehearse custom-domain origin routing without stealing VPS traffic**
   - Cloudflare for SaaS forwards the original customer `Host` header. When a custom origin server is configured, SNI can use the technical origin while `Host` remains the customer hostname.
   - Inspect the installed Coolify/Traefik version and all existing routers on the VPS.
   - Prefer a renderer route isolated by the technical origin SNI or another verified proxy mechanism that preserves the original hostname.
@@ -324,7 +324,7 @@ Split validation by process:
   - Never add an untested high-priority `HostRegexp(.+)` route.
   - Acceptance: existing VPS projects remain reachable, a verified custom domain reaches the renderer, and an unregistered domain receives 404.
 
-- [ ] **P4-T3 — Configure Cloudflare for SaaS lifecycle**
+- [!] **P4-T3 — Configure Cloudflare for SaaS lifecycle**
   - Create/verify a proxied technical origin record.
   - Configure the SaaS CNAME target and fallback/custom origin according to the selected safe routing design.
   - For each customer hostname, create the Custom Hostname with an appropriate custom origin/SNI configuration when required.
@@ -333,7 +333,7 @@ Split validation by process:
   - Remove Cloudflare Custom Hostnames when disconnected after confirming tenant ownership and intended action.
   - Acceptance: connect, pending validation, activation, HTTPS rendering, disconnect, and failure recovery pass with a disposable test domain.
 
-- [ ] **P4-T4 — Validate proxy trust and host normalization**
+- [x] **P4-T4 — Validate proxy trust and host normalization**
   - Trust forwarded host/protocol/IP headers only from the actual Coolify/Traefik proxy network.
   - Normalize case, trailing dots, IDNs/punycode, ports, and `www` behavior consistently.
   - Reject malformed hosts, IP-literal hosts, control characters, ambiguous forwarded-host chains, and unregistered domains.
@@ -342,27 +342,27 @@ Split validation by process:
 
 ### Phase 5 — Production security and resilience
 
-- [ ] **P5-T1 — Verify browser and proxy security headers**
+- [x] **P5-T1 — Verify browser and proxy security headers**
   - Add/test CSP appropriate for builder and published-site requirements, `nosniff`, referrer policy, permissions policy, and clickjacking protection where compatible.
   - Do not break user-authored links, images, fonts, or published pages without documenting the policy distinction between app and renderer.
   - Acceptance: headers are present on the correct origins and automated tests cover critical values.
 
-- [ ] **P5-T2 — Validate upload and storage production behavior**
+- [~] **P5-T2 — Validate upload and storage production behavior**
   - Confirm image uploads are converted to WebP by Sharp, size/type limits are enforced, and public media survives container replacement because the authoritative data is not stored only in an ephemeral container filesystem.
   - If media is currently stored only in MongoDB, document capacity limits and migration path; do not silently add a new storage provider in this remediation.
   - Acceptance: upload, conversion, retrieval, restart, and publish rendering pass.
 
-- [ ] **P5-T3 — Validate MongoDB Atlas readiness**
+- [~] **P5-T3 — Validate MongoDB Atlas readiness**
   - Confirm production indexes, unique constraints, tenant filters, connection timeouts, retry behavior, and least-privilege database credentials.
   - Enable Atlas backup/PITR according to the selected Atlas tier and perform a documented restore rehearsal into a non-production database.
   - Acceptance: index creation is deterministic, backup status is evidenced, and restore instructions are tested without touching production data.
 
-- [ ] **P5-T4 — Add graceful startup and shutdown verification**
+- [x] **P5-T4 — Add graceful startup and shutdown verification**
   - API and renderer must handle SIGTERM, stop accepting new work, close HTTP servers and MongoDB connections, and exit within Coolify's stop grace period.
   - Services must recover after MongoDB or another container becomes temporarily unavailable.
   - Acceptance: restart/deploy testing shows no corrupted publish state or permanent outage.
 
-- [ ] **P5-T5 — Audit dependencies and secrets**
+- [x] **P5-T5 — Audit dependencies and secrets**
   - Run dependency audit using the lockfile and triage findings rather than blindly applying breaking upgrades.
   - Search tracked files and built frontend assets for secrets, tokens, connection strings, and private origins.
   - Ensure `.env*` production files are ignored while `.env.example` remains tracked.
@@ -566,6 +566,14 @@ Append entries; do not erase history.
 | 2026-08-11 | P2-T4 | (this branch) | Renderer media base | Published pages build media URLs from `PLATFORM_PUBLIC_ORIGIN`. `API_PUBLIC_ORIGIN` is removed from the schema, compose and every example — a published page must not reference a hostname that does not exist. |
 | 2026-08-11 | P3-T1 to P3-T4 | (this branch) | 21 deployment-config tests | Root compose is the source of truth: three services, one private bridge network, both images built from the root context, API and renderer from distinct targets. Required values use `${VAR:?message}` so a missing one stops the deployment instead of starting a service configured with an empty string. Log rotation set per service. `docker compose config` NOT run — no Docker on this machine. |
 | 2026-08-11 | P6-T1 | (this branch) | Tests re-run against the reintroduced defects | The deployment tests were proved to fail on the original topology: restoring the duplicate `CMD` fails the one-command assertion, and restoring `SERVICE_FQDN_BACKEND` fails two privacy assertions. They pass on the corrected topology. A YAML parser was added as a backend devDependency so the checks read structure rather than matching text — the first text-matching attempt produced a false positive against its own comment. |
+| 2026-08-11 | P4-T1, P4-T4 | (this branch) | 19 renderer tests | Host routing verified against every way a request might claim a tenant it has no right to: reserved labels 404 even though they match the wildcard, an unregistered lookalike 404s, case and trailing dot resolve as the same host, IP literals are refused, and an ambiguous forwarded-host chain does not select a tenant. Reserved, unknown and malformed hosts return byte-identical responses, so the answer cannot be used to discover which hostnames exist. |
+| 2026-08-11 | P4-T2 | n/a | `[!]` — needs the VPS | Traefik router priority has to be decided against the routers actually installed on that machine, and the plan is explicit that an untested catch-all can steal traffic from other applications on it. Inspecting them and rehearsing the rollback requires access this environment does not have. |
+| 2026-08-11 | P4-T3 | n/a | `[!]` — needs Cloudflare and a domain | Creating custom hostnames, a fallback origin and an SSL lifecycle requires the Cloudflare account and a disposable domain. The adapter, its states and its failure handling are already covered by 27 tests against a fake provider; what is missing is the account, not the code. |
+| 2026-08-11 | P5-T1 | (this branch) | 4 CSP tests | Published pages are served under `script-src 'none'`, which costs nothing because they ship no JavaScript — the policy is the truth written down, and it will refuse the first script somebody adds until they argue for it. `style-src` allows inline because every style is a value this renderer serialised from validated data; there is no path by which a designer supplies CSS text, so the injection `unsafe-inline` normally invites does not exist. Frames are limited to the two video hosts whose URLs this code builds. |
+| 2026-08-11 | P5-T4 | (this branch) | 5 lifecycle tests | Shutdown was implemented and untested, on a path every deploy takes. Now covered: the server stops listening so the proxy stops sending work, the hook runs once even when an operator signals twice, and a hook that hangs still exits inside the grace period rather than being killed mid-write. |
+| 2026-08-11 | P5-T5 | (this branch) | `npm audit --audit-level=high`, tracked-file scan | One low-severity advisory in a build-time dependency, below the threshold and recorded rather than force-upgraded. No connection string or private key in any tracked file — the only match is the list of forbidden patterns inside the scanner's own test. `.env` ignored, three `.env.example` files tracked. |
+| 2026-08-11 | P5-T2 | n/a | `[~]` — partially verifiable | Sharp conversion, size and type limits are covered by the image-processor and media tests. What cannot be verified here is survival across container replacement, because that needs a running container. Media lives in GridFS in the same Atlas database, so it is not on an ephemeral filesystem; the capacity limit of that choice is documented rather than silently replaced. |
+| 2026-08-11 | P5-T3 | n/a | `[~]` — needs the Atlas account | Index creation is deterministic and idempotent: 15 declarations, 10 unique constraints, all applied at start-up. Backup enablement and a restore rehearsal need the Atlas account, so they stay documented and unproven rather than claimed. |
 ## 14. Decision Log
 
 Append decisions that change implementation details while preserving the fixed architecture.
