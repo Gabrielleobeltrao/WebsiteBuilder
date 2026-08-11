@@ -26,7 +26,7 @@ type LoadState =
  * the URL is only a request, and the server decides what the caller may see.
  */
 export function SitesPage({ workspaceId }: { workspaceId: string }) {
-  const { t } = useTranslation(["dashboard", "errors", "common"]);
+  const { t } = useTranslation(["dashboard", "publishing", "errors", "common"]);
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [dialog, setDialog] = useState<DialogState>({ kind: "none" });
   const [name, setName] = useState("");
@@ -154,7 +154,20 @@ export function SitesPage({ workspaceId }: { workspaceId: string }) {
                         : project.liveUrl.replace(/^https?:\/\//, "")}
                     </p>
                   </div>
-                  <div className="flex shrink-0 gap-2">
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    {/* Publishing is what puts a change in front of visitors, and it is needed
+                        again every time the site is edited — so it belongs on the card rather than
+                        two taps away behind the site's own page. */}
+                    <Link
+                      to={`/app/${workspaceId}/sites/${project.id}/publish`}
+                      className={
+                        project.liveUrl === undefined
+                          ? "rounded-md bg-accent-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-accent-700"
+                          : "rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
+                      }
+                    >
+                      {t("publishing:publish.title")}
+                    </Link>
                     {/* The published address, when there is one. Not a preview: a preview is a
                         rehearsal of what a visitor would get, and what someone opening this list
                         wants is the page their visitors are actually on. It appears only where the

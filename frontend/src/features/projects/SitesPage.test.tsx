@@ -190,6 +190,27 @@ describe("finding a site from the list", () => {
     expect(screen.queryByRole("link", { name: "Visit site" })).toBeNull();
   });
 
+  it("offers publishing from the card, because it is needed after every edit", async () => {
+    mockFetch(() => ok([summary()]));
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+
+    const publish = await screen.findByRole("link", { name: "Publish" });
+    expect(publish).toHaveAttribute("href", "/app/w1/sites/aaaaaaaaaaaaaaaaaaaaaaaa/publish");
+  });
+
+  it("emphasises publishing while a site has never been live, and stops shouting once it is", async () => {
+    // The one action that turns a site nobody can reach into one they can. Once it is reachable,
+    // publishing is routine and the emphasis belongs elsewhere.
+    mockFetch(() => ok([summary()]));
+    const { unmount } = renderWithProviders(<SitesPage workspaceId="w1" />);
+    expect((await screen.findByRole("link", { name: "Publish" })).className).toContain("bg-accent-600");
+    unmount();
+
+    mockFetch(() => ok([summary({ liveUrl: "https://acme-studio.example.com" })]));
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+    expect((await screen.findByRole("link", { name: "Publish" })).className).not.toContain("bg-accent-600");
+  });
+
   it("shows the site's own page as a link a touch device can see", async () => {
     mockFetch(() => ok([summary()]));
     // Underlined always rather than on hover: a phone has no hover, and a link that reveals itself

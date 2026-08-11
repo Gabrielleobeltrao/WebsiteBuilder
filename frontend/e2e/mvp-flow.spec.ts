@@ -170,6 +170,11 @@ test.describe("reaching the live site from a phone", () => {
     // The state most customers see first, and the one a link would lie about.
     await expect(page.getByText(/Not published yet/)).toBeVisible();
     await expect(page.getByRole("link", { name: "Visit site" })).toHaveCount(0);
+
+    // And the action that changes it, one tap from the same card.
+    await page.getByRole("link", { name: "Publish" }).first().click();
+    await expect(page).toHaveURL(/\/publish$/, { timeout: 20_000 });
+    await expect(page.getByRole("heading", { level: 1, name: "Publish" })).toBeVisible();
   });
 });
 

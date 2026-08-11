@@ -120,9 +120,12 @@ export function PublishPanel({ workspaceId, projectId }: { workspaceId: string; 
   return (
     <section aria-labelledby="publish-heading" className="space-y-8">
       <header>
-        <h2 id="publish-heading" className="font-display text-xl font-semibold text-ink-950">
+        {/* The page's own heading. It is the only thing on this route, and every sibling route —
+            sites, overview, analytics — opens with an h1; a page whose top heading is an h2 reads to
+            a screen reader as a section of something that is not there. */}
+        <h1 id="publish-heading" className="font-display text-xl font-semibold text-ink-950">
           {t("publishing:publish.title")}
-        </h2>
+        </h1>
         <p className="mt-1 text-sm text-ink-600">{t("publishing:publish.subtitle")}</p>
       </header>
 
