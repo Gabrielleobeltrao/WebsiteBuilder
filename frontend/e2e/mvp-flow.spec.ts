@@ -141,8 +141,12 @@ test.describe("preview", () => {
 
     const workspacePath = new URL(page.url()).pathname.split("/").slice(0, 3).join("/");
     await page.goto(`${workspacePath}/sites`);
+    // The card has to have rendered before its link is clicked: the list loads asynchronously, and
+    // clicking during that render resolves the point to whatever occupied it a moment earlier.
+    await expect(page.getByText("Preview Site")).toBeVisible({ timeout: 20_000 });
     await page.getByRole("link", { name: "Open" }).first().click();
     await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
+    await expect(page.getByRole("tab", { name: "Add elements" })).toBeVisible({ timeout: 20_000 });
 
     // The preview link in the editor. There is one, not one per device.
     await expect(page.getByRole("link", { name: /preview/i })).toHaveCount(1);

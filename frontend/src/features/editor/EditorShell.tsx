@@ -6,6 +6,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { PageMetadata } from "@/components/common/PageMetadata";
 import { EditableCanvas } from "@/features/editor/canvas/EditableCanvas";
 import { ElementsPanel } from "@/features/editor/panel/ElementsPanel";
+import type { ElementDefinition } from "@websitebuilder/shared";
 import { LayersPanel } from "@/features/editor/panel/LayersPanel";
 import { PageSettingsPanel } from "@/features/editor/panel/PageSettingsPanel";
 import { PagesPanel } from "@/features/editor/panel/PagesPanel";
@@ -14,7 +15,7 @@ import { resolvePanelView } from "@/features/editor/panel/panelMachine";
 import { RightPanel } from "@/features/editor/panel/RightPanel";
 import { DeviceSwitcher } from "@/features/editor/canvas/DeviceSwitcher";
 import { SaveStateIndicator } from "@/features/editor/SaveStateIndicator";
-import { findElement } from "@/features/editor/store/elements";
+import { canAcceptChild, findElement } from "@/features/editor/store/elements";
 import {
   selectCurrentPage,
   selectHasUnsavedChanges,
@@ -120,12 +121,35 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
     return section?.name || t("builder:elements.section");
   };
 
+  /**
+   * Why a block cannot be inserted where it would currently go.
+   *
+   * Only reasons that are true right now and that the person can act on. There is deliberately no
+   * entitlement state here: every workspace resolves to the same plan today, and a disabled row
+   * explaining a limit nobody has would be an invented restriction.
+   */
+  const unavailableReason = (definition: ElementDefinition): string | undefined => {
+    if (definition.type !== "container") return undefined;
+
+    const target = selectInsertionTarget(store);
+    if (target?.containerId === undefined) return undefined;
+
+    const parent = findElement(store.history.present, target.containerId);
+    return parent !== null && !canAcceptChild(parent) ? t("builder:canvas.tooDeep") : undefined;
+  };
+
   const renderMode = (mode: PanelMode) => {
     switch (mode) {
       case "pages":
         return <PagesPanel />;
       case "elements":
-        return <ElementsPanel onAdd={(type) => store.insertElement(type)} destination={destinationLabel()} />;
+        return (
+          <ElementsPanel
+            onAdd={(type) => store.insertElement(type)}
+            destination={destinationLabel()}
+            unavailable={unavailableReason}
+          />
+        );
       case "layers":
         return <LayersPanel />;
       case "pageSettings":

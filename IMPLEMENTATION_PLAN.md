@@ -140,11 +140,11 @@ The implementation must first activate and complete block schemas that already e
 
 ### Phase 2 — Rebuild the Elements destination
 
-- [ ] **2.1 Add catalog search.** Search localized block names and keywords without changing the canvas selection.
-- [ ] **2.2 Add collapsible categories:** Layout, Basic, Media, Interactive, Marketing, and Navigation.
-- [ ] **2.3 Add Recent and Favorites.** Recent is bounded; favorites are a user preference and do not modify project content.
-- [ ] **2.4 Keep both drag and click insertion.** Drag shows valid targets; click inserts into the selected container/section or creates a safe section at the end.
-- [ ] **2.5 Explain unavailable blocks in context.** Blog/CMS-only blocks are hidden outside their builders; entitlement or setup requirements use a disabled state with an actionable explanation where appropriate.
+- [x] **2.1 Add catalog search.** Search localized block names and keywords without changing the canvas selection.
+- [x] **2.2 Add collapsible categories:** Layout, Basic, Media, Interactive, Marketing, and Navigation.
+- [x] **2.3 Add Recent and Favorites.** Recent is bounded; favorites are a user preference and do not modify project content.
+- [x] **2.4 Keep both drag and click insertion.** Drag shows valid targets; click inserts into the selected container/section or creates a safe section at the end.
+- [x] **2.5 Explain unavailable blocks in context.** Blog/CMS-only blocks are hidden outside their builders; entitlement or setup requirements use a disabled state with an actionable explanation where appropriate.
   - Acceptance for Phase 2: the catalog remains usable by keyboard, provides translated accessible names, and does not exceed the existing right-panel width at either supported locale.
 
 ### Phase 3 — Complete existing core blocks
@@ -312,6 +312,8 @@ The plan adopts the proven discoverability and contextual-editing patterns, whil
 - 2026-08-12 — 1.2 The registry is a `Record` over the union and `VisualElementRenderer` ends in a `never` check, so a block added without a definition or a renderer fails `npm run typecheck`. A contract test parses every block's defaults with the real document schema.
 - 2026-08-12 — 1.3 `element-migrations.ts`: elements carry an optional `version` (absent = 1), migration is pure and runs on read in both the editor and publishing, returns the same object when nothing changed, and refuses an element written by a newer deployment rather than half-reading it.
 - 2026-08-12 — 1.4 `countReferences` derives its element types from the registry. The list it replaced named `form`, `postCollection`, `blogDynamic`, `cmsCollection`, `cmsDynamic` and `search` — none a valid element type, so every count was zero and no optional feature could leave "unused". The `form` block now declares `feature: "forms"`.
+- 2026-08-12 — 2.1-2.5 The Elements destination is a searchable catalog over the registry: search matches label, type and localized keywords with accents and case folded (`botao` finds Botão); six collapsible categories; Recent (bounded at 6) and Favourites stored in `localStorage` and pruned against the registry, never in the document; drag and click both retained, with the click destination stated; a block whose context excludes it is absent, and one that cannot be inserted right now — a container at the nesting limit — is disabled with the reason as its accessible description. 14 catalog unit tests and 11 panel tests.
+- 2026-08-12 — E2E: one preview journey was flaky under parallel workers, clicking a card link during the list's own render. It now waits for the card and the builder's own control before acting. 73 E2E pass.
 - 2026-08-12 — 10.4 (frontend) An unexpected `console.error`/`console.warn` now fails the test that produced it; a test that means to provoke one declares it with `allowConsole(/pattern/)`. All 53 frontend files pass under the gate.
 
 ## Decision Log
@@ -326,6 +328,8 @@ The plan adopts the proven discoverability and contextual-editing patterns, whil
 - 2026-08-12 — The console gate restores only its own two spies. `vi.restoreAllMocks()` also resets every `vi.fn()` a module mock declared, which empties a file's stubs after its first test.
 - 2026-08-12 — Unconfigured is a representable state. A freshly inserted video, download button or form stores an empty id: a block has to be insertable before it can be filled in, and readiness reports the gap rather than the schema refusing to save the page.
 - 2026-08-12 — The registry holds data only. Inspector and renderer adapters stay in the frontend, because `packages/shared` carries no React; exhaustiveness is enforced there by a total record and a `never` check.
+- 2026-08-12 — No entitlement state in the catalog. Every workspace resolves to the same plan today, so a disabled row explaining a limit nobody has would be invented UI — which this plan explicitly rules out. The mechanism exists (`unavailable`) and is used for a restriction that is real: nesting depth.
+- 2026-08-12 — Recent and Favourites are browser preferences. They are per person, not per site; storing them in the document would put one editor's habits into another's saved revision.
 - 2026-08-12 — Budget the first screen separately from the total. Summing every chunk hides the regression that matters: a route that stops being lazily loaded moves the first screen and leaves the total unchanged.
 
 ## Continuous Claude Code goal
