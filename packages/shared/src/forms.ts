@@ -268,6 +268,57 @@ export const legacyFormCopySchema = z
 
 export type LegacyFormCopy = z.infer<typeof legacyFormCopySchema>;
 
+/**
+ * Starting points, not types.
+ *
+ * A template produces an ordinary definition and is then forgotten, exactly like a page pattern:
+ * the record stores no memory of where its fields came from, so nothing here can constrain what a
+ * form becomes afterwards.
+ *
+ * The copy is resolved by the caller from its own locale at creation time and then belongs to the
+ * author — a translated label that changed under them when they switched languages would be a
+ * label they never agreed to.
+ */
+export const FORM_TEMPLATE_IDS = ["blank", "contact", "lead", "newsletter"] as const;
+export type FormTemplateId = (typeof FORM_TEMPLATE_IDS)[number];
+
+const TEMPLATE_FIELDS: Record<FormTemplateId, ReadonlyArray<{ id: string; type: FormFieldType; required: boolean }>> = {
+  blank: [],
+  contact: [
+    { id: "name", type: "shortText", required: true },
+    { id: "email", type: "email", required: true },
+    { id: "message", type: "longText", required: true },
+  ],
+  lead: [
+    { id: "name", type: "shortText", required: true },
+    { id: "email", type: "email", required: true },
+    { id: "phone", type: "phone", required: false },
+    { id: "company", type: "shortText", required: false },
+  ],
+  // Consent is a field with an answer that is stored, not a flag on a block: "did this person agree"
+  // is exactly the kind of question a subscription record has to be able to answer later.
+  newsletter: [
+    { id: "email", type: "email", required: true },
+    { id: "consent", type: "consent", required: true },
+  ],
+};
+
+export function buildFormTemplate(id: FormTemplateId, copy: (key: string) => string): FormDefinitionInput {
+  return {
+    name: copy(`templates.${id}.name`),
+    fields: TEMPLATE_FIELDS[id].map((field) => ({
+      id: field.id,
+      type: field.type,
+      label: copy(`templates.fields.${field.id}`),
+      required: field.required,
+    })),
+    submitLabel: copy(`templates.${id}.submit`),
+    successBehavior: { type: "message", message: copy(`templates.${id}.success`) },
+    errorMessage: copy("templates.error"),
+    notificationRecipients: [],
+  };
+}
+
 export type SetupIssue =
   | { code: "no-fields" }
   | { code: "field-missing-label"; fieldId: string }

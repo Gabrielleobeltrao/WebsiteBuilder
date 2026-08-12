@@ -57,13 +57,18 @@ describe("resolveLifecycle", () => {
 });
 
 describe("navigation visibility", () => {
-  it("hides only unused and archived modules", () => {
+  it("hides only a module nothing has ever touched", () => {
     expect(isVisibleInNavigation("unused")).toBe(false);
-    expect(isVisibleInNavigation("archived")).toBe(false);
 
-    for (const lifecycle of ["draft", "needs_setup", "ready", "published", "error"] as const) {
+    for (const lifecycle of ["draft", "needs_setup", "ready", "published", "error", "archived"] as const) {
       expect(isVisibleInNavigation(lifecycle)).toBe(true);
     }
+  });
+
+  it("keeps an archived module reachable, because its records outlived its last page", () => {
+    // Removing the last block that showed a form must not take the answers people already sent
+    // with it, and the module entry is the only way back to them.
+    expect(isVisibleInNavigation(resolveLifecycle(source({ hasRetainedData: true })))).toBe(true);
   });
 
   it("keeps an incomplete module visible, which is exactly when the user needs to find it", () => {

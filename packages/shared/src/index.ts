@@ -17,6 +17,7 @@ export * from "./element-registry";
 export * from "./element-migrations";
 export * from "./features";
 export * from "./forms";
+export * from "./form-usage";
 export * from "./ids";
 export * from "./images";
 export * from "./layout";

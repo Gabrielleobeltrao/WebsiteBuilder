@@ -78,7 +78,7 @@ describe("public submission", () => {
     });
 
     expect(result.accepted).toBe(true);
-    const stored = await repository.listSubmissions(A, PROJECT, form.id);
+    const stored = await repository.listSubmissions(A, PROJECT, { formId: form.id });
     expect(stored.total).toBe(1);
     expect(stored.items[0]?.values).toEqual({ name: "Ana", email: "ana@example.com" });
   });
@@ -91,7 +91,7 @@ describe("public submission", () => {
       values: { name: "Ana", email: "ana@example.com", secret: "leak", workspaceId: "workspace-b" },
     });
 
-    const stored = await repository.listSubmissions(A, PROJECT, form.id);
+    const stored = await repository.listSubmissions(A, PROJECT, { formId: form.id });
     expect(stored.items[0]?.values).not.toHaveProperty("secret");
     expect(stored.items[0]?.values).not.toHaveProperty("workspaceId");
   });
@@ -102,7 +102,7 @@ describe("public submission", () => {
 
     expect(result.accepted).toBe(false);
     expect(result.errors.map((error) => error.fieldId)).toEqual(["email"]);
-    expect((await repository.listSubmissions(A, PROJECT, form.id)).total).toBe(0);
+    expect((await repository.listSubmissions(A, PROJECT, { formId: form.id })).total).toBe(0);
   });
 
   it("answers identically for an unknown form, revealing nothing about what exists", async () => {
@@ -136,7 +136,7 @@ describe("public submission", () => {
 
     // Telling the visitor it failed would make them submit again.
     expect(second.accepted).toBe(true);
-    expect((await repository.listSubmissions(A, PROJECT, form.id)).total).toBe(1);
+    expect((await repository.listSubmissions(A, PROJECT, { formId: form.id })).total).toBe(1);
   });
 
   it("accepts the same content again once the window has passed", async () => {
@@ -146,7 +146,7 @@ describe("public submission", () => {
     await repository.submit({ projectId: PROJECT, formId: form.id, values, now: new Date("2026-08-10T10:00:00Z") });
     await repository.submit({ projectId: PROJECT, formId: form.id, values, now: new Date("2026-08-10T12:00:00Z") });
 
-    expect((await repository.listSubmissions(A, PROJECT, form.id)).total).toBe(2);
+    expect((await repository.listSubmissions(A, PROJECT, { formId: form.id })).total).toBe(2);
   });
 
   it("refuses submissions to an archived form", async () => {
@@ -178,7 +178,7 @@ describe("reference-aware removal", () => {
 
     // The definition and every submission survive and stay reachable.
     expect((await repository.findById(A, PROJECT, form.id))?.archived).toBe(true);
-    expect((await repository.listSubmissions(A, PROJECT, form.id)).total).toBe(1);
+    expect((await repository.listSubmissions(A, PROJECT, { formId: form.id })).total).toBe(1);
   });
 
   it("restores an archived definition", async () => {
@@ -196,7 +196,7 @@ describe("submission management", () => {
   it("marks a submission read, archived or spam", async () => {
     const form = await repository.create(A, PROJECT, definition());
     await repository.submit({ projectId: PROJECT, formId: form.id, values: { name: "A", email: "a@b.com" } });
-    const [submission] = (await repository.listSubmissions(A, PROJECT, form.id)).items;
+    const [submission] = (await repository.listSubmissions(A, PROJECT, { formId: form.id })).items;
 
     const updated = await repository.setSubmissionStatus(A, PROJECT, submission!.id, "spam");
     expect(updated?.status).toBe("spam");
@@ -205,9 +205,9 @@ describe("submission management", () => {
   it("does not read, update or delete submissions across workspaces", async () => {
     const form = await repository.create(A, PROJECT, definition());
     await repository.submit({ projectId: PROJECT, formId: form.id, values: { name: "A", email: "a@b.com" } });
-    const [submission] = (await repository.listSubmissions(A, PROJECT, form.id)).items;
+    const [submission] = (await repository.listSubmissions(A, PROJECT, { formId: form.id })).items;
 
-    expect((await repository.listSubmissions(B, PROJECT, form.id)).total).toBe(0);
+    expect((await repository.listSubmissions(B, PROJECT, { formId: form.id })).total).toBe(0);
     expect(await repository.setSubmissionStatus(B, PROJECT, submission!.id, "spam")).toBeNull();
     expect(await repository.deleteSubmission(B, PROJECT, submission!.id)).toBe(false);
   });
@@ -222,7 +222,7 @@ describe("submission management", () => {
 
     const deleted = await repository.applyRetention(A, PROJECT, formA.id, 30, new Date("2026-08-10T00:00:00Z"));
     expect(deleted).toBe(1);
-    expect((await repository.listSubmissions(B, PROJECT, formB.id)).total).toBe(1);
+    expect((await repository.listSubmissions(B, PROJECT, { formId: formB.id })).total).toBe(1);
   });
 });
 

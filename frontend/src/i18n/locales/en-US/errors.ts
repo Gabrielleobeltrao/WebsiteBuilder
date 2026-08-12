@@ -8,6 +8,7 @@ export default {
   FORBIDDEN: "You do not have permission to do this.",
   NOT_FOUND: "We could not find what you were looking for.",
   REVISION_CONFLICT: "This was changed somewhere else after you opened it. Reload to see the newest version.",
+  RESOURCE_IN_USE: "Something still uses this, so it cannot be removed yet.",
   SLUG_TAKEN: "That address is already in use. Choose another one.",
   PAYLOAD_TOO_LARGE: "This content is too large to save.",
   RATE_LIMITED: "Too many attempts. Wait a moment and try again.",

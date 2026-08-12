@@ -42,9 +42,17 @@ export function resolveLifecycle(source: FeatureSource): SiteFeatureLifecycle {
   return "unused";
 }
 
-/** Whether the module gets a permanent entry in the left site navigation. */
+/**
+ * Whether the module gets an entry in the site navigation.
+ *
+ * `unused` is the only state that hides it. `archived` used to hide it too, which contradicted the
+ * reason archived exists: it is the state of a module whose last page reference is gone and whose
+ * *records are not* — blog posts, CMS items, form submissions people actually sent. Hiding the
+ * module was hiding the only way to reach them, so deleting one block on one page silently took a
+ * customer's inbox with it.
+ */
 export function isVisibleInNavigation(lifecycle: SiteFeatureLifecycle): boolean {
-  return lifecycle !== "unused" && lifecycle !== "archived";
+  return lifecycle !== "unused";
 }
 
 /** Whether publication is blocked. An unused module never blocks; an incomplete used one does. */

@@ -4,6 +4,7 @@ export default {
   FORBIDDEN: "Você não tem permissão para fazer isso.",
   NOT_FOUND: "Não encontramos o que você procurava.",
   REVISION_CONFLICT: "Isto foi alterado em outro lugar depois que você abriu. Recarregue para ver a versão mais recente.",
+  RESOURCE_IN_USE: "Algo ainda usa isto, então não é possível remover agora.",
   SLUG_TAKEN: "Este endereço já está em uso. Escolha outro.",
   PAYLOAD_TOO_LARGE: "Este conteúdo é grande demais para salvar.",
   RATE_LIMITED: "Tentativas demais. Espere um momento e tente de novo.",

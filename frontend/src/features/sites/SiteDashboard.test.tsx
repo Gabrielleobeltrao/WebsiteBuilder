@@ -75,12 +75,14 @@ describe("contextual module navigation", () => {
     );
   });
 
-  it("hides an archived module while keeping the site usable", async () => {
+  it("keeps an archived module reachable, because its records outlived its last page", async () => {
     mockStatus([feature({ feature: "blog", lifecycle: "archived" })]);
     render();
 
+    // Archived means "no page references it any more", not "its posts are gone". Hiding the entry
+    // was hiding the only way to reach them.
     const optional = await screen.findByRole("navigation", { name: "Modules" });
-    expect(within(optional).queryByRole("link", { name: /Blog/ })).toBeNull();
+    expect(within(optional).getByRole("link", { name: /Blog/ })).toBeInTheDocument();
   });
 
   it("badges a module that needs setup", async () => {

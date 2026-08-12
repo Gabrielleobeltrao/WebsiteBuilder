@@ -1,8 +1,11 @@
 import {
   resolveFormStatus,
+  snapshotFields,
   validateSubmission,
   type FormDefinitionInput,
+  type FormField,
   type FormStatus,
+  type SubmissionFieldSnapshot,
   type SubmissionValues,
 } from "@websitebuilder/shared";
 import { ObjectId, type Collection, type Db } from "mongodb";
@@ -50,7 +53,14 @@ export class FormRevisionConflictError extends Error {
   }
 }
 
-export type SubmissionSource = { pageId?: string; path?: string; utm?: Record<string, string> };
+/**
+ * Where a submission came from, as the server worked it out.
+ *
+ * Every field here is derived from the request the endpoint actually received — the resolved site,
+ * the published route manifest, the referrer — and never from the body. A visitor choosing which
+ * page their answer is attributed to is a visitor writing rows into someone else's records.
+ */
+export type SubmissionSource = { pageId?: string; path?: string; host?: string; utm?: Record<string, string> };
 export const SUBMISSION_STATUSES = ["new", "read", "archived", "spam"] as const;
 export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number];
 
@@ -59,6 +69,10 @@ export type FormSubmission = {
   workspaceId: string;
   projectId: string;
   formId: string;
+  /** The revision of the definition the visitor actually answered. */
+  formRevision: number;
+  /** The questions as they were asked, so the answers stay readable after the form moves on. */
+  fields: SubmissionFieldSnapshot[];
   values: SubmissionValues;
   source?: SubmissionSource;
   status: SubmissionStatus;
@@ -68,6 +82,18 @@ export type FormSubmission = {
 type DefinitionDocument = Omit<FormDefinition, "id"> & { _id: ObjectId };
 type SubmissionDocument = Omit<FormSubmission, "id"> & { _id: ObjectId; fingerprint: string };
 
+/** What the inbox filters by. Everything is optional; nothing widens the tenant scope. */
+export type SubmissionFilter = {
+  formId?: string;
+  status?: SubmissionStatus;
+  /** Inclusive lower and exclusive upper bound, as ISO instants. */
+  from?: string;
+  to?: string;
+  pageId?: string;
+  page?: number;
+  perPage?: number;
+};
+
 export async function ensureFormIndexes(db: Db): Promise<void> {
   await db
     .collection(FORM_COLLECTIONS.definitions)
@@ -75,6 +101,10 @@ export async function ensureFormIndexes(db: Db): Promise<void> {
 
   await db.collection(FORM_COLLECTIONS.submissions).createIndexes([
     { key: { workspaceId: 1, projectId: 1, formId: 1, createdAt: -1 }, name: "dashboard" },
+    // The inbox's own order: every form of a project, newest first, which is the screen's default.
+    { key: { workspaceId: 1, projectId: 1, createdAt: -1 }, name: "inbox" },
+    // Status is the filter people reach for most, and the unread badge is a count over it.
+    { key: { workspaceId: 1, projectId: 1, status: 1, createdAt: -1 }, name: "inbox_by_status" },
     // Duplicate suppression: the same content from the same form within the window is one entry.
     { key: { formId: 1, fingerprint: 1, createdAt: -1 }, name: "duplicate_window" },
   ]);
@@ -168,6 +198,55 @@ export class FormRepository {
   }
 
   /**
+   * A copy, ready to diverge.
+   *
+   * Duplicating is how somebody makes a variant without risking the form that is already collecting
+   * answers: the copy starts at revision 1 with no submissions of its own, and no page points at it
+   * until one is bound.
+   */
+  async duplicate(context: WorkspaceContext, projectId: string, formId: string, name: string): Promise<FormDefinition | null> {
+    const source = await this.findById(context, projectId, formId);
+    if (source === null) return null;
+
+    const { id: _id, workspaceId: _w, projectId: _p, revision: _r, createdAt: _c, updatedAt: _u, archived: _a, status: _s, ...input } = source;
+    return this.create(context, projectId, { ...input, name });
+  }
+
+  /**
+   * How many answers each form holds, in one pass.
+   *
+   * The overview lists every form with its counts; asking per form would be one query per row, and
+   * the row count is chosen by the customer.
+   */
+  async countsByForm(
+    context: WorkspaceContext,
+    projectId: string,
+  ): Promise<Map<string, { total: number; unread: number; lastAt: string | null }>> {
+    const rows = await this.submissions
+      .aggregate<{ _id: string; total: number; unread: number; lastAt: string | null }>([
+        { $match: { workspaceId: context.workspaceId, projectId } },
+        {
+          $group: {
+            _id: "$formId",
+            total: { $sum: 1 },
+            unread: { $sum: { $cond: [{ $eq: ["$status", "new"] }, 1, 0] } },
+            lastAt: { $max: "$createdAt" },
+          },
+        },
+      ])
+      .toArray();
+
+    return new Map(rows.map((row) => [row._id, { total: row.total, unread: row.unread, lastAt: row.lastAt ?? null }]));
+  }
+
+  /** Whether this project holds any form record at all, for the navigation projection. */
+  async hasRecords(context: WorkspaceContext, projectId: string): Promise<boolean> {
+    const scope = { workspaceId: context.workspaceId, projectId };
+    if ((await this.definitions.countDocuments(scope, { limit: 1 })) > 0) return true;
+    return (await this.submissions.countDocuments(scope, { limit: 1 })) > 0;
+  }
+
+  /**
    * Removes a form definition only when nothing depends on it.
    *
    * A definition with submissions is archived instead. Deleting it would destroy business records
@@ -217,6 +296,15 @@ export class FormRepository {
     projectId: string;
     formId: string;
     values: Record<string, unknown>;
+    /**
+     * The exact questions to validate against.
+     *
+     * Public traffic passes the revision embedded in the published snapshot, because that is what
+     * the visitor was actually shown. Without one the live definition is used, which is what a
+     * caller editing a draft means. Either way the *tenant* comes from the stored record below, so
+     * a caller cannot direct a submission into another workspace by describing a form.
+     */
+    against?: { revision: number; fields: readonly FormField[] };
     source?: SubmissionSource;
     /** Same content within this window counts as one submission. */
     duplicateWindowMs?: number;
@@ -225,7 +313,8 @@ export class FormRepository {
     const definition = await this.findPublic(input.projectId, input.formId);
     if (definition === null) return { accepted: false, errors: [] };
 
-    const { errors, accepted } = validateSubmission(definition, input.values);
+    const asked = input.against ?? { revision: definition.revision, fields: definition.fields };
+    const { errors, accepted } = validateSubmission({ fields: [...asked.fields] }, input.values);
     if (errors.length > 0) return { accepted: false, errors };
 
     const now = input.now ?? new Date();
@@ -246,6 +335,10 @@ export class FormRepository {
       workspaceId: definition.workspaceId,
       projectId: input.projectId,
       formId: input.formId,
+      formRevision: asked.revision,
+      // Stored with the answer rather than looked up later: labels and options change, and an
+      // answer beside a question nobody asked is not a record of anything.
+      fields: snapshotFields(asked.fields),
       values: accepted,
       ...(input.source ? { source: input.source } : {}),
       status: "new",
@@ -256,17 +349,35 @@ export class FormRepository {
     return { accepted: true, errors: [] };
   }
 
+  /** The tenant-scoped query every submission read starts from. Nothing widens it. */
+  private submissionQuery(
+    context: WorkspaceContext,
+    projectId: string,
+    filter: SubmissionFilter,
+  ): Record<string, unknown> {
+    const query: Record<string, unknown> = { workspaceId: context.workspaceId, projectId };
+    if (filter.formId) query.formId = filter.formId;
+    if (filter.status) query.status = filter.status;
+    if (filter.pageId) query["source.pageId"] = filter.pageId;
+
+    if (filter.from !== undefined || filter.to !== undefined) {
+      query.createdAt = {
+        ...(filter.from === undefined ? {} : { $gte: filter.from }),
+        ...(filter.to === undefined ? {} : { $lt: filter.to }),
+      };
+    }
+
+    return query;
+  }
+
   async listSubmissions(
     context: WorkspaceContext,
     projectId: string,
-    formId: string,
-    filter: { status?: SubmissionStatus; page?: number; perPage?: number } = {},
+    filter: SubmissionFilter = {},
   ): Promise<{ items: FormSubmission[]; total: number; page: number; perPage: number }> {
     const page = Math.max(1, filter.page ?? 1);
     const perPage = Math.min(100, Math.max(1, filter.perPage ?? 25));
-
-    const query: Record<string, unknown> = { workspaceId: context.workspaceId, projectId, formId };
-    if (filter.status) query.status = filter.status;
+    const query = this.submissionQuery(context, projectId, filter);
 
     const [items, total] = await Promise.all([
       this.submissions
@@ -276,6 +387,42 @@ export class FormRepository {
     ]);
 
     return { items: items.map(toSubmission), total, page, perPage };
+  }
+
+  async findSubmission(
+    context: WorkspaceContext,
+    projectId: string,
+    submissionId: string,
+  ): Promise<FormSubmission | null> {
+    if (!ObjectId.isValid(submissionId) || submissionId.length !== 24) return null;
+    const document = await this.submissions.findOne({
+      _id: new ObjectId(submissionId),
+      workspaceId: context.workspaceId,
+      projectId,
+    });
+    return document === null ? null : toSubmission(document);
+  }
+
+  /** How many submissions sit in each status, for the inbox's own summary. */
+  async submissionCounts(
+    context: WorkspaceContext,
+    projectId: string,
+    filter: SubmissionFilter = {},
+  ): Promise<Record<SubmissionStatus, number> & { total: number }> {
+    const { status: _ignored, ...rest } = filter;
+    const rows = await this.submissions
+      .aggregate<{ _id: SubmissionStatus; count: number }>([
+        { $match: this.submissionQuery(context, projectId, rest) },
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+      ])
+      .toArray();
+
+    const counts = { new: 0, read: 0, archived: 0, spam: 0, total: 0 };
+    for (const row of rows) {
+      if (row._id in counts) counts[row._id] = row.count;
+      counts.total += row.count;
+    }
+    return counts;
   }
 
   async setSubmissionStatus(
@@ -293,6 +440,28 @@ export class FormRepository {
     return updated === null ? null : toSubmission(updated);
   }
 
+  /**
+   * The same status change over a selection.
+   *
+   * The ids are filtered to well-formed ones and the workspace stays in the query, so a list
+   * containing another tenant's id changes nothing rather than partially succeeding.
+   */
+  async setSubmissionStatuses(
+    context: WorkspaceContext,
+    projectId: string,
+    submissionIds: readonly string[],
+    status: SubmissionStatus,
+  ): Promise<number> {
+    const ids = toObjectIds(submissionIds);
+    if (ids.length === 0) return 0;
+
+    const result = await this.submissions.updateMany(
+      { _id: { $in: ids }, workspaceId: context.workspaceId, projectId },
+      { $set: { status } },
+    );
+    return result.modifiedCount;
+  }
+
   async deleteSubmission(context: WorkspaceContext, projectId: string, submissionId: string): Promise<boolean> {
     if (!ObjectId.isValid(submissionId) || submissionId.length !== 24) return false;
     const result = await this.submissions.deleteOne({
@@ -301,6 +470,41 @@ export class FormRepository {
       projectId,
     });
     return result.deletedCount === 1;
+  }
+
+  async deleteSubmissions(
+    context: WorkspaceContext,
+    projectId: string,
+    submissionIds: readonly string[],
+  ): Promise<number> {
+    const ids = toObjectIds(submissionIds);
+    if (ids.length === 0) return 0;
+
+    const result = await this.submissions.deleteMany({
+      _id: { $in: ids },
+      workspaceId: context.workspaceId,
+      projectId,
+    });
+    return result.deletedCount;
+  }
+
+  /**
+   * Every matching submission, one at a time.
+   *
+   * An export is the one read whose size the customer chooses, so it is a cursor rather than an
+   * array: loading a year of a busy form into memory to write it straight back out is how one
+   * export takes the process down for every tenant on it.
+   */
+  async *streamSubmissions(
+    context: WorkspaceContext,
+    projectId: string,
+    filter: SubmissionFilter = {},
+  ): AsyncGenerator<FormSubmission> {
+    const cursor = this.submissions.find(this.submissionQuery(context, projectId, filter), {
+      sort: { createdAt: -1 },
+    });
+
+    for await (const document of cursor) yield toSubmission(document);
   }
 
   /** Applies a form's retention policy. Scoped to one workspace so it can never reach another. */
@@ -322,6 +526,12 @@ export class FormRepository {
   }
 }
 
+/** Well-formed ids only. A malformed one is dropped rather than thrown, so one bad id in a bulk
+    selection cannot fail the whole action. */
+function toObjectIds(ids: readonly string[]): ObjectId[] {
+  return ids.filter((id) => ObjectId.isValid(id) && id.length === 24).map((id) => new ObjectId(id));
+}
+
 /** Stable content fingerprint used only for duplicate suppression. */
 function fingerprintOf(values: SubmissionValues): string {
   return JSON.stringify(Object.entries(values).sort(([a], [b]) => a.localeCompare(b)));
@@ -336,5 +546,7 @@ function toDefinition(document: DefinitionDocument): FormDefinition {
 
 function toSubmission(document: SubmissionDocument): FormSubmission {
   const { _id, fingerprint: _f, ...rest } = document;
-  return { ...rest, id: _id.toHexString() };
+  // A submission stored before revisions and field snapshots existed answered revision 1 and kept
+  // no copy of the questions. Saying so is better than inventing either.
+  return { ...rest, formRevision: rest.formRevision ?? 1, fields: rest.fields ?? [], id: _id.toHexString() };
 }

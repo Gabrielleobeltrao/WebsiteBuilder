@@ -30,6 +30,8 @@ const submission = (values: Record<string, unknown> = {}): FormSubmission => ({
   workspaceId: "w1",
   projectId: "p1",
   formId: "f1",
+  formRevision: 1,
+  fields: [],
   values: { name: "Ana", consent: true, utm: "spring", ...values } as never,
   status: "new",
   createdAt: "2026-08-10T12:00:00.000Z",
@@ -96,8 +98,20 @@ describe("CSV export", () => {
     const csv = buildSubmissionCsv(definition, [submission()]);
     const [header] = csv.split("\r\n");
 
-    expect(header).toBe('"Submitted at","Status","Your name","I agree"');
+    expect(header).toBe('"Submitted at","Status","Your name","I agree","Retired questions"');
     expect(header).not.toContain("UTM");
+  });
+
+  it("keeps an answer to a question the form no longer asks", () => {
+    // A rename must not delete records. The label comes from the snapshot the submission carries,
+    // so the cell says which question was actually answered.
+    const withOldField = {
+      ...submission(),
+      fields: [{ id: "budget", type: "shortText" as const, label: "Your budget" }],
+      values: { name: "Ana", consent: true, budget: "R$ 5.000" } as never,
+    };
+
+    expect(buildSubmissionCsv(definition, [withOldField])).toContain("Your budget: R$ 5.000");
   });
 
   it("renders booleans readably", () => {

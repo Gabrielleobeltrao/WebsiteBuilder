@@ -22,7 +22,7 @@ import { ProjectRepository } from "./modules/projects/repository";
 import { createProjectsRouter } from "./modules/projects/routes";
 import { WorkspaceRepository } from "./modules/workspaces/repository";
 import { COLLECTIONS } from "./db/indexes";
-import { hasPublishedTemplate, type BuilderProject } from "@websitebuilder/shared";
+import { countUnboundFormBlocks, findFormUsages, hasPublishedTemplate, type BuilderProject } from "@websitebuilder/shared";
 import { CmsRepository, ensureCmsIndexes } from "./modules/cms/repository";
 import { createCmsRouter } from "./modules/cms/routes";
 import { CloudflareHostnameProvider } from "./modules/domains/cloudflare";
@@ -104,8 +104,29 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
 
   const collectModuleFacts = async ({ workspaceId, projectId }: { workspaceId: string; projectId: string }) => {
     const context = { workspaceId, userId: "" };
-    const settings = await blog.loadSettings(context, projectId);
-    const posts = await blog.list(context, projectId, { perPage: 1 });
+    const [settings, posts, formDefinitions, formRecords, project] = await Promise.all([
+      blog.loadSettings(context, projectId),
+      blog.list(context, projectId, { perPage: 1 }),
+      forms.list(context, projectId),
+      forms.hasRecords(context, projectId),
+      projects.findById(context, projectId),
+    ]);
+
+    /*
+     * Form facts, from the module's own records and the saved document.
+     *
+     * A block bound to nothing, or bound to a definition that is gone, archived or unfinished, is a
+     * page that would publish as a set of inputs taking an answer nobody receives. Counted here so
+     * the site status center, the navigation badge and publication all read one number.
+     */
+    const byId = new Map(formDefinitions.map((definition) => [definition.id, definition]));
+    const placements = project === null ? [] : findFormUsages(project);
+    const unbound = project === null ? 0 : countUnboundFormBlocks(project);
+
+    const brokenPlacements = placements.filter((usage) => {
+      const definition = byId.get(usage.formId);
+      return definition === undefined || definition.archived || definition.status !== "ready";
+    }).length;
 
     return {
       blog: {
@@ -114,6 +135,17 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
         // A blog turned on with no article template yet cannot render its routes.
         blockingIssueCount: settings.enabled && settings.articleTemplateId === undefined ? 1 : 0,
         warningCount: 0,
+      },
+      forms: {
+        hasRecords: formRecords,
+        // There is no switch to turn forms on: a definition exists because somebody made one, and
+        // that is the same statement of intent as placing a block.
+        explicitlyActivated: formDefinitions.length > 0,
+        blockingIssueCount: unbound + brokenPlacements,
+        // A definition nobody shows is not a problem; it is a form waiting for a page.
+        warningCount: formDefinitions.filter(
+          (definition) => !definition.archived && !placements.some((usage) => usage.formId === definition.id),
+        ).length,
       },
     };
   };
@@ -189,6 +221,9 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
       router: createFormsRouter({
         repository: forms,
         resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
+        // Placement is a fact about the saved document, and the document is scoped by the same
+        // verified workspace the resolver produced.
+        loadProject: ({ workspaceId, userId, projectId }) => projects.findById({ workspaceId, userId }, projectId),
       }),
     },
     {
