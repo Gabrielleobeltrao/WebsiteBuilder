@@ -1,11 +1,15 @@
 import { connectDatabase } from "./db/client";
 import { COLLECTIONS } from "./db/indexes";
 import { EnvironmentError, loadEnv } from "./config/env";
+import type { Router } from "express";
+
 import { createLogger } from "./config/logger";
 import { installGracefulShutdown } from "./lifecycle";
 import { AnalyticsRepository, ensureAnalyticsIndexes, SiteViewRepository } from "./modules/analytics/repository";
 import { ensurePublishingIndexes, PublishingRepository } from "./modules/publishing/repository";
+import { ensureFormIndexes, FormRepository } from "./modules/forms/repository";
 import { createAnalyticsRuntime } from "./renderer/analytics";
+import { createFormSubmissionRouter } from "./renderer/forms";
 import { createRendererApp, type ViewRecorder } from "./renderer/app";
 import { SiteResolver } from "./renderer/resolver";
 
@@ -28,6 +32,7 @@ async function start(): Promise<void> {
   let resolver: SiteResolver | undefined;
   let recordView: ViewRecorder | undefined;
   let analytics: ReturnType<typeof createAnalyticsRuntime> | undefined;
+  let formSubmissions: Router | undefined;
   if (env.MONGODB_URI && env.MONGODB_DB_NAME) {
     const database = await connectDatabase(env, logger);
     await ensurePublishingIndexes(database.db);
@@ -53,6 +58,26 @@ async function start(): Promise<void> {
       },
     });
 
+    /*
+     * Form submissions.
+     *
+     * No transactional email provider is connected, so nothing here promises delivery: a submission
+     * is stored, and the Forms Center inbox is the source of truth — which is what the product tells
+     * the customer beside the notification field. The adapter and its development sink stay in the
+     * module for when a provider is chosen; wiring an empty one here would be a delivery path that
+     * delivers nothing while looking like it does.
+     */
+    const formRepository = new FormRepository(database.db);
+    await ensureFormIndexes(database.db);
+
+    formSubmissions = createFormSubmissionRouter({
+      resolver,
+      forms: formRepository,
+      logger,
+      // Address-keyed limiting is only meaningful where a forwarded address can be believed.
+      trustsProxy: env.trustedProxyCidrs.length > 0,
+    });
+
     // Counting must never delay or fail a page. The response has already been decided by the time
     // this runs, and a failed counter is a logged warning — a site that stops rendering because its
     // statistics could not be written would be a bad trade for any customer.
@@ -66,7 +91,7 @@ async function start(): Promise<void> {
     logger.warn("MONGODB_URI is not set; the renderer cannot serve sites");
   }
 
-  const app = createRendererApp({ env, logger, resolver, recordView, analytics });
+  const app = createRendererApp({ env, logger, resolver, recordView, analytics, forms: formSubmissions });
   const server = app.listen(env.PUBLIC_RENDERER_PORT, () => {
     logger.info({ port: env.PUBLIC_RENDERER_PORT, env: env.NODE_ENV }, "public renderer listening");
   });

@@ -61,7 +61,9 @@ export function FormRenderer({ elementId, formId, presentation }: {
       id={`${elementId}-form`}
       data-wb-form={form.id}
       method="post"
-      {...(formMode === "live" && formAction !== undefined ? { action: formAction(form.id) } : {})}
+      // The canvas posts nowhere; a preview posts to a route that validates and stores nothing, and
+      // a published page posts to the site's own origin. All three are the same markup.
+      {...(formMode !== "inert" && formAction !== undefined ? { action: formAction(form.id) } : {})}
       // The canvas must not submit anything, and the preview posts through the runtime so nothing
       // is ever written from a draft.
       {...(formMode === "inert" ? { onSubmit: preventSubmit } : {})}

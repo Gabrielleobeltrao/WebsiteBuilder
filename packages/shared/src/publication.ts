@@ -1,4 +1,5 @@
 import { postPath, type BlogSettings } from "./blog";
+import type { PublishedForm } from "./forms";
 import { normalizeCollectionSlug, type CmsCollectionInput, type CmsItemStatus } from "./cms";
 import { auditPageBlocks, type BlockFinding } from "./block-readiness";
 import { diagnoseResponsive, type ResponsiveFinding } from "./diagnostics";
@@ -81,14 +82,13 @@ export type CompileInput = {
   maxDocumentBytes: number;
 };
 
-/** The parts of a form definition a published page needs to render and validate it. */
-export type PublishableForm = {
-  id: string;
-  name: string;
-  fields: readonly unknown[];
-  submitLabel: string;
-  status: string;
-};
+/**
+ * The parts of a form definition a published page needs to render and validate it.
+ *
+ * The same shape the renderer consumes, typed rather than `unknown[]`: a published page validates a
+ * submission against exactly this, so a field list nobody can read is a field list nobody can check.
+ */
+export type PublishableForm = PublishedForm;
 
 export type CompiledSnapshot = {
   sourceRevision: number;
@@ -204,20 +204,30 @@ export function compileSite(input: CompileInput): CompileResult {
 
   if (report.blocked) return { ok: false, snapshot: null, report };
 
+  // Only the forms this site's pages actually reference: a snapshot carrying every definition in
+  // the project would publish drafts nobody placed.
+  const forms = (input.forms ?? []).filter((form) => referencedFormIds(input.project).has(form.id));
+
   const snapshot: CompiledSnapshot = {
     sourceRevision: input.project.revision,
     schemaVersion: input.project.schemaVersion,
     document,
     routes,
     redirects,
-    // Only the forms this site's pages actually reference: a snapshot carrying every definition in
-    // the project would publish drafts nobody placed.
-    forms: (input.forms ?? []).filter((form) => referencedFormIds(input.project).has(form.id)),
+    forms,
     referencedMediaIds,
     searchIndex: buildSearchIndex(collectSearchSources(input, routes)),
     // Only indexable routes belong in a sitemap; a 404 route is not a destination.
     sitemapPaths: routes.filter(isIndexable).map((route) => route.path),
-    contentHash: contentHash({ document: normalizeForHash(document), routes, redirects }),
+    /*
+     * What a visitor would receive, hashed.
+     *
+     * The forms belong in it. Without them, editing a form's questions and republishing produced an
+     * identical hash, publishing decided nothing had changed, and the live site kept serving the old
+     * questions — the edit could never reach production at all. A definition is part of the page in
+     * every sense that matters to whoever fills it in.
+     */
+    contentHash: contentHash({ document: normalizeForHash(document), routes, redirects, forms }),
   };
 
   return { ok: true, snapshot, report };

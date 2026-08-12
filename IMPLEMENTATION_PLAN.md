@@ -128,22 +128,22 @@ The current form implementation is incomplete and must not be treated as product
 
 ### Phase 5 — Preview, publication, and public submission
 
-- [ ] **5.1 Pass published forms into the shared renderer.** Resolve form placements against the draft definition in editor/preview and the embedded immutable revision in public rendering.
+- [x] **5.1 Pass published forms into the shared renderer.** Resolve form placements against the draft definition in editor/preview and the embedded immutable revision in public rendering.
   - Acceptance: editor, clean preview, and published site share markup/styles and differ only by mode-specific behavior.
 
-- [ ] **5.2 Make preview safe.** Desktop/Tablet/Mobile preview shows validation and success behavior without creating database records or firing notifications.
+- [x] **5.2 Make preview safe.** Desktop/Tablet/Mobile preview shows validation and success behavior without creating database records or firing notifications.
   - Acceptance: preview is clearly labeled when submitting; automated tests prove zero persisted submissions.
 
-- [ ] **5.3 Implement the same-origin public endpoint.** Add `POST /__wb/forms/:formId/submissions` in the public renderer path. Resolve `Host -> active site -> active immutable snapshot -> exact form revision`; do not validate against a newer live definition.
+- [x] **5.3 Implement the same-origin public endpoint.** Add `POST /__wb/forms/:formId/submissions` in the public renderer path. Resolve `Host -> active site -> active immutable snapshot -> exact form revision`; do not validate against a newer live definition.
   - Acceptance: native HTML POST works without JavaScript; the small public runtime progressively enhances submission and inline errors.
 
-- [ ] **5.4 Harden public intake.** Enforce body/field limits, strict allowlists, required/type validation, honeypot, rate limiting, duplicate suppression, tenant isolation, safe redirect rules, privacy-conscious IP/user-agent handling, and structured audit logs without field values.
+- [x] **5.4 Harden public intake.** Enforce body/field limits, strict allowlists, required/type validation, honeypot, rate limiting, duplicate suppression, tenant isolation, safe redirect rules, privacy-conscious IP/user-agent handling, and structured audit logs without field values.
   - Acceptance: arbitrary fields, cross-tenant IDs, oversized payloads, spam paths, and forged page/source identifiers are rejected or classified safely.
 
-- [ ] **5.5 Preserve historical meaning.** Store definition ID/revision plus a minimal field-schema snapshot with each submission. Compute project/site/page/path and accepted campaign parameters server-side from trusted request context.
+- [x] **5.5 Preserve historical meaning.** Store definition ID/revision plus a minimal field-schema snapshot with each submission. Compute project/site/page/path and accepted campaign parameters server-side from trusted request context.
   - Acceptance: old submissions remain readable after labels/options change or old published versions are pruned.
 
-- [ ] **5.6 Keep notifications provider-neutral.** Preserve the existing adapter and development sink, but do not claim production email delivery without a configured provider.
+- [x] **5.6 Keep notifications provider-neutral.** Preserve the existing adapter and development sink, but do not claim production email delivery without a configured provider.
   - Acceptance: the Forms inbox is the reliable source of truth; notification status is explicit and failures never lose submissions.
 
 ### Phase 6 — Readiness, publish lifecycle, and deletion rules
@@ -228,6 +228,12 @@ YYYY-MM-DD HH:mm | Task X.Y | files/behavior changed | verification command + re
 2026-08-12 17:46 | Task 4.2 | "Edit questions" and "Open Forms" save the draft first, then navigate with a returnTo built by this application and re-validated by safeReturnPath; the Forms Center's BackLink returns to the exact page, device and block using the three parameters EditorRoute already restores | vitest frontend → 714 passed; useProjectForms is gated on the document containing a form block, so a site without one makes no request | —
 2026-08-12 17:46 | Task 4.4 | form presentation is a strict schema (preset, alignment, fieldGap, padding, fullWidthFieldIds, colours, border) edited under Layout and Style; twoColumn collapses by track width rather than a media query, and the form is width:100%/max-width:100%/border-box so it cannot push a phone sideways | vitest form-renderer → the collapse rule and the overflow guard are asserted directly | —
 2026-08-12 17:46 | Task 4.5 | PATTERNS gains fullPageForm — a normal flex section holding a heading, a paragraph and a form block with a two-column centred presentation, built from the same primitives every other pattern uses | vitest shared patterns + frontend i18n parity → 38 passed | —
+2026-08-12 17:57 | Task 5.1 | PublishableForm is now the typed PublishedForm; the compiled snapshot's forms are persisted with the version (they were compiled and thrown away); contentHash now covers them — without that, editing a form and republishing hashed identically, publishing concluded nothing had changed, and the edit could never reach production; renderRouteHtml takes a forms map, a mode and an action and passes them to the shared renderer | vitest backend form-submission → a published page renders the snapshot's fields with action="/__wb/forms/:id/submissions" | —
+2026-08-12 17:57 | Task 5.2 | previewRoute renders the draft's own definitions in preview mode and posts to a new authenticated POST /publishing/preview/forms/:formId, which runs the same shared validator and touches no repository | vitest draft-preview → 11 passed: real fields rendered, valid and invalid both answered correctly, formSubmissions collection count still 0, and the markup posts to the preview route rather than the public one | —
+2026-08-12 17:57 | Task 5.3 | backend/src/renderer/forms.ts (new): POST /__wb/forms/:formId/submissions mounted before the page catch-all, accepting urlencoded (a plain HTML form) and JSON (the runtime); a no-JavaScript visitor is redirected 303 back to their page with wb_form_ok / wb_form_error, which the renderer turns into the form's own message | vitest form-submission → 14 passed | —
+2026-08-12 17:57 | Task 5.4 | identity comes from the resolved hostname and the published route manifest only; the form comes from the snapshot; values are keyed by the snapshot's field list so extra keys are never stored; honeypot and bot user-agents are answered "ok" and stored nowhere; per-address and per-project fixed-window limits (5/60 per minute) share one FixedWindowCounter extracted from the analytics endpoint; responses carry no detail and no body, field name or address is ever logged | vitest form-submission → cross-tenant form 404s, spoofed workspaceId/projectId ignored, unpublished path not attributed, third submission 429s | —
+2026-08-12 17:57 | Task 5.5 | every submission stores formRevision and the field snapshot it answered, plus a server-derived source (pageId, path, host, and campaign parameters read from a same-origin referrer) | vitest form-submission → after the live definition is rewritten, a visitor is still validated against revision 1 and their answer is stored against it | —
+2026-08-12 17:57 | Task 5.6 | the adapter and development sink are untouched; nothing is wired into the renderer process, because an empty delivery path that looks like a delivery path is worse than none. The Forms Center says delivery depends on a configured provider and that the inbox always has the answer | no code change; the claim is the absence of one | —
 ```
 
 ## 7. Decision Log
@@ -247,6 +253,9 @@ YYYY-MM-DD | Decision | alternatives considered | reason | migration/compatibili
 2026-08-12 | The form block is dispatched to its own renderer from ElementRenderer | render it inside VisualElementRenderer | a form needs the definition it references, which only the host can resolve; the visual renderer is on the path the server compiles and has no resolver | the visual renderer keeps a `form` case that returns null so its exhaustiveness check stays honest
 2026-08-12 | The builder loads form definitions only when the document holds a form block | load them with every builder session | most sites have no form, and a request per session to render none of it answers a question nobody asked; the request appears the moment a block is inserted | none
 2026-08-12 | Return from the Forms Center reuses EditorRoute's existing ?element= and ?device= handling | a bespoke builder-context envelope | returning is then the route's existing behaviour rather than a second mechanism to keep in step; the address is built here and re-validated by safeReturnPath on arrival | none
+2026-08-12 | The published content hash covers the form definitions | leave the hash over document/routes/redirects | a form is part of what a visitor receives; without it, editing a form's questions and republishing produced an identical hash, publishing answered "unchanged", and the new questions could never go live at all | versions published before this hash differently, which only means the next publish creates a new version
+2026-08-12 | A no-JavaScript submission answers with a 303 back to the page carrying a marker in the query | render the result inline from the POST | a POST that renders HTML leaves the browser on a URL that re-submits on reload; the marker is read by the same renderer and turned into the form's own message | the marker is part of the page's cache key, which is correct — it is a different page
+2026-08-12 | The preview posts to an authenticated rehearsal route rather than to the public endpoint | let preview post to /__wb and mark it | a designer filling in their own form must not create records, and "public endpoint with a flag that means do not store" is one forgotten condition away from storing them | preview and published render identical markup and differ only in the action
 ```
 
 ## 8. Completion definition

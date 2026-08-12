@@ -1,3 +1,4 @@
+import type { PublishedForm } from "./forms";
 import { z } from "zod";
 
 import { DEVICE_MODES } from "./devices";
@@ -50,6 +51,15 @@ export type PublishedSiteVersion = {
   document: unknown;
   routes: RouteManifestEntry[];
   redirects: PublishedRedirect[];
+  /**
+   * The form definitions this version's pages reference, frozen at the revision that was live.
+   *
+   * Stored with the version rather than read live, because a version is immutable by contract: a
+   * visitor filling in a form must not have the questions changed under them, and a submission
+   * stored against a definition rewritten since must still be readable. Absent on versions
+   * published before forms were carried, which is the same as none.
+   */
+  forms?: readonly PublishedForm[];
   referencedMediaIds: string[];
   contentHash: string;
   createdByUserId: string;
@@ -279,11 +289,20 @@ export function contentHash(input: {
   document: unknown;
   routes: readonly RouteManifestEntry[];
   redirects: readonly PublishedRedirect[];
+  /**
+   * The form definitions the pages reference.
+   *
+   * Part of what a visitor receives, and therefore part of the identity of a version. Left out, a
+   * form edited and republished hashed identically, publishing concluded nothing had changed, and
+   * the live site went on asking the old questions with no way to ever reach the new ones.
+   */
+  forms?: readonly PublishedForm[];
 }): string {
   const canonical = JSON.stringify({
     document: input.document,
     routes: [...input.routes].sort((a, b) => a.path.localeCompare(b.path)),
     redirects: [...input.redirects].sort((a, b) => a.sourcePath.localeCompare(b.sourcePath)),
+    forms: [...(input.forms ?? [])].sort((a, b) => a.id.localeCompare(b.id)),
   });
 
   // FNV-1a: short, dependency-free and stable across runtimes. This detects change, it is not a

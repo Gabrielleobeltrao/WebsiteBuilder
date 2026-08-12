@@ -1,10 +1,13 @@
-import express, { type Express, type Request } from "express";
+import express, { type Express, type Request, type Router } from "express";
 import { pinoHttp } from "pino-http";
 import type { Logger } from "pino";
 
 import type { Env } from "../config/env";
 import { isLikelyBot } from "../modules/analytics/repository";
 import { ANALYTICS_EVENTS_PATH, type AnalyticsRuntime } from "./analytics";
+import { readFormResult } from "@websitebuilder/frontend/renderer";
+
+import { formSubmissionPath } from "./forms";
 import { pageRuntimeCapabilities, renderRouteHtml, type AnalyticsScript } from "./html";
 import { RUNTIME_SOURCE, RUNTIME_VERSION } from "./runtime.generated";
 import { normalizePath, resolveRoute, SiteResolver } from "./resolver";
@@ -96,8 +99,15 @@ export function createRendererApp(options: {
   recordView?: ViewRecorder;
   /** Analytics endpoints and the settings reader that decides whether a page carries the tracker. */
   analytics?: AnalyticsRuntime;
+  /**
+   * The public form submission endpoint.
+   *
+   * Injected rather than built here so this module keeps no database dependency of its own, and so
+   * a test can serve pages without accepting writes.
+   */
+  forms?: Router;
 }): Express {
-  const { env, logger, resolver, recordView, analytics } = options;
+  const { env, logger, resolver, recordView, analytics, forms } = options;
 
   const app = express();
   app.disable("x-powered-by");
@@ -135,6 +145,7 @@ export function createRendererApp(options: {
   // platform, not to any tenant's route table, so a site cannot shadow them by publishing a page at
   // the same address.
   if (analytics !== undefined) app.use(analytics.router);
+  if (forms !== undefined) app.use(forms);
 
   /**
    * The interaction runtime.
@@ -215,9 +226,24 @@ export function createRendererApp(options: {
         site.document.pages.find((page) => page.id === route.resourceId) ?? null,
       );
 
+      /*
+       * The forms this version froze, and where they post.
+       *
+       * A page whose blocks reference none of them passes an empty map, which the renderer turns
+       * into "the form this block pointed at no longer exists" — the honest answer for a page
+       * published before its form was carried.
+       */
+      const publishedForms = {
+        byId: new Map((site.version.forms ?? []).map((form) => [form.id, form])),
+        mode: "live" as const,
+        action: formSubmissionPath,
+        result: readFormResult(String(req.originalUrl.split("?")[1] ?? "")),
+      };
+
       const html = renderRouteHtml({
         route,
         document: site.document,
+        forms: publishedForms,
         runtimeSrc: `${RUNTIME_SCRIPT_PATH}?v=${RUNTIME_VERSION}`,
         canonicalUrl: `https://${site.domain.hostname}${normalizePath(req.path)}`,
         // Same origin as the application: the API has no public hostname of its own, and a

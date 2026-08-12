@@ -10,6 +10,7 @@ import { aggregateBatch } from "../modules/analytics/aggregate";
 import { AnalyticsRepository, isLikelyBot } from "../modules/analytics/repository";
 import type { PublishingRepository } from "../modules/publishing/repository";
 import { TtlCache } from "./cache";
+import { FixedWindowCounter } from "./rate-limit";
 import { TRACKER_SOURCE, TRACKER_VERSION } from "./tracker.generated";
 import { resolveRoute, type SiteResolver } from "./resolver";
 
@@ -46,41 +47,6 @@ export const DEFAULT_INGESTION_LIMITS: IngestionLimits = {
   perProject: 600,
   windowMs: 60_000,
 };
-
-/**
- * A fixed-window counter.
- *
- * Two windows rotated in place: when the window ends, the current map becomes the previous one and
- * a fresh map takes over. That bounds memory without an eviction policy, an LRU or a timer — the
- * whole structure is discarded on a schedule instead of being pruned.
- *
- * State is per process, deliberately. With several renderer replicas the effective limit is the
- * configured one times the replica count, which is documented in `docs/ANALYTICS_OPERATIONS.md`.
- * The alternatives were worse: Redis is a new deployment resource the architecture forbids, and a
- * database round-trip in front of every beacon would be a larger availability risk than the abuse
- * it prevents.
- */
-class FixedWindowCounter {
-  private current = new Map<string, number>();
-  private windowStart: number;
-
-  constructor(private readonly windowMs: number, now: number) {
-    this.windowStart = now;
-  }
-
-  /** Returns true when the key is still within its allowance. */
-  take(key: string, limit: number, now: number): boolean {
-    if (now - this.windowStart >= this.windowMs) {
-      this.current = new Map();
-      this.windowStart = now;
-    }
-
-    const used = this.current.get(key) ?? 0;
-    if (used >= limit) return false;
-    this.current.set(key, used + 1);
-    return true;
-  }
-}
 
 export type AnalyticsIngestionDeps = {
   resolver: SiteResolver;

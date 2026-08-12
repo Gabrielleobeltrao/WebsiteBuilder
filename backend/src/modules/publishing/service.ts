@@ -4,6 +4,7 @@ import {
   migrateDocumentElements,
   migrateDocumentResponsive,
   SCHEMA_VERSION,
+  validateSubmission,
   type BuilderProject,
   type CompileInput,
   type CompileResult,
@@ -113,6 +114,10 @@ export class PublishingService {
         document: snapshot.document,
         routes: snapshot.routes,
         redirects: snapshot.redirects,
+        // Frozen with the version. The compiler already kept only the definitions this site's pages
+        // reference; storing them is what makes a published page validate a submission against the
+        // questions the visitor was actually shown.
+        forms: snapshot.forms,
         referencedMediaIds: snapshot.referencedMediaIds,
         contentHash: snapshot.contentHash,
       });
@@ -192,6 +197,8 @@ export class PublishingService {
       mediaBaseUrl: string;
       canonicalOrigin: string;
       runtimeSrc?: string;
+      /** Where a preview's form posts. A route that validates and stores nothing. */
+      formAction?: (formId: string) => string;
     },
   ): Promise<{ html: string; status: 200 | 404 } | null> {
     const compileInput = await this.buildCompileInput(context, projectId);
@@ -209,11 +216,49 @@ export class PublishingService {
         canonicalUrl: `${input.canonicalOrigin}${input.path}`,
         mediaBaseUrl: input.mediaBaseUrl,
         pageHref: input.pageHref,
+        /*
+         * The draft's own definitions, in preview mode.
+         *
+         * Preview shows the form as it is being edited rather than as it was published — that is
+         * the whole reason to look at a preview — and posts to a route that answers with the real
+         * validation and writes nothing. A rehearsal that created records would fill a customer's
+         * inbox with their own testing.
+         */
+        forms: {
+          byId: new Map(compileInput.forms?.map((form) => [form.id, form]) ?? []),
+          mode: "preview",
+          action: input.formAction ?? (() => ""),
+        },
         // The same runtime the published page gets, so a preview rehearses the behaviour rather
         // than a static approximation of it.
         ...(input.runtimeSrc === undefined ? {} : { runtimeSrc: input.runtimeSrc }),
       }),
     };
+  }
+
+  /**
+   * A submission that is validated and thrown away.
+   *
+   * The same shared validator the public endpoint uses, against the draft definition rather than a
+   * published snapshot, and with no repository call anywhere in it. Returning null means this
+   * project has no such form; everything else is the real answer a visitor would have received.
+   */
+  async previewSubmission(
+    context: WorkspaceContext,
+    projectId: string,
+    formId: string,
+    body: Record<string, unknown>,
+  ): Promise<{ accepted: boolean } | null> {
+    const compileInput = await this.buildCompileInput(context, projectId);
+    const form = compileInput?.forms?.find((candidate) => candidate.id === formId);
+    if (form === undefined) return null;
+
+    const values: Record<string, unknown> = {};
+    for (const field of form.fields) {
+      if (field.id in body) values[field.id] = body[field.id];
+    }
+
+    return { accepted: validateSubmission({ fields: [...form.fields] }, values).errors.length === 0 };
   }
 
   private async compile(context: WorkspaceContext, projectId: string): Promise<CompileResult | null> {

@@ -6,10 +6,11 @@ import {
   runtimeCapabilitiesFor,
   walkElements,
   type BuilderProject,
+  type PublishedForm,
   type RouteManifestEntry,
   type SiteSeoSettings,
 } from "@websitebuilder/shared";
-import { ProjectPageRenderer, RendererContext } from "@websitebuilder/frontend/renderer";
+import { ProjectPageRenderer, RendererContext, type FormStrings } from "@websitebuilder/frontend/renderer";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -77,6 +78,21 @@ export function renderRouteHtml(input: {
    * link inside a preview would leave the preview.
    */
   pageHref?: (path: string) => string;
+  /**
+   * The form definitions this version froze, and how this surface treats them.
+   *
+   * A published page renders the snapshot's copy and posts to the site's own origin; a draft
+   * preview renders the draft's copy and posts to a route that validates and stores nothing. Both
+   * read from the same renderer, so a preview cannot look different from what a visitor receives.
+   */
+  forms?: {
+    byId: ReadonlyMap<string, PublishedForm>;
+    mode: "preview" | "live";
+    action: (formId: string) => string;
+    /** What a visitor without JavaScript was sent back with, read from the request's query. */
+    result?: { formId: string; state: "ok" | "error" } | null;
+    strings?: FormStrings;
+  };
 }): string {
   const { route, document } = input;
   const found = document.pages.find((candidate) => candidate.id === route.resourceId) ?? null;
@@ -113,6 +129,15 @@ export function renderRouteHtml(input: {
                   if (page !== null) trail.push({ label: page.name, href: null });
                   return trail;
                 },
+                ...(input.forms === undefined
+                  ? {}
+                  : {
+                      resolveForm: (formId: string) => input.forms?.byId.get(formId) ?? null,
+                      formMode: input.forms.mode,
+                      formAction: input.forms.action,
+                      formResult: input.forms.result ?? null,
+                      ...(input.forms.strings === undefined ? {} : { formStrings: input.forms.strings }),
+                    }),
               },
             },
             createElement(ProjectPageRenderer, { page }),

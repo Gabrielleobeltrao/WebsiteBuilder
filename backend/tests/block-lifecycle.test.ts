@@ -87,9 +87,11 @@ beforeAll(async () => {
       (await forms.list(context, projectId)).map((form) => ({
         id: form.id,
         name: form.name,
+        revision: form.revision,
         fields: form.fields,
         submitLabel: form.submitLabel,
-        status: form.status,
+        successBehavior: form.successBehavior,
+        status: form.archived ? ("archived" as const) : form.status,
       })),
   });
 }, 120_000);

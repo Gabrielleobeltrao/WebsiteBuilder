@@ -235,13 +235,18 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
           blog,
           media,
           collectModuleFacts,
+          // Exactly what a published page needs, and nothing operational: notification recipients
+          // and retention are the customer's settings, not something public output should carry.
           loadForms: async (context, projectId) =>
             (await forms.list(context, projectId)).map((form) => ({
               id: form.id,
               name: form.name,
+              revision: form.revision,
               fields: form.fields,
               submitLabel: form.submitLabel,
-              status: form.status,
+              successBehavior: form.successBehavior,
+              ...(form.errorMessage === undefined ? {} : { errorMessage: form.errorMessage }),
+              status: form.archived ? ("archived" as const) : form.status,
             })),
           loadCmsCollections: async (context, projectId) => {
             const [collections, templates] = await Promise.all([

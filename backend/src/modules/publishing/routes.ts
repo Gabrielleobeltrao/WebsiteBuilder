@@ -1,5 +1,5 @@
-import { API_BASE_PATH, resourceIdSchema } from "@websitebuilder/shared";
-import { Router } from "express";
+import { API_BASE_PATH, FORM_RESULT_PARAMS, resourceIdSchema } from "@websitebuilder/shared";
+import express, { Router } from "express";
 import { ObjectId } from "mongodb";
 
 import { ApiProblem } from "../../middleware/errors";
@@ -93,6 +93,9 @@ export function createPublishingRouter(options: {
         pageHref: (target) => `${base}?path=${encodeURIComponent(target)}`,
         mediaBaseUrl: `${API_BASE_PATH}/workspaces/${encodeURIComponent(workspaceId)}/media`,
         canonicalOrigin: publicOrigin,
+        // Posts back to this router's own rehearsal endpoint, not to the public one. Same origin as
+        // the frame, so the policy above admits it.
+        formAction: (formId) => `${base.replace(/\/preview$/, "")}/preview/forms/${encodeURIComponent(formId)}`,
       });
       if (result === null) throw new ApiProblem("NOT_FOUND", "Project not found");
 
@@ -105,6 +108,35 @@ export function createPublishingRouter(options: {
         .set("cache-control", "private, no-store")
         .set("referrer-policy", "no-referrer")
         .send(result.html);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * A rehearsed submission.
+   *
+   * Runs the real validation against the draft definition and stores nothing — no record, no
+   * notification, no counter. That is the whole contract: a designer has to be able to fill their
+   * own form in and watch it behave without their inbox filling with their own testing.
+   *
+   * Authenticated like every other route on this router, so it is not a public write path wearing
+   * a preview label.
+   */
+  router.post("/preview/forms/:formId", express.urlencoded({ extended: false, limit: "64kb" }), async (req, res, next) => {
+    try {
+      const context = await resolveWorkspace(req);
+      const projectId = parseId(param(req, "projectId"), "Project not found");
+
+      const outcome = await service.previewSubmission(context, projectId, param(req, "formId"), req.body ?? {});
+      if (outcome === null) throw new ApiProblem("NOT_FOUND", "Form not found");
+
+      const back = typeof req.query.path === "string" && req.query.path.startsWith("/") ? req.query.path : "/";
+      const marker = outcome.accepted ? FORM_RESULT_PARAMS.ok : FORM_RESULT_PARAMS.error;
+      const workspaceId = param(req, "workspaceId");
+      const base = `${API_BASE_PATH}/workspaces/${encodeURIComponent(workspaceId)}/projects/${encodeURIComponent(projectId)}/publishing/preview`;
+
+      res.redirect(303, `${base}?path=${encodeURIComponent(back)}&${marker}=${encodeURIComponent(param(req, "formId"))}`);
     } catch (error) {
       next(error);
     }

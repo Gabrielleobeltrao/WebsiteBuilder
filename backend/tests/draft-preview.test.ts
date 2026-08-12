@@ -1,4 +1,4 @@
-import { createPage, createProjectDocument } from "@websitebuilder/shared";
+import { createPage, createProjectDocument, elementDefinition } from "@websitebuilder/shared";
 import type { Express } from "express";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -7,6 +7,7 @@ import { createApp } from "../src/app";
 import { COLLECTIONS } from "../src/db/indexes";
 import { createSeededWorkspaceResolver } from "../src/middleware/workspace";
 import { BlogRepository, ensureBlogIndexes } from "../src/modules/blog/repository";
+import { ensureFormIndexes, FORM_COLLECTIONS, FormRepository } from "../src/modules/forms/repository";
 import { MediaRepository } from "../src/modules/media/repository";
 import { createGridFsStorage } from "../src/modules/media/storage";
 import { ProjectRepository, type WorkspaceContext } from "../src/modules/projects/repository";
@@ -33,6 +34,7 @@ const B: WorkspaceContext = { workspaceId: OTHER, userId: "user-b" };
 
 let database: TestDatabase;
 let projects: ProjectRepository;
+let forms: FormRepository;
 let app: Express;
 
 const previewPath = (workspaceId: string, projectId: string) =>
@@ -43,6 +45,7 @@ beforeAll(async () => {
   projects = new ProjectRepository(database.db);
   const publishing = new PublishingRepository(database.db, database.db.collection(COLLECTIONS.projects));
   const blog = new BlogRepository(database.db);
+  forms = new FormRepository(database.db);
   const domains = new DomainService(database.db, new UnconfiguredHostnameProvider(), "example.test");
 
   app = createApp({
@@ -57,6 +60,16 @@ beforeAll(async () => {
             publishing,
             blog,
             media: new MediaRepository(database.db, createGridFsStorage(database.db)),
+            loadForms: async (context, projectId) =>
+              (await forms.list(context, projectId)).map((form) => ({
+                id: form.id,
+                name: form.name,
+                revision: form.revision,
+                fields: form.fields,
+                submitLabel: form.submitLabel,
+                successBehavior: form.successBehavior,
+                status: form.archived ? ("archived" as const) : form.status,
+              })),
           }),
           repository: publishing,
           domains,
@@ -79,6 +92,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await database.clear();
   await ensureBlogIndexes(database.db);
+  await ensureFormIndexes(database.db);
   await ensurePublishingIndexes(database.db);
 });
 
@@ -220,5 +234,79 @@ describe("GET publishing/preview", () => {
     expect(after).toEqual(before);
     // No publish happened either: preview is not a quiet path to production.
     expect(await database.db.collection(PUBLISHING_COLLECTIONS.versions).countDocuments()).toBe(0);
+  });
+});
+
+describe("a form filled in inside the preview", () => {
+  /** A draft whose home page shows one real form. */
+  async function seedFormProject() {
+    const project = await projects.create(A, { name: "Acme" });
+    const form = await forms.create(A, project.id, {
+      name: "Contact",
+      fields: [{ id: "name", type: "shortText", label: "Your name", required: true }],
+      submitLabel: "Send",
+      successBehavior: { type: "message", message: "Thank you." },
+      notificationRecipients: [],
+    });
+
+    const loaded = await projects.findById(A, project.id);
+    const { id, workspaceId, createdByUserId, revision, createdAt, updatedAt, ...document } = loaded!;
+    const typed = document as ReturnType<typeof createProjectDocument>;
+    typed.pages[0]!.sections[0]!.elements = [
+      {
+        id: "form-block",
+        name: "",
+        geometry: { x: 0, y: 0, width: 480, height: 360, rotation: 0 },
+        responsiveLayout: {
+          width: { value: 480, unit: "px" },
+          height: { value: 360, unit: "px" },
+          horizontalConstraint: "left",
+          verticalConstraint: "top",
+          visible: true,
+        },
+        zIndex: 1,
+        locked: false,
+        hidden: false,
+        type: "form",
+        version: elementDefinition("form").schemaVersion,
+        ...elementDefinition("form").defaults(),
+        formId: form.id,
+      },
+    ] as never;
+
+    await projects.saveDocument(A, project.id, revision, typed);
+    return { projectId: project.id, formId: form.id };
+  }
+
+  it("renders the real fields of the draft definition", async () => {
+    const { projectId } = await seedFormProject();
+    const response = await request(app).get(previewPath(WORKSPACE, projectId));
+
+    expect(response.text).toContain("Your name");
+    expect(response.text).toContain('name="name"');
+  });
+
+  it("validates like the published page and stores absolutely nothing", async () => {
+    const { projectId, formId } = await seedFormProject();
+    const base = `/api/v1/workspaces/${WORKSPACE}/projects/${projectId}/publishing`;
+
+    const accepted = await request(app).post(`${base}/preview/forms/${formId}`).type("form").send({ name: "Ana" });
+    expect(accepted.status).toBe(303);
+    expect(accepted.headers.location).toContain("wb_form_ok");
+
+    const refused = await request(app).post(`${base}/preview/forms/${formId}`).type("form").send({});
+    expect(refused.status).toBe(303);
+    expect(refused.headers.location).toContain("wb_form_error");
+
+    // A rehearsal that created records would fill a customer's inbox with their own testing.
+    expect(await database.db.collection(FORM_COLLECTIONS.submissions).countDocuments({})).toBe(0);
+  });
+
+  it("posts to the preview's own origin, never to the public endpoint", async () => {
+    const { projectId } = await seedFormProject();
+    const response = await request(app).get(previewPath(WORKSPACE, projectId));
+
+    expect(response.text).toContain("/publishing/preview/forms/");
+    expect(response.text).not.toContain("/__wb/forms/");
   });
 });

@@ -4,6 +4,7 @@ import {
   platformHostname,
   resolveHost,
   type PublishedRedirect,
+  type PublishedForm,
   type PublishedSiteVersion,
   type RouteManifestEntry,
   type SiteDomain,
@@ -76,6 +77,8 @@ export class PublishingRepository {
       document: unknown;
       routes: RouteManifestEntry[];
       redirects: PublishedRedirect[];
+      /** The definitions this version's pages reference, frozen at the revision that was live. */
+      forms?: readonly PublishedForm[];
       referencedMediaIds: string[];
       /** Content identity from the compiler. Recomputing it here would use a different input. */
       contentHash: string;
@@ -98,6 +101,7 @@ export class PublishingRepository {
       schemaVersion: input.schemaVersion,
       document: input.document,
       routes: input.routes,
+      forms: input.forms ?? [],
       redirects: input.redirects,
       referencedMediaIds: input.referencedMediaIds,
       contentHash: input.contentHash,
