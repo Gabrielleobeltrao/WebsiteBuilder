@@ -90,7 +90,58 @@ additive, and there is no destructive migration in this codebase — but confirm
 
 ---
 
-## 6. Release record
+## 6. Releasing the responsive builder
+
+This release changes how every existing site is rendered, so it has one property no previous release
+had: **the first time a draft is opened or published after it, the document may be rewritten.**
+
+### What the migration does
+
+`migrateDocumentResponsive` runs when a draft is loaded in the builder and again inside publication,
+so a site that is published without anybody opening the editor is migrated too.
+
+It writes tablet and mobile overrides for elements that would otherwise sit outside the screen at
+those widths. Three properties bound what it can do:
+
+- **Desktop is never touched.** There is no branch in the function that writes to it.
+- **Nothing already authored is overwritten.** A device that already has a value keeps it.
+- **It is idempotent.** Running it twice produces the same document, byte for byte.
+
+An element that already fits is left alone. A layout nobody complained about is not "improved".
+
+### Release order
+
+1. Promote and deploy as in sections 2 and 3. The three containers are unchanged — **no new Coolify
+   resource, no new domain, no new environment variable is required by this release.**
+2. Confirm the API, application and renderer are healthy.
+3. Open one existing site in the builder. The draft migrates on load; save it.
+4. Publish it, and open its public address at a phone width. Nothing should scroll sideways.
+
+### Rollback limits
+
+Rolling the *code* back is a pointer move, as in section 4. Two things do not roll back with it:
+
+- **Migrated drafts stay migrated.** The overrides are ordinary document data and the previous build
+  reads them without complaint — it simply ignores them, so a rolled-back site renders the way it did
+  before. Nothing is lost and nothing needs repairing.
+- **Published versions are immutable.** A version published by this build stays as it was published.
+  If it must be undone, roll the site back to an earlier version from the publish screen; the
+  pointer move is the same operation an operator already has.
+
+There is no data migration to reverse, no schema version change, and no backfill job.
+
+### What to watch after deploying
+
+- Publishing refusals mentioning a layout problem. Phone and tablet overflow now blocks publication;
+  anything wider is a warning. A customer who cannot publish should see the finding and an **Open in
+  builder** link that selects the responsible element.
+- Draft preview requests: `GET /api/v1/workspaces/:workspaceId/projects/:projectId/publishing/preview`.
+  They are authenticated, cached nowhere, and read-only. A spike in 404s from that route means a
+  page slug is being requested that the site does not serve.
+
+---
+
+## 7. Release record
 
 | Date | Tag | Commit | Deployed by | Result |
 |---|---|---|---|---|

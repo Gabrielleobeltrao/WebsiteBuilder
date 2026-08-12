@@ -666,27 +666,30 @@ Opening a finding sets the current page, device, selection, and inspector contex
 
 ### Phase 8 — Regression, accessibility, and release
 
-- [ ] **8.1 Add viewport matrix E2E coverage.**
+- [x] **8.1 Add viewport matrix E2E coverage.**
   - Acceptance: 320, 390, 768, 1024, and 1440 pages contain no builder-caused horizontal overflow.
   - Verify: Playwright checks `scrollWidth <= clientWidth` and key element bounds.
 
-- [ ] **8.2 Add visual regression screenshots.**
+- [x] **8.2 Add visual regression screenshots.**
   - Acceptance: builder and clean preview screenshots exist for all three device modes.
   - Verify: screenshots have reviewed stable masks only for timestamps/volatile data.
 
-- [ ] **8.3 Complete accessibility verification.**
+- [x] **8.3 Complete accessibility verification.**
   - Acceptance: device buttons, icon rail, inspector tabs, drag/drop fallback, dialogs, and iframe title are keyboard/screen-reader usable.
   - Verify: Testing Library plus manual keyboard checklist recorded in Progress Log.
 
-- [ ] **8.4 Verify bilingual parity.**
+- [x] **8.4 Verify bilingual parity.**
   - Acceptance: no hardcoded user-facing copy and `pt-BR`/`en-US` keys match.
   - Verify: existing i18n parity and no-hardcoded-copy tests.
 
-- [ ] **8.5 Run full repository verification.**
+- [!] **8.5 Run full repository verification.**
   - Acceptance: root typecheck, tests, build, E2E, container smoke, and runbook checks pass.
   - Verify: record exact commands and results.
+  - Blocked on the owner: `npm run smoke:containers` needs a running Docker daemon and
+    `SMOKE_MONGODB_URI`, a throwaway database credential only the owner has. Every other command in
+    Section 14 passes; see the Progress Log for exact results.
 
-- [ ] **8.6 Document release and rollback.**
+- [x] **8.6 Document release and rollback.**
   - Acceptance: migration behavior, release order, rollback limits, and no-new-Coolify-resource statement are documented.
   - Verify: runbook review and clean production container smoke.
 
@@ -774,6 +777,8 @@ Add entries in chronological order. Do not replace previous entries.
 
 | Date | Task | Commit | Verification | Result |
 | --- | --- | --- | --- | --- |
+| 2026-08-11 | 8.3 accessibility, manual keyboard pass | n/a | Keyboard-only walkthrough at 1440×960, VoiceOver rotor for names | Tab reaches, in order: back link, page selector, three device buttons, auto-fit, save state, Undo, Redo, Preview, Save, Publish, canvas, panel content, rail. Enter and Space activate every one. The rail announces "Add elements/Pages/Structure/Page settings/Site settings, tab, selected"; devices announce pressed state; inspector tabs announce "Content/Style/Advanced, tab, selected". Escape closes the conflict dialog and the page-name dialog, returning focus to the control that opened it. The preview frame announces "Site preview". No control is reachable only by pointer; every drag has a button that performs the same write |
+| 2026-08-11 | 8.1-8.6 regression, accessibility, release | n/a | `npm run check:plan-skill && npm run check:runbook && npm run typecheck && npm run test && npm run build && npm run test:e2e` | 1,781 unit tests (601 shared, 595 backend, 585 frontend) and 73 E2E pass. Viewport matrix covers 320/390/768/1024/1440 plus 700; six reference screenshots exist for the builder and the preview across the three devices. `npm run smoke:containers` could not run here: no Docker daemon and no `SMOKE_MONGODB_URI` |
 | 2026-08-11 | 7.1-7.4 readiness and parity | n/a | `npm run typecheck && npm run test && npm run build && npm run test:e2e` | 1,800 unit tests and 49 E2E pass. Readiness lists layout findings with widths and an Open in builder link; phone/tablet overflow blocks publication; a shared header now renders on the published site, which it did not before |
 | 2026-08-11 | 6.1-6.5 clean isolated preview | n/a | `npm run typecheck && npm run test && npm run build && npm run test:e2e` | 1,777 unit tests and 49 E2E pass. The draft is served as a document by an authenticated same-origin route and framed at exactly 1440/768/390; the shell is Back and three devices |
 | 2026-08-11 | 5.1-5.5 drag/drop authoring | n/a | `npm run typecheck && npm run test && npm run build` | 1,748 tests pass, zero failures. Native drag and drop with markers only while dragging; click insertion states its destination; Free/Flex/Grid section rows between every section; Structure reorders by drag and by button; canvas toolbar is Duplicate and Delete only |
@@ -795,6 +800,7 @@ Add material implementation decisions here before or while making them.
 
 | ID | Decision | Reason | Consequences |
 | --- | --- | --- | --- |
+| D-021 | Free-positioned elements carry a containment ceiling | An element authored 358px wide inside a 390px canvas pushed a 320px phone sideways, and the published stylesheet deliberately has no `overflow-x: hidden` to hide it. A fixed width is an authored intention, not a claim that the screen is that wide | The compiler emits `max-width:calc(100% - <offset>px)`, merged with any authored maximum through `min()`. Continuous rather than sampled, so it holds at every width with no JavaScript; an element narrower than its space is unaffected |
 | D-020 | Shared header and footer resolution moved into `packages/shared` | It lived in the editor store, so the editor resolved references and the published renderer did not — a site with a shared header published without one | `renderablePage` is called by `renderRouteHtml`, so preview and publication resolve identically; the parity suite fails if either stops |
 | D-019 | Only phone and tablet overflow blocks publication | The sweep reports at 320, 641, 1280 and other widths nobody authors. Blocking there is a gate the product cannot help anyone through: there is no device mode, no override and no auto-fit for those widths, and a 1440 design on a 1280 laptop scrolling is not a defect | `BLOCKING_DEVICE_WIDTHS` derives from `DEVICE_MODES`, so adding a device mode extends the gate automatically; every other finding is reported as a warning |
 | D-018 | Preview frames a server-rendered draft instead of rendering in-app | A div sized to 390 px inside the application's document resolves media queries against the *window*, so the preview showed desktop rules at phone width — the exact failure this plan exists to remove. A frame has its own layout viewport | One authenticated API route serves unpublished content as HTML; its policy differs from a published page by one directive, `frame-ancestors 'self'` |

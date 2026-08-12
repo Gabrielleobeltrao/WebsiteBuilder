@@ -206,6 +206,66 @@ test.describe("preview", () => {
   });
 });
 
+test.describe("previewing from a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("shows the desktop layout at its real width, scaled to fit the phone", async ({ page }) => {
+    await signUp(page);
+
+    await page.getByRole("button", { name: "Open menu" }).click();
+    await page.getByRole("dialog").getByRole("link", { name: "Sites" }).click();
+    await page.getByRole("button", { name: "New site" }).click();
+    await page.getByLabel("Site name").fill("Phone Preview");
+    await page.getByRole("button", { name: "Create site" }).click();
+    await expect(page.getByText("Phone Preview")).toBeVisible({ timeout: 20_000 });
+
+    // The builder refuses to open on a phone, and offers preview instead. That is the route here.
+    await page.getByRole("link", { name: "Open" }).first().click();
+    await page.getByRole("link", { name: "Mobile preview" }).click();
+    await expect(page).toHaveURL(/\/preview\//, { timeout: 20_000 });
+
+    // A phone opens on the phone layout...
+    await expect(page.getByRole("button", { name: "Mobile", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+    // ...and can still ask what the desktop layout looks like, which must report 1440 rather than
+    // redefining the site as mobile because the host is small.
+    await page.getByRole("button", { name: "Desktop", exact: true }).click();
+    await expect
+      .poll(async () =>
+        page.frameLocator('iframe[title="Site preview"]').locator("body").evaluate(() => window.innerWidth),
+      )
+      .toBe(1440);
+
+    const box = await page.locator('iframe[title="Site preview"]').boundingBox();
+    expect(box).not.toBeNull();
+    // Scaled down to fit the phone rather than overflowing it.
+    expect(box!.width).toBeLessThanOrEqual(390);
+  });
+
+  test("mounts no way to change the document", async ({ page }) => {
+    await signUp(page);
+
+    await page.getByRole("button", { name: "Open menu" }).click();
+    await page.getByRole("dialog").getByRole("link", { name: "Sites" }).click();
+    await page.getByRole("button", { name: "New site" }).click();
+    await page.getByLabel("Site name").fill("Phone Read Only");
+    await page.getByRole("button", { name: "Create site" }).click();
+    await expect(page.getByText("Phone Read Only")).toBeVisible({ timeout: 20_000 });
+
+    const writes: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() !== "GET" && request.url().includes("/api/")) writes.push(request.url());
+    });
+
+    await page.getByRole("link", { name: "Open" }).first().click();
+    await page.getByRole("link", { name: "Mobile preview" }).click();
+    await expect(page).toHaveURL(/\/preview\//, { timeout: 20_000 });
+    await page.getByRole("button", { name: "Tablet", exact: true }).click();
+
+    expect(writes).toEqual([]);
+  });
+});
+
 test.describe("reaching the live site from a phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 

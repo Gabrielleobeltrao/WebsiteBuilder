@@ -48,16 +48,30 @@ function freePlacement(geometry: Geometry, layout: ResponsiveElementLayout, canv
   const rightGap = canvasWidth - (geometry.x + geometry.width);
   const declarations = [`position:absolute`, `top:${round(geometry.y)}px`];
 
+  /**
+   * The width an element may never exceed: what is left of the screen after its own offset.
+   *
+   * A fixed width is an authored intention, not a promise that the screen is that wide. Without this
+   * ceiling an element authored at 358px inside a 390px canvas pushes a 320px phone sideways — and
+   * the published stylesheet deliberately carries no `overflow-x: hidden` to conceal that. Expressed
+   * as a percentage of the containing section, so it stays true at every width with no JavaScript
+   * and nothing to repair after paint.
+   */
+  let containment: string | null = null;
+
   switch (layout.horizontalConstraint) {
     case "left":
       declarations.push(`left:${round(geometry.x)}px`, `width:${round(geometry.width)}px`);
+      containment = `calc(100% - ${round(geometry.x)}px)`;
       break;
     case "right":
       // Anchored to the other edge, so the gap the author left is the gap a visitor sees.
       declarations.push(`right:${round(rightGap)}px`, `width:${round(geometry.width)}px`);
+      containment = `calc(100% - ${round(rightGap)}px)`;
       break;
     case "center":
       declarations.push(`left:50%`, `width:${round(geometry.width)}px`, `transform:translateX(-50%)`);
+      containment = `100%`;
       break;
     case "stretch":
       // Both gaps held and the width left to the browser: the element grows and shrinks with the page.
@@ -77,7 +91,15 @@ function freePlacement(geometry: Geometry, layout: ResponsiveElementLayout, canv
   }
 
   if (layout.minWidth) declarations.push(`min-width:${serializeLength(layout.minWidth)}`);
-  if (layout.maxWidth) declarations.push(`max-width:${serializeLength(layout.maxWidth)}`);
+
+  // An authored maximum and the containment ceiling are both real limits, so the effective one is
+  // whichever is smaller — expressed once, because two `max-width` declarations would just mean the
+  // later one wins and the other was decoration.
+  const authoredMax = layout.maxWidth ? serializeLength(layout.maxWidth) : null;
+  if (authoredMax !== null && containment !== null) declarations.push(`max-width:min(${authoredMax},${containment})`);
+  else if (authoredMax !== null) declarations.push(`max-width:${authoredMax}`);
+  else if (containment !== null) declarations.push(`max-width:${containment}`);
+
   if (!layout.visible) declarations.push(`display:none`);
 
   return declarations;
