@@ -205,3 +205,38 @@ describe("localization", () => {
     expect(within(panel).getByLabelText("Provedor")).toBeInTheDocument();
   });
 });
+
+describe("the core blocks keep their own controls", () => {
+  it("caps how wide any block may grow", async () => {
+    const { id, user } = withBlock("text");
+
+    await user.click(screen.getByRole("tab", { name: "Style" }));
+    await user.click(screen.getByRole("button", { name: /Responsive/ }));
+
+    // `clear` on a number input leaves the browser's own empty state, which the field renders as
+    // its current value; typing appends to it unless the selection is replaced.
+    const field = screen.getByLabelText("Maximum width");
+    await user.tripleClick(field);
+    await user.keyboard("60");
+
+    // A line of text stays readable when its section is wider than a comfortable measure.
+    const element = current(id);
+    expect(element?.responsiveLayout.maxWidth).toMatchObject({ value: 60 });
+  });
+
+  it("lets a container choose how it lays its children out", async () => {
+    const { id, user } = withBlock("container");
+
+    await user.click(screen.getByRole("tab", { name: "Style" }));
+    await user.selectOptions(screen.getByLabelText("Layout mode"), "flex");
+
+    expect(current(id)).toMatchObject({ layout: "flex" });
+  });
+
+  it("offers a semantic heading level rather than a font size that looks like one", async () => {
+    const { id, user } = withBlock("text");
+
+    await user.selectOptions(screen.getByLabelText("Tag"), "h2");
+    expect(current(id)).toMatchObject({ tag: "h2" });
+  });
+});

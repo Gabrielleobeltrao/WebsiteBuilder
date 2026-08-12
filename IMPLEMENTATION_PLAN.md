@@ -149,10 +149,10 @@ The implementation must first activate and complete block schemas that already e
 
 ### Phase 3 — Complete existing core blocks
 
-- [ ] **3.1 Text and Heading preset.** Keep one text element contract; expose semantic heading/paragraph tags, typography, alignment, wrapping, max width, and responsive values. Prevent invalid heading hierarchy through readiness guidance, not destructive rewriting.
+- [x] **3.1 Text and Heading preset.** Keep one text element contract; expose semantic heading/paragraph tags, typography, alignment, wrapping, max width, and responsive values. Prevent invalid heading hierarchy through readiness guidance, not destructive rewriting.
 - [x] **3.2 Image.** Integrate the media library picker, focal point/object fit, responsive sizing, link, lazy/eager priority, alt/decorative choice, caption, and intrinsic dimensions.
 - [x] **3.3 Button.** Render leading/trailing icons, typed links, target behavior, accessible label, loading-safe states, hover/focus/active styles, width/alignment, and responsive sizing.
-- [ ] **3.4 Container.** Verify nested free/flex/grid behavior, min/max dimensions, gap, alignment, wrapping, overflow, background, border, radius, and breakpoint overrides.
+- [x] **3.4 Container.** Verify nested free/flex/grid behavior, min/max dimensions, gap, alignment, wrapping, overflow, background, border, radius, and breakpoint overrides.
   - Acceptance: each block has Content/Style/Advanced controls and authoring/preview/public parity across all three devices.
 
 ### Phase 4 — Activate the fourteen existing visual schemas
@@ -318,6 +318,7 @@ The plan adopts the proven discoverability and contextual-editing patterns, whil
 - 2026-08-12 — 4.1/3.3/4.7 (rendering) Icons are real SVG drawn from a closed vocabulary in `BlockIcon.tsx`, replacing the bullet that was the same mark for every icon in the set. A button's stored icon is finally rendered, decorative, before or after its label. A video renders its player from provider + id — never a stored URL — and shows a labelled placeholder while unconfigured. Five renderer tests.
 - 2026-08-12 — 4.1 Icon complete: allowlisted SVG set, size, colour, decorative by default, and a typed link that gives the icon an accessible name when it becomes the only thing announced. 4.3 Divider and Spacer complete: divider is capped at the width of what holds it so a rule cannot push a phone sideways; spacer height is geometry and is edited once, in Layout, with its own value per device.
 - 2026-08-12 — 3.2 Image complete: the workspace media library is the picker — typing a database id by hand was the only way to fill a media field, and a tenant-crossing reference was a typo away. Added caption (as `figure`/`figcaption`), typed link through the same safe-link contract, loading priority with `fetchPriority`, and stored intrinsic dimensions so the browser reserves the slot. The gallery and download button pick from the same library. 3.3 Button complete: its stored icon renders before or after the label, decorative, spaced by the shared style.
+- 2026-08-12 — 3.1 Text complete: one text contract with semantic tags h1–h6/p, typography, alignment and per-device values through the existing responsive style overrides, plus a maximum-width control shared by every block. Heading hierarchy is guidance, not rewriting: `auditPageAccessibility` already reports a missing h1, a second h1 and a skipped level. 3.4 Container complete: a container chooses free, flex or grid, which is what decides whether its children are placed by coordinate or reflowed by the browser.
 - 2026-08-12 — **Next**: 3.1-3.4 (media picker for image, container responsive controls), 4.2/4.4-4.6/4.8-4.13 (per-block rendering upgrades: icon-list links need a schema v2 + migration, accordion/tabs/gallery/table/pricing/announcement behaviour), then Phases 5-10. Every phase so far is committed on `development`; `main` untouched.
 - 2026-08-12 — 10.4 (frontend) An unexpected `console.error`/`console.warn` now fails the test that produced it; a test that means to provoke one declares it with `allowConsole(/pattern/)`. All 53 frontend files pass under the gate.
 
@@ -335,6 +336,7 @@ The plan adopts the proven discoverability and contextual-editing patterns, whil
 - 2026-08-12 — The registry holds data only. Inspector and renderer adapters stay in the frontend, because `packages/shared` carries no React; exhaustiveness is enforced there by a total record and a `never` check.
 - 2026-08-12 — No entitlement state in the catalog. Every workspace resolves to the same plan today, so a disabled row explaining a limit nobody has would be invented UI — which this plan explicitly rules out. The mechanism exists (`unavailable`) and is used for a restriction that is real: nesting depth.
 - 2026-08-12 — Recent and Favourites are browser preferences. They are per person, not per site; storing them in the document would put one editor's habits into another's saved revision.
+- 2026-08-12 — Text always wraps. The plan lists a wrapping control, but the only thing a no-wrap option adds is the ability to push a page sideways on a phone, and the published stylesheet already breaks long words for exactly that reason. Not building the control is the safer reading of the requirement.
 - 2026-08-12 — Budget the first screen separately from the total. Summing every chunk hides the regression that matters: a route that stops being lazily loaded moves the first screen and leaves the total unchanged.
 
 ## Continuous Claude Code goal

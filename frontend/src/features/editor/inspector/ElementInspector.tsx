@@ -190,6 +190,23 @@ export function ElementInspector({ element, pages }: { element: BuilderElement; 
       </InspectorGroup>
       )}
 
+      {element.type === "container" && (
+        <InspectorGroup titleKey="layout">
+          <SelectField
+            label={t("section.layoutMode")}
+            value={element.layout}
+            options={(["free", "flex", "grid"] as const).map((value) => ({
+              value,
+              label: t(`section.mode.${value}`),
+            }))}
+            onChange={(layout) =>
+              patch((current) => (current.type === "container" ? { ...current, layout } : current))
+            }
+          />
+          <p className="text-[11px] text-ink-500">{t("section.containerHint")}</p>
+        </InspectorGroup>
+      )}
+
       {!structured && (
       <InspectorGroup titleKey="style">
         {element.type === "text" && (
@@ -388,6 +405,16 @@ export function ElementInspector({ element, pages }: { element: BuilderElement; 
       </InspectorGroup>
 
       <InspectorGroup titleKey="responsive" defaultOpen={false}>
+        {/* A ceiling on how wide a block may grow, which is what keeps a line of text readable when
+            the section is wider than a comfortable measure. */}
+        <LengthField
+          label={t("fields.maxWidth")}
+          value={element.responsiveLayout.maxWidth ?? { value: 100, unit: "%" }}
+          transactionKey={`${key}:maxWidth`}
+          onChange={(maxWidth) =>
+            patch((current) => ({ ...current, responsiveLayout: { ...current.responsiveLayout, maxWidth } }))
+          }
+        />
         <LengthField
           label={t("fields.width")}
           value={element.responsiveLayout.width}

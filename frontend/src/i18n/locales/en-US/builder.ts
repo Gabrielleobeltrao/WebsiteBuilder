@@ -203,6 +203,7 @@ export default {
   },
 
   "fields": {
+    maxWidth: "Maximum width",
     image: "Image",
     file: "File",
     chooseImage: "Choose from the media library",
@@ -375,6 +376,7 @@ export default {
   },
 
   "section": {
+    containerHint: "Free places children by coordinate; flex and grid let the browser lay them out and reflow on a phone.",
     "layoutMode": "Layout mode",
     "mode": {
       "free": "Free",

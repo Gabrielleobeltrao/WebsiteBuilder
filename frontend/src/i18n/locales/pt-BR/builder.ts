@@ -203,6 +203,7 @@ export default {
   },
 
   "fields": {
+    maxWidth: "Largura máxima",
     image: "Imagem",
     file: "Arquivo",
     chooseImage: "Escolher da biblioteca de mídia",
@@ -375,6 +376,7 @@ export default {
   },
 
   "section": {
+    containerHint: "Livre posiciona os filhos por coordenada; flex e grade deixam o navegador organizá-los e refluir no celular.",
     "layoutMode": "Modo de layout",
     "mode": {
       "free": "Livre",
