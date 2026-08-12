@@ -87,8 +87,14 @@ export const videoElementSchema = z
     ...elementBase,
     type: z.literal("video"),
     provider: z.enum(VIDEO_PROVIDERS),
-    /** The provider's own id. The embed URL is built here; no URL from a document is ever loaded. */
-    videoId: z.string().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/, "must be a provider video id"),
+    /**
+     * The provider's own id. The embed URL is built here; no URL from a document is ever loaded.
+     *
+     * Empty is a valid stored state and means "not configured yet": a block has to be insertable
+     * before it can be filled in. The renderer shows a placeholder for it and readiness reports it,
+     * which is the difference between an unfinished page and a broken one.
+     */
+    videoId: z.string().max(64).regex(/^[A-Za-z0-9_-]*$/, "must be a provider video id"),
     title: z.string().max(200),
   })
   .strict();
@@ -104,7 +110,8 @@ export const socialLinksElementSchema = z
   .strict();
 
 export const downloadButtonElementSchema = z
-  .object({ ...elementBase, type: z.literal("downloadButton"), mediaId: z.string().min(1), label: z.string().max(120) })
+  // Empty `mediaId` means no file chosen yet, for the same reason as the video id above.
+  .object({ ...elementBase, type: z.literal("downloadButton"), mediaId: z.string().max(120), label: z.string().max(120) })
   .strict();
 
 export const breadcrumbsElementSchema = z
@@ -166,6 +173,33 @@ export const announcementBarElementSchema = z
   })
   .strict();
 
+/**
+ * A form placed on a page.
+ *
+ * The element holds a *reference* and its presentation, never the field definitions: those live in
+ * the forms module, are edited once, and are shared by every page that shows the form. A copy here
+ * would drift from the definition that actually validates a submission.
+ *
+ * An empty `formId` is the state a freshly inserted block is in. Readiness reports it, and
+ * publishing refuses a page whose form was never chosen — an empty form silently accepting nothing
+ * is worse than a page that says what it needs.
+ */
+export const formElementSchema = z
+  .object({
+    ...elementBase,
+    type: z.literal("form"),
+    formId: z.string().max(120),
+    submitLabel: z.string().max(80),
+    successMessage: z.string().max(500),
+    errorMessage: z.string().max(500),
+    /** Shown beside the submit control when the site asks for consent before storing a submission. */
+    consentText: z.string().max(500),
+    consentRequired: z.boolean(),
+  })
+  .strict();
+
+export type FormElement = z.infer<typeof formElementSchema>;
+
 /** The members, exported separately so the document union can spread them in. */
 export const VISUAL_ELEMENT_SCHEMAS = [
   iconElementSchema,
@@ -182,6 +216,7 @@ export const VISUAL_ELEMENT_SCHEMAS = [
   tableElementSchema,
   pricingTableElementSchema,
   announcementBarElementSchema,
+  formElementSchema,
 ] as const;
 
 export const visualElementSchema = z.discriminatedUnion("type", [...VISUAL_ELEMENT_SCHEMAS]);

@@ -17,6 +17,10 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
   const { resolveMediaUrl } = useRendererContext();
 
   switch (element.type) {
+    case "form":
+      // Rendered by the form block, which needs the definition it references and therefore the
+      // module's own component. Reaching this case at all means the dispatcher above did not.
+      return null;
     case "divider":
       return (
         <hr
@@ -204,4 +208,12 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
         </div>
       );
   }
+
+  // Unreachable while every member of the union is handled above. When a new block is added and
+  // this stops compiling, that is the point: the block has no rendering yet.
+  return assertHandled(element);
+}
+
+function assertHandled(element: never): never {
+  throw new Error(`No renderer for element type: ${(element as { type?: string }).type ?? "unknown"}`);
 }

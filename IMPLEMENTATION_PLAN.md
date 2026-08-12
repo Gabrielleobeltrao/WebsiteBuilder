@@ -129,13 +129,13 @@ The implementation must first activate and complete block schemas that already e
 
 ### Phase 1 — One source of truth for blocks
 
-- [ ] **1.1 Create a typed `ElementDefinition` registry in shared/editor code.** Each definition owns type, schema/version, category, translated label key, icon identifier, default factory, allowed contexts, nesting rules, responsive capabilities, feature dependency, inspector adapter, renderer adapter, and optional public-runtime capability.
+- [x] **1.1 Create a typed `ElementDefinition` registry in shared/editor code.** Each definition owns type, schema/version, category, translated label key, icon identifier, default factory, allowed contexts, nesting rules, responsive capabilities, feature dependency, inspector adapter, renderer adapter, and optional public-runtime capability.
   - Acceptance: catalog, create-element logic, inspector routing, feature detection, renderer routing, and readiness rules derive from or validate against the same registry.
-- [ ] **1.2 Remove duplicated element-name switch statements where the registry is authoritative.** Exhaustive TypeScript checks must fail when a new valid block lacks required integration.
+- [x] **1.2 Remove duplicated element-name switch statements where the registry is authoritative.** Exhaustive TypeScript checks must fail when a new valid block lacks required integration.
   - Acceptance: adding a temporary fixture element without a renderer/default/inspector causes typecheck or a contract test to fail.
-- [ ] **1.3 Version element payloads and add pure migrations.** Existing saved projects must open without mutation until saved; published snapshots remain immutable.
+- [x] **1.3 Version element payloads and add pure migrations.** Existing saved projects must open without mutation until saved; published snapshots remain immutable.
   - Acceptance: fixtures for legacy and current documents parse and render deterministically.
-- [ ] **1.4 Reconcile feature detection with valid project contracts.** Normal page, blog-template, and CMS-template elements must have explicit contexts rather than impossible string comparisons.
+- [x] **1.4 Reconcile feature detection with valid project contracts.** Normal page, blog-template, and CMS-template elements must have explicit contexts rather than impossible string comparisons.
   - Acceptance: every detected feature can be represented in its declared document context and unused optional features stay absent from navigation.
 
 ### Phase 2 — Rebuild the Elements destination
@@ -308,6 +308,10 @@ The plan adopts the proven discoverability and contextual-editing patterns, whil
 - 2026-08-12 — 0.4 Test orchestration: the i18next language change and the released read are wrapped in `act(...)`. The race assertion is unchanged.
 - 2026-08-12 — 0.5 All 24 Mongo-backed suites use `await database?.stop()`; `startTestDatabase` wraps a failed `MongoMemoryServer.create()` with the prerequisite and the original cause. CI caches `node_modules/.cache/mongodb-binaries`. Documented in the runbook commands reference. `npm run test -w backend`: 38 files pass.
 - 2026-08-12 — 0.6 Ten routes are lazily loaded behind one Suspense boundary. Entry chunk gzip fell from 386 KB to 163 KB; the builder (99 KB), blog editor (126 KB), analytics (7 KB) and CMS (4 KB) are separate chunks. New budget `applicationInitialBundleBytes` = 200 KB with a test that also fails if the entry ever exceeds 60% of the total.
+- 2026-08-12 — 1.1 `packages/shared/src/element-registry.ts`: one `ElementDefinition` per block — schema version, category, label key, search keywords, icon, default size, contexts, nesting, free-positionability, feature dependency, runtime capability and a pure defaults factory. `ELEMENT_TYPES` grew from 4 to 19 (the 14 dormant visual schemas plus `form`); `createElement` builds every block from the registry instead of a switch.
+- 2026-08-12 — 1.2 The registry is a `Record` over the union and `VisualElementRenderer` ends in a `never` check, so a block added without a definition or a renderer fails `npm run typecheck`. A contract test parses every block's defaults with the real document schema.
+- 2026-08-12 — 1.3 `element-migrations.ts`: elements carry an optional `version` (absent = 1), migration is pure and runs on read in both the editor and publishing, returns the same object when nothing changed, and refuses an element written by a newer deployment rather than half-reading it.
+- 2026-08-12 — 1.4 `countReferences` derives its element types from the registry. The list it replaced named `form`, `postCollection`, `blogDynamic`, `cmsCollection`, `cmsDynamic` and `search` — none a valid element type, so every count was zero and no optional feature could leave "unused". The `form` block now declares `feature: "forms"`.
 - 2026-08-12 — 10.4 (frontend) An unexpected `console.error`/`console.warn` now fails the test that produced it; a test that means to provoke one declares it with `allowConsole(/pattern/)`. All 53 frontend files pass under the gate.
 
 ## Decision Log
@@ -320,6 +324,8 @@ The plan adopts the proven discoverability and contextual-editing patterns, whil
 - 2026-08-12 — Preserve the right rail, fixed three-device model, desktop-only authoring, and conditional feature navigation.
 - 2026-08-12 — Non-finite coordinates are corrected in `coordinates.ts` rather than at each call site: every drag, resize and insertion already funnels through it, and a guard per caller would have to be repeated for each new one.
 - 2026-08-12 — The console gate restores only its own two spies. `vi.restoreAllMocks()` also resets every `vi.fn()` a module mock declared, which empties a file's stubs after its first test.
+- 2026-08-12 — Unconfigured is a representable state. A freshly inserted video, download button or form stores an empty id: a block has to be insertable before it can be filled in, and readiness reports the gap rather than the schema refusing to save the page.
+- 2026-08-12 — The registry holds data only. Inspector and renderer adapters stay in the frontend, because `packages/shared` carries no React; exhaustiveness is enforced there by a total record and a `never` check.
 - 2026-08-12 — Budget the first screen separately from the total. Summing every chunk hides the regression that matters: a route that stops being lazily loaded moves the first screen and leaves the total unchanged.
 
 ## Continuous Claude Code goal

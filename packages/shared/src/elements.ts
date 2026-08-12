@@ -19,7 +19,34 @@ import {
   type ResponsiveStyleOverride,
 } from "./responsive";
 
-export const ELEMENT_TYPES = ["text", "image", "button", "container"] as const;
+/**
+ * Every block a document may contain.
+ *
+ * The union, and nothing else. What each one *is* — its category, defaults, contexts and runtime
+ * needs — lives in `element-registry.ts`, which is a total record over this list: adding a name here
+ * without describing it there does not compile.
+ */
+export const ELEMENT_TYPES = [
+  "text",
+  "image",
+  "button",
+  "container",
+  "icon",
+  "iconList",
+  "divider",
+  "spacer",
+  "accordion",
+  "tabs",
+  "gallery",
+  "video",
+  "socialLinks",
+  "downloadButton",
+  "breadcrumbs",
+  "table",
+  "pricingTable",
+  "announcementBar",
+  "form",
+] as const;
 export type ElementType = (typeof ELEMENT_TYPES)[number];
 
 export const SECTION_LAYOUT_MODES = ["free", "grid", "flex"] as const;
@@ -46,6 +73,7 @@ const baseElementShape = elementBaseShape;
 export type BaseElement = {
   id: string;
   name: string;
+  version?: number;
   geometry: Geometry;
   responsiveLayout: ResponsiveElementLayout;
   breakpointOverrides?: Record<

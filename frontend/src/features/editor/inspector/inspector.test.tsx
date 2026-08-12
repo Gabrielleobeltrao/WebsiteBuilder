@@ -150,7 +150,7 @@ describe("text inspector", () => {
 
     await user.selectOptions(screen.getByLabelText("Font size unit"), "rem");
     const element = currentElement(id);
-    expect(element?.type === "text" && element.style.fontSize).toEqual({ value: 18, unit: "rem" });
+    expect(element?.type === "text" && element.style.fontSize).toEqual({ value: 16, unit: "rem" });
   });
 });
 

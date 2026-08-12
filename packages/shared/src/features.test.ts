@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { elementDefinition } from "./element-registry";
+import type { BuilderElement, ElementType } from "./elements";
 import {
   blocksPublication,
   countReferences,
@@ -144,20 +146,42 @@ describe("reconcileFeature", () => {
   });
 });
 
+/** A real element of one type, so a count is asserted against something the document accepts. */
+function elementOf(type: ElementType, id: string, overrides: Record<string, unknown> = {}): BuilderElement {
+  return {
+    id,
+    name: "",
+    geometry: { x: 0, y: 0, width: 100, height: 40, rotation: 0 },
+    responsiveLayout: {
+      width: { value: 100, unit: "px" },
+      height: { value: 40, unit: "px" },
+      horizontalConstraint: "left",
+      verticalConstraint: "top",
+      visible: true,
+    },
+    zIndex: 1,
+    locked: false,
+    hidden: false,
+    type,
+    version: elementDefinition(type).schemaVersion,
+    ...elementDefinition(type).defaults(),
+    ...overrides,
+  } as BuilderElement;
+}
+
 describe("countReferences", () => {
   it("counts only element types belonging to the feature", () => {
     const page = createPage({ name: "Home", isHome: true });
     const section = page.sections[0];
     if (!section) throw new Error("fixture is missing its section");
 
-    section.elements.push(
-      { type: "form", id: "1" } as never,
-      { type: "form", id: "2" } as never,
-      { type: "search", id: "3" } as never,
-    );
+    // Real elements, built from the registry. The fixtures this replaced pushed `{type: "form"}`
+    // and `{type: "search"}` — neither is a valid element, so the counts they asserted could only
+    // ever have come from comparing strings the document can never contain.
+    section.elements.push(elementOf("form", "1"), elementOf("form", "2"), elementOf("text", "3"));
 
     expect(countReferences([page], "forms")).toBe(2);
-    expect(countReferences([page], "search")).toBe(1);
+    expect(countReferences([page], "search")).toBe(0);
     expect(countReferences([page], "cms")).toBe(0);
   });
 
@@ -166,11 +190,11 @@ describe("countReferences", () => {
     const section = page.sections[0];
     if (!section) throw new Error("fixture is missing its section");
 
-    section.elements.push({
-      type: "container",
-      id: "c1",
-      children: [{ type: "container", id: "c2", children: [{ type: "form", id: "f1" }] }],
-    } as never);
+    section.elements.push(
+      elementOf("container", "c1", {
+        children: [elementOf("container", "c2", { children: [elementOf("form", "f1")] })],
+      }),
+    );
 
     expect(countReferences([page], "forms")).toBe(1);
   });

@@ -123,6 +123,7 @@ export default {
     breadcrumbs: "Breadcrumbs",
     table: "Table",
     pricingTable: "Pricing table",
+    form: "Form",
     announcementBar: "Announcement bar",
   },
   inspector: {

@@ -10,6 +10,8 @@ export * from "./dynamic-elements";
 export * from "./containers";
 export * from "./diagnostics";
 export * from "./elements";
+export * from "./element-registry";
+export * from "./element-migrations";
 export * from "./features";
 export * from "./forms";
 export * from "./ids";

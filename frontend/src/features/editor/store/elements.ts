@@ -1,5 +1,6 @@
 import {
   createId,
+  elementDefinition,
   DESIGN_WIDTH,
   elementDepth,
   MAX_CONTAINER_DEPTH,
@@ -18,14 +19,6 @@ import { constrainGeometry } from "@/features/editor/canvas/coordinates";
  * unique IDs, deterministic z-order, locked elements staying put — are testable without React.
  */
 
-/** Defaults from Section 7 of the plan. Nothing here forces a full-width size. */
-const DEFAULTS: Record<ElementType, { width: number; height: number }> = {
-  text: { width: 320, height: 64 },
-  image: { width: 400, height: 260 },
-  button: { width: 180, height: 48 },
-  container: { width: 480, height: 240 },
-};
-
 function baseLayout(width: number, height: number) {
   return {
     width: { value: width, unit: "px" as const },
@@ -40,12 +33,19 @@ function nextZIndex(section: BuilderSection): number {
   return section.elements.reduce((highest, element) => Math.max(highest, element.zIndex), 0) + 1;
 }
 
-/** Creates an element centred on the visible canvas area, on top of everything else. */
+/**
+ * Creates an element centred on the visible canvas area, on top of everything else.
+ *
+ * The type-specific half — content, style, items — comes from the registry, so a block's defaults
+ * are described once beside its schema rather than in a switch here that has to be remembered. This
+ * function owns only what belongs to the canvas: a unique id, a size, a position and a z-index.
+ */
 export function createElement(
   type: ElementType,
   options: { section: BuilderSection; viewportCentre?: { x: number; y: number } },
 ): BuilderElement {
-  const size = DEFAULTS[type];
+  const definition = elementDefinition(type);
+  const size = definition.defaultSize;
   const centre = options.viewportCentre ?? { x: DESIGN_WIDTH / 2, y: 200 };
   const geometry: Geometry = constrainGeometry({
     x: centre.x - size.width / 2,
@@ -55,64 +55,20 @@ export function createElement(
     rotation: 0,
   });
 
-  const shared = {
+  return {
     id: createId(),
+    // Left empty on purpose: every surface falls back to the block's translated name, so an
+    // untouched element reads correctly in both locales instead of carrying an English literal.
+    name: "",
     geometry,
     responsiveLayout: baseLayout(size.width, size.height),
     zIndex: nextZIndex(options.section),
     locked: false,
     hidden: false,
-  };
-
-  switch (type) {
-    case "text":
-      return {
-        ...shared,
-        type: "text",
-        name: "Text",
-        tag: "p",
-        content: "Write something",
-        style: {
-          fontFamily: "Inter",
-          fontSize: { value: 18, unit: "px" },
-          fontWeight: 400,
-          fontStyle: "normal",
-          textAlign: "left",
-          color: "#232936",
-          lineHeight: 1.5,
-        },
-      };
-    case "image":
-      return {
-        ...shared,
-        type: "image",
-        name: "Image",
-        source: { kind: "empty" },
-        alt: "",
-        decorative: false,
-        style: { objectFit: "cover", borderRadius: 0 },
-      };
-    case "button":
-      return {
-        ...shared,
-        type: "button",
-        name: "Button",
-        text: "Button",
-        // Unconfigured until the designer chooses a destination: a button that silently links
-        // nowhere is worse than one that visibly needs configuring.
-        link: { kind: "none" },
-        style: {
-          fontSize: { value: 16, unit: "px" },
-          fontWeight: 600,
-          textColor: "#ffffff",
-          backgroundColor: "#12806f",
-          borderRadius: 6,
-          horizontalAlign: "center",
-        },
-      };
-    case "container":
-      return { ...shared, type: "container", name: "Container", layout: "free", children: [], layoutByBreakpoint: {} };
-  }
+    type,
+    version: definition.schemaVersion,
+    ...definition.defaults(),
+  } as BuilderElement;
 }
 
 function mapPage(

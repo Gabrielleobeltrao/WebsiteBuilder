@@ -1,3 +1,4 @@
+import { featureElementTypes } from "./element-registry";
 import { walkElements, type BuilderElement } from "./elements";
 import type { BuilderPage, SiteFeatureKey, SiteFeatureLifecycle, SiteFeatureState } from "./project";
 
@@ -79,17 +80,16 @@ export function reconcileFeature(input: {
   };
 }
 
-/** Element types that count as a reference to each optional module. */
-const FEATURE_ELEMENT_TYPES: Record<SiteFeatureKey, readonly string[]> = {
-  forms: ["form"],
-  blog: ["postCollection", "blogDynamic"],
-  cms: ["cmsCollection", "cmsDynamic"],
-  search: ["search"],
-};
-
-/** Counts live references to a module across the saved pages of a site. */
+/**
+ * Counts live references to a module across the saved pages of a site.
+ *
+ * The element types are read from the registry rather than listed here. The list this replaced named
+ * `form`, `postCollection`, `blogDynamic`, `cmsCollection`, `cmsDynamic` and `search` — none of
+ * which is a valid element type, so every comparison was false, every count was zero, and no
+ * optional feature could ever leave "unused" no matter what a site contained.
+ */
 export function countReferences(pages: readonly BuilderPage[], feature: SiteFeatureKey): number {
-  const types = FEATURE_ELEMENT_TYPES[feature];
+  const types: readonly string[] = featureElementTypes(feature);
   let count = 0;
 
   for (const page of pages) {

@@ -123,6 +123,7 @@ export default {
     breadcrumbs: "Trilha de navegação",
     table: "Tabela",
     pricingTable: "Tabela de preços",
+    form: "Formulário",
     announcementBar: "Barra de aviso",
   },
   inspector: {

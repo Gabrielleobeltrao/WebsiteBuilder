@@ -1,6 +1,7 @@
 import {
   buildRouteManifest,
   compileSite,
+  migrateDocumentElements,
   migrateDocumentResponsive,
   SCHEMA_VERSION,
   type CompileInput,
@@ -231,7 +232,10 @@ export class PublishingService {
     // The same migration the builder applies when a draft is opened. Publishing must not depend on
     // somebody having opened the editor first: a site published straight from an old document would
     // otherwise go live with the layout this whole model exists to prevent.
-    const { document: migrated } = migrateDocumentResponsive(project);
+    // The same two migrations the builder applies on read. Publishing must not depend on somebody
+    // having opened the editor first.
+    const { document: versioned } = migrateDocumentElements(project);
+    const { document: migrated } = migrateDocumentResponsive(versioned);
 
     return {
       project: migrated,

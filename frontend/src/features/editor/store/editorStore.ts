@@ -3,6 +3,7 @@ import {
   DEVICE_ORDER,
   deviceForWidth,
   deviceReferenceWidth,
+  migrateDocumentElements,
   migrateDocumentResponsive,
   type DeviceMode,
 } from "@websitebuilder/shared";
@@ -232,7 +233,10 @@ export const useEditorStore = create<EditorState>((set, get) => {
       // phone. Migration gives those an explicit narrow layout and touches nothing else — desktop
       // is never written, an override somebody already made is never replaced, and running it twice
       // changes nothing the second time.
-      const { document } = migrateDocumentResponsive(toDocumentInput(project));
+      // Both migrations run on read and neither writes: the document is corrected in memory, and
+      // only a save the person makes themselves persists it.
+      const { document: elementsMigrated } = migrateDocumentElements(toDocumentInput(project));
+      const { document } = migrateDocumentResponsive(elementsMigrated);
       const home = project.pages.find((page) => page.isHome) ?? project.pages[0];
       set((state) => ({
         projectId: project.id,

@@ -313,6 +313,12 @@ export function breakpointInheritanceChain(
 export const elementBaseShape = {
   id: z.string().min(1),
   name: z.string().max(120),
+  /**
+   * The payload version this element was written as. Absent means 1, which is what every document
+   * written before element versioning existed means. Migration is a pure function on read; nothing
+   * rewrites a stored document until its owner saves.
+   */
+  version: z.number().int().min(1).max(1000).optional(),
   geometry: geometrySchema,
   responsiveLayout: responsiveElementLayoutSchema,
   breakpointOverrides: z
