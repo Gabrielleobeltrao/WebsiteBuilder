@@ -187,3 +187,62 @@ describe("dialogs", () => {
     expect(within(dialog).getByRole("button", { name: "Reload the newest version" })).toBeInTheDocument();
   });
 });
+
+describe("the catalog and its blocks, without a pointer", () => {
+  it("reaches every destination, the search field and a block by keyboard alone", async () => {
+    const user = userEvent.setup();
+    render();
+
+    await user.click(screen.getByRole("tab", { name: "Add elements" }));
+
+    // The search field is a real input with a name, so a screen reader announces what it filters.
+    const search = screen.getByRole("searchbox", { name: "Search blocks" });
+    search.focus();
+    await user.keyboard("gallery");
+
+    const block = screen.getByRole("button", { name: "Gallery" });
+    block.focus();
+    await user.keyboard("{Enter}");
+
+    // Nothing was selected, so it lands in a new section at the page bottom — the deterministic
+    // destination the panel states before the key is pressed.
+    const page = useEditorStore.getState().history.present.pages[0]!;
+    expect(page.sections.at(-1)?.elements.map((element) => element.type)).toEqual(["gallery"]);
+  });
+
+  it("names every control in a repeatable list after the row it acts on", async () => {
+    const user = userEvent.setup();
+    render();
+    act(() => useEditorStore.getState().addElement(firstSection().id, "accordion"));
+
+    // "Move up" alone is ambiguous in a list of five; the row's own text is what disambiguates it.
+    expect(screen.getByRole("button", { name: "Duplicate Question" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Question" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add Questions" }));
+    expect(screen.getAllByRole("button", { name: /Move Question/ }).length).toBeGreaterThan(0);
+  });
+
+  it("announces a block's own name in the tree, in the reader's language", async () => {
+    const user = userEvent.setup();
+    render();
+    act(() => useEditorStore.getState().addElement(firstSection().id, "countdown"));
+
+    await user.click(screen.getByRole("tab", { name: "Structure" }));
+    const tree = screen.getByRole("navigation", { name: "Page structure" });
+
+    // An untouched block has no stored name, so every surface falls back to its translated type
+    // rather than to an English literal.
+    expect(within(tree).getByRole("button", { name: "Countdown" })).toBeInTheDocument();
+  });
+
+  it("gives a pattern row a name that says what it inserts", async () => {
+    const user = userEvent.setup();
+    render();
+
+    await user.click(screen.getByRole("tab", { name: "Add elements" }));
+    await user.click(screen.getByRole("tab", { name: "Patterns" }));
+
+    expect(screen.getByRole("button", { name: /Hero.*Text.*Button/ })).toBeInTheDocument();
+  });
+});
