@@ -1,6 +1,8 @@
 import {
   createId,
   DESIGN_WIDTH,
+  elementDepth,
+  MAX_CONTAINER_DEPTH,
   type BuilderDocumentInput,
   type BuilderElement,
   type BuilderPage,
@@ -125,26 +127,129 @@ function mapSection(page: BuilderPage, sectionId: string, recipe: (section: Buil
   return { ...page, sections: page.sections.map((s) => (s.id === sectionId ? recipe(s) : s)) };
 }
 
+/**
+ * Where an element lands.
+ *
+ * One shape for creating and for moving, because "put this here" is the same question whether the
+ * element is new or already exists — and a second shape would be a second set of rules to keep in
+ * agreement about depth, ordering and which section owns what.
+ */
+export type InsertionTarget = {
+  sectionId: string;
+  /** Inside this container rather than directly in the section. */
+  containerId?: string;
+  /** Position among its new siblings. Appended when absent. */
+  index?: number;
+  /** Canvas coordinates, for a drop into a free section. */
+  at?: { x: number; y: number };
+};
+
+function insertAt(elements: readonly BuilderElement[], element: BuilderElement, index?: number): BuilderElement[] {
+  const next = [...elements];
+  next.splice(index === undefined ? next.length : Math.max(0, Math.min(index, next.length)), 0, element);
+  return next;
+}
+
+/** True when this container can still take another level of nesting. */
+export function canAcceptChild(parent: BuilderElement): boolean {
+  return parent.type === "container" && elementDepth(parent) < MAX_CONTAINER_DEPTH;
+}
+
+/** Places an element at a target, returning null when the target refuses it. */
+function placeInto(
+  document: BuilderDocumentInput,
+  pageId: string,
+  target: InsertionTarget,
+  build: (section: BuilderSection) => BuilderElement,
+): { document: BuilderDocumentInput; elementId: string | null } {
+  let elementId: string | null = null;
+  let refused = false;
+
+  const next = mapPage(document, pageId, (page) =>
+    mapSection(page, target.sectionId, (section) => {
+      const element = build(section);
+
+      if (target.containerId === undefined) {
+        elementId = element.id;
+        return { ...section, elements: insertAt(section.elements, element, target.index) };
+      }
+
+      const children = mapElements(section.elements, target.containerId, (parent) => {
+        // Depth is a document invariant, not a UI hint: a rejected drop must leave the document
+        // byte-identical, so the refusal happens here rather than in whichever surface asked.
+        if (parent.type !== "container" || (element.type === "container" && !canAcceptChild(parent))) {
+          refused = true;
+          return parent;
+        }
+        elementId = element.id;
+        return { ...parent, children: insertAt(parent.children, element, target.index) };
+      });
+
+      return { ...section, elements: children };
+    }),
+  );
+
+  return refused || elementId === null ? { document, elementId: null } : { document: next, elementId };
+}
+
+/** Creates one element at a target. */
+export function insertElement(
+  document: BuilderDocumentInput,
+  pageId: string,
+  type: ElementType,
+  target: InsertionTarget,
+): { document: BuilderDocumentInput; elementId: string | null } {
+  return placeInto(document, pageId, target, (section) =>
+    createElement(type, { section, ...(target.at ? { viewportCentre: target.at } : {}) }),
+  );
+}
+
 export function addElement(
   document: BuilderDocumentInput,
   location: { pageId: string; sectionId: string },
   type: ElementType,
   viewportCentre?: { x: number; y: number },
 ): { document: BuilderDocumentInput; elementId: string | null } {
-  let elementId: string | null = null;
+  return insertElement(document, location.pageId, type, {
+    sectionId: location.sectionId,
+    ...(viewportCentre ? { at: viewportCentre } : {}),
+  });
+}
 
-  const next = mapPage(document, location.pageId, (page) =>
-    mapSection(page, location.sectionId, (section) => {
-      const element = createElement(type, {
-        section,
-        ...(viewportCentre ? { viewportCentre } : {}),
-      });
-      elementId = element.id;
-      return { ...section, elements: [...section.elements, element] };
-    }),
-  );
+/**
+ * Moves an existing element to another place in the same page.
+ *
+ * Refuses the two moves that would corrupt the tree — into itself, and into one of its own
+ * descendants — by returning the document unchanged, so a caller has nothing to undo.
+ */
+export function moveElementTo(
+  document: BuilderDocumentInput,
+  pageId: string,
+  elementId: string,
+  target: InsertionTarget,
+): BuilderDocumentInput {
+  const source = findElement(document, elementId);
+  if (source === null) return document;
+  if (target.containerId === elementId) return document;
+  if (target.containerId !== undefined && searchElements([source], target.containerId) !== null) return document;
 
-  return { document: next, elementId };
+  // A drop onto a free section names a coordinate; carrying the old one over would land the element
+  // wherever it happened to be in the section it came from.
+  const moved =
+    target.at === undefined
+      ? source
+      : {
+          ...source,
+          geometry: constrainGeometry({
+            ...source.geometry,
+            x: target.at.x - source.geometry.width / 2,
+            y: target.at.y - source.geometry.height / 2,
+          }),
+        };
+
+  const detached = deleteElement(document, elementId);
+  const { document: next, elementId: placed } = placeInto(detached, pageId, target, () => moved);
+  return placed === null ? document : next;
 }
 
 /** Depth-first search across every section of every page. */

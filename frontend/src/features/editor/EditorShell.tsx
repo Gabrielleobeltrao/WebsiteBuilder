@@ -14,9 +14,11 @@ import { resolvePanelView } from "@/features/editor/panel/panelMachine";
 import { RightPanel } from "@/features/editor/panel/RightPanel";
 import { DeviceSwitcher } from "@/features/editor/canvas/DeviceSwitcher";
 import { SaveStateIndicator } from "@/features/editor/SaveStateIndicator";
+import { findElement } from "@/features/editor/store/elements";
 import {
   selectCurrentPage,
   selectHasUnsavedChanges,
+  selectInsertionTarget,
   useEditorStore,
   type PanelMode,
 } from "@/features/editor/store/editorStore";
@@ -39,7 +41,11 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
   const store = useEditorStore();
   const page = useEditorStore(selectCurrentPage);
   const hasUnsaved = useEditorStore(selectHasUnsavedChanges);
-  const view = resolvePanelView({ panelMode: store.ui.panelMode, selection: store.ui.selection });
+  const view = resolvePanelView({
+    panelMode: store.ui.panelMode,
+    selection: store.ui.selection,
+    intent: store.ui.panelIntent,
+  });
 
   useUnsavedChangesWarning(hasUnsaved);
   // Shortcuts are mounted only where authoring is allowed, never in the preview-only shell.
@@ -96,19 +102,30 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
     );
   }
 
+  /**
+   * Where a click on a library block puts the element, in the author's words.
+   *
+   * The panel says this before anything is clicked. "It went somewhere" is the complaint that made
+   * click insertion feel broken, and it was never about the destination being wrong — it was about
+   * the destination being unstated.
+   */
+  const destinationLabel = (): string => {
+    const target = selectInsertionTarget(store);
+    if (target === null) return t("builder:elements.newSection");
+    if (target.containerId !== undefined) {
+      const container = findElement(store.history.present, target.containerId);
+      return container?.name || t("builder:elements.container");
+    }
+    const section = page?.sections.find((candidate) => candidate.id === target.sectionId);
+    return section?.name || t("builder:elements.section");
+  };
+
   const renderMode = (mode: PanelMode) => {
     switch (mode) {
       case "pages":
         return <PagesPanel />;
       case "elements":
-        return (
-          <ElementsPanel
-            onAdd={(type) => {
-              const sectionId = page?.sections[0]?.id;
-              if (sectionId) store.addElement(sectionId, type);
-            }}
-          />
-        );
+        return <ElementsPanel onAdd={(type) => store.insertElement(type)} destination={destinationLabel()} />;
       case "layers":
         return <LayersPanel />;
       case "pageSettings":

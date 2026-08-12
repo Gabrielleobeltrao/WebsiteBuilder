@@ -41,7 +41,7 @@ beforeEach(() => {
     loadErrorCode: null,
     history: createHistory(createProjectDocument({ name: "", slug: "empty-site" })),
     persistence: { status: "clean" },
-    ui: { currentPageId: null, selection: null, lastPanelMode: "pages", panelMode: "pages", zoom: 1, editingWidth: 1440 },
+    ui: { currentPageId: null, selection: null, lastPanelMode: "pages", panelMode: "pages", panelIntent: "destination", zoom: 1, editingWidth: 1440 },
   });
 });
 

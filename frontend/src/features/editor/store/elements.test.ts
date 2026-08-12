@@ -1,9 +1,11 @@
-import { builderDocumentInputSchema, createProjectDocument, walkElements } from "@websitebuilder/shared";
+import { builderDocumentInputSchema, createProjectDocument, MAX_CONTAINER_DEPTH, walkElements } from "@websitebuilder/shared";
 import { describe, expect, it } from "vitest";
 
 import {
   addElement,
   changeZOrder,
+  insertElement,
+  moveElementTo,
   deleteElement,
   duplicateElement,
   findElement,
@@ -198,5 +200,104 @@ describe("requiredPageHeight", () => {
     const { document, pageId } = withElements([]);
     const page = document.pages.find((candidate) => candidate.id === pageId);
     expect(requiredPageHeight(page!, 400)).toBe(400);
+  });
+});
+
+describe("insertElement", () => {
+  it("places the element at a chosen position among its siblings", () => {
+    const { document, ids, pageId, sectionId } = withElements(["text", "button"]);
+    const { document: next, elementId } = insertElement(document, pageId, "image", { sectionId, index: 1 });
+    const section = next.pages.find((page) => page.id === pageId)?.sections.find((s) => s.id === sectionId);
+
+    expect(section?.elements.map((element) => element.id)).toEqual([ids[0], elementId, ids[1]]);
+  });
+
+  it("places the element inside a container", () => {
+    const { document, ids, pageId, sectionId } = withElements(["container"]);
+    const { document: next, elementId } = insertElement(document, pageId, "text", {
+      sectionId,
+      containerId: ids[0]!,
+    });
+
+    const container = findElement(next, ids[0]!);
+    expect(container?.type === "container" && container.children.map((child) => child.id)).toEqual([elementId]);
+  });
+
+  it("refuses to nest a container past the depth limit and changes nothing", () => {
+    const { document, ids, pageId, sectionId } = withElements(["container"]);
+    let current = document;
+    let parent = ids[0]!;
+
+    for (let level = 1; level < MAX_CONTAINER_DEPTH; level += 1) {
+      const result = insertElement(current, pageId, "container", { sectionId, containerId: parent });
+      current = result.document;
+      parent = result.elementId!;
+    }
+
+    const refused = insertElement(current, pageId, "container", { sectionId, containerId: ids[0]! });
+    expect(refused.elementId).toBeNull();
+    expect(refused.document).toBe(current);
+  });
+
+  it("still accepts a non-container at the depth limit", () => {
+    // The limit is about nesting containers, not about how much can be placed at that depth.
+    const { document, ids, pageId, sectionId } = withElements(["container"]);
+    let current = document;
+    let parent = ids[0]!;
+
+    for (let level = 1; level < MAX_CONTAINER_DEPTH; level += 1) {
+      const result = insertElement(current, pageId, "container", { sectionId, containerId: parent });
+      current = result.document;
+      parent = result.elementId!;
+    }
+
+    expect(insertElement(current, pageId, "text", { sectionId, containerId: ids[0]! }).elementId).not.toBeNull();
+  });
+
+  it("keeps the document schema-valid", () => {
+    const { document, ids, pageId, sectionId } = withElements(["container"]);
+    const { document: next } = insertElement(document, pageId, "button", { sectionId, containerId: ids[0]! });
+    expect(builderDocumentInputSchema.safeParse(next).success).toBe(true);
+  });
+});
+
+describe("moveElementTo", () => {
+  it("moves an element into a container without copying it", () => {
+    const { document, ids, pageId, sectionId } = withElements(["container", "text"]);
+    const next = moveElementTo(document, pageId, ids[1]!, { sectionId, containerId: ids[0]! });
+
+    const container = findElement(next, ids[0]!);
+    expect(container?.type === "container" && container.children.map((child) => child.id)).toEqual([ids[1]]);
+    expect([...walkElements(next.pages[0]!.sections[0]!.elements)].filter((element) => element.id === ids[1])).toHaveLength(1);
+  });
+
+  it("refuses to move a container into itself", () => {
+    const { document, ids, pageId, sectionId } = withElements(["container"]);
+    expect(moveElementTo(document, pageId, ids[0]!, { sectionId, containerId: ids[0]! })).toBe(document);
+  });
+
+  it("refuses to move a container into its own descendant", () => {
+    const { document, ids, pageId, sectionId } = withElements(["container"]);
+    const { document: nested, elementId: child } = insertElement(document, pageId, "container", {
+      sectionId,
+      containerId: ids[0]!,
+    });
+
+    // Allowing this detaches the whole subtree from the page and loses it.
+    expect(moveElementTo(nested, pageId, ids[0]!, { sectionId, containerId: child! })).toBe(nested);
+  });
+
+  it("re-centres geometry when the drop names a coordinate", () => {
+    const { document, ids, pageId, sectionId } = withElements(["text"]);
+    const next = moveElementTo(document, pageId, ids[0]!, { sectionId, at: { x: 500, y: 300 } });
+    const moved = findElement(next, ids[0]!);
+
+    expect(moved?.geometry.x).toBe(500 - (moved?.geometry.width ?? 0) / 2);
+    expect(moved?.geometry.y).toBe(300 - (moved?.geometry.height ?? 0) / 2);
+  });
+
+  it("does nothing when the element does not exist", () => {
+    const { document, pageId, sectionId } = withElements([]);
+    expect(moveElementTo(document, pageId, "missing", { sectionId })).toBe(document);
   });
 });

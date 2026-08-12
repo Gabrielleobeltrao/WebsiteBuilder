@@ -35,12 +35,27 @@ export function addSection(
   document: BuilderDocumentInput,
   pageId: string,
   layoutMode: SectionLayoutMode = "free",
+  /** Position among existing sections. Appended when absent, which is what the page bottom means. */
+  atIndex?: number,
 ): { document: BuilderDocumentInput; sectionId: string } {
   const section = { ...createEmptySection(), layoutMode };
   return {
-    document: mapPage(document, pageId, (page) => ({ ...page, sections: [...page.sections, section] })),
+    document: mapPage(document, pageId, (page) => {
+      const sections = [...page.sections];
+      sections.splice(atIndex === undefined ? sections.length : Math.max(0, Math.min(atIndex, sections.length)), 0, section);
+      return { ...page, sections };
+    }),
     sectionId: section.id,
   };
+}
+
+/** The section that owns an element, at any nesting depth. */
+export function sectionOfElement(page: BuilderPage, elementId: string): BuilderSection | null {
+  const contains = (elements: readonly BuilderElement[]): boolean =>
+    elements.some(
+      (element) => element.id === elementId || (element.type === "container" && contains(element.children)),
+    );
+  return page.sections.find((section) => contains(section.elements)) ?? null;
 }
 
 export function renameSection(document: BuilderDocumentInput, sectionId: string, name: string): BuilderDocumentInput {

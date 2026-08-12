@@ -604,23 +604,23 @@ Opening a finding sets the current page, device, selection, and inspector contex
 
 ### Phase 5 — Real drag/drop authoring
 
-- [ ] **5.1 Implement library-to-canvas drag/drop.**
+- [x] **5.1 Implement library-to-canvas drag/drop.**
   - Acceptance: Text, Image, Button, and Container can be dragged to valid destinations with clear markers.
   - Verify: pointer and keyboard drag/drop tests.
 
-- [ ] **5.2 Fix click insertion destination.**
+- [x] **5.2 Fix click insertion destination.**
   - Acceptance: selected container/section receives the element; otherwise a new structured section is created at page bottom.
   - Verify: click insertion tests for each destination state.
 
-- [ ] **5.3 Add section creation controls.**
+- [x] **5.3 Add section creation controls.**
   - Acceptance: between-section and page-bottom add controls let user choose Free/Grid/Flex.
   - Verify: add/undo/redo tests.
 
-- [ ] **5.4 Implement Structure tree reordering.**
+- [x] **5.4 Implement Structure tree reordering.**
   - Acceptance: sections/elements can be reordered, nested where valid, selected, renamed, hidden, and recovered.
   - Verify: depth guard, reorder, hidden, locked, and keyboard tests.
 
-- [ ] **5.5 Add compact canvas actions.**
+- [x] **5.5 Add compact canvas actions.**
   - Acceptance: selected element exposes Duplicate/Delete without obscuring resize handles.
   - Verify: canvas action tests and focus order.
 
@@ -774,6 +774,7 @@ Add entries in chronological order. Do not replace previous entries.
 
 | Date | Task | Commit | Verification | Result |
 | --- | --- | --- | --- | --- |
+| 2026-08-11 | 5.1-5.5 drag/drop authoring | n/a | `npm run typecheck && npm run test && npm run build` | 1,748 tests pass, zero failures. Native drag and drop with markers only while dragging; click insertion states its destination; Free/Flex/Grid section rows between every section; Structure reorders by drag and by button; canvas toolbar is Duplicate and Delete only |
 | 2026-08-11 | 4.1-4.5 builder shell and right sidebar | n/a | `npm run typecheck && npm run test && npm run build` | 1,717 tests pass, zero failures. Top bar is the Section 4.2 inventory plus manual Save; five destinations on an icon rail; inspector is Content/Style/Advanced; Page SEO is a subsection of Page settings; feature links appear only once a feature is used |
 | 2026-08-11 | 3.1-3.5 device-aware editing | n/a | `npm run typecheck && npm run test` | 1,708 tests pass, zero failures. Every Phase 0 capture is green |
 | 2026-08-11 | 0.1 baseline | n/a | `git status --short` empty; `development`/`origin/development`/`origin/main` all at `4bb5148` | Audited baseline `2afd955` is an ancestor. Suite green at the starting commit: 1,609 unit, 47 E2E |
@@ -792,6 +793,8 @@ Add material implementation decisions here before or while making them.
 
 | ID | Decision | Reason | Consequences |
 | --- | --- | --- | --- |
+| D-016 | Choosing a destination keeps the canvas selection | The panel used to clear the selection to make the rail usable, which made "add to the selected container" unreachable — opening the library discarded the target it needed | `panelIntent` records what the user asked for last; the inspector returns as soon as anything is selected |
+| D-015 | Native drag and drop, no drag library | The browser already owns the drag image, pointer capture and cancel-on-Escape; a library would reimplement all three, and the payload restriction it works around is one MIME type per drag kind | Validity is decided from `dataTransfer.types`, which is why there are three MIME types rather than one with a discriminator inside |
 | D-014 | Manual Save stays in the top bar | Autosave can fail, and someone about to close the tab is entitled to force the write rather than trust a timer they cannot see | Section 4.2's conditional allowance is exercised; the action inventory test states the reason so it is not re-litigated |
 | D-013 | Layout and responsive sizing live under the Style tab | The inspector is three stable tabs, and both are visual decisions; a fourth tab would reintroduce the navigation mode Section 4.4 removes | `GROUP_TAB` maps group to tab in one place, so a new group cannot be added without deciding where it belongs |
 | D-012 | The device switcher stores a width, not a mode | The canvas has to render at some width, and two values would eventually disagree about which device is on screen | The device is derived wherever a write needs it, so the switcher and the canvas cannot drift |

@@ -12,7 +12,7 @@ import { createElement } from "react";
 
 import { useRendererContext } from "./RendererContext";
 import { VisualElementRenderer } from "./VisualElementRenderer";
-import { buttonStyle, imageStyle, isRenderable, textStyle } from "./styles";
+import { buttonStyle, containerStyle, imageStyle, isRenderable, textStyle } from "./styles";
 
 /**
  * Pure presentational renderers. No selection logic, no store access, no editor chrome — the editor
@@ -115,15 +115,8 @@ export function ButtonRenderer({ element }: { element: ButtonElement }) {
 }
 
 export function ContainerRenderer({ element }: { element: ContainerElement }) {
-  const style =
-    element.layout === "grid"
-      ? { display: "grid" as const }
-      : element.layout === "flex"
-        ? { display: "flex" as const }
-        : { position: "relative" as const };
-
   return (
-    <div style={style}>
+    <div style={containerStyle(element)}>
       {element.children.filter(isRenderable).map((child) => (
         <ElementRenderer key={child.id} element={child} />
       ))}

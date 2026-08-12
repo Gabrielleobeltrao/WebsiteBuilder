@@ -30,7 +30,7 @@ beforeEach(() => {
       currentPageId: null,
       selection: null,
       lastPanelMode: "pages",
-      panelMode: "pages",
+      panelMode: "pages", panelIntent: "destination",
       zoom: 1,
       // The device the author is looking at. Every assertion below is about what a write does
       // while this is not desktop.

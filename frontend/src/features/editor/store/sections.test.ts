@@ -11,6 +11,7 @@ import {
   duplicateSection,
   renameSection,
   reorderSections,
+  sectionOfElement,
   setSectionBackground,
 } from "./sections";
 
@@ -197,5 +198,37 @@ describe("clipboard", () => {
     const { document, ids, pageId, sectionId } = withElements(1);
     const result = pasteElement(document, copyElement(document, ids[0]!), { pageId, sectionId });
     expect(builderDocumentInputSchema.safeParse(result.document).success).toBe(true);
+  });
+});
+
+describe("addSection at a position", () => {
+  it("inserts between existing sections instead of only appending", () => {
+    const { document, pageId, sectionId } = withElements(0);
+    const { document: next, sectionId: created } = addSection(document, pageId, "grid", 0);
+
+    const sections = next.pages.find((page) => page.id === pageId)?.sections;
+    expect(sections?.map((section) => section.id)).toEqual([created, sectionId]);
+    expect(sections?.[0]?.layoutMode).toBe("grid");
+  });
+
+  it("clamps a position past the end to the end", () => {
+    const { document, pageId } = withElements(0);
+    const { document: next, sectionId: created } = addSection(document, pageId, "flex", 99);
+    const sections = next.pages.find((page) => page.id === pageId)?.sections ?? [];
+    expect(sections[sections.length - 1]?.id).toBe(created);
+  });
+});
+
+describe("sectionOfElement", () => {
+  it("finds the section that owns a nested element", () => {
+    const { document, ids, pageId } = withElements(1);
+    const page = document.pages.find((candidate) => candidate.id === pageId)!;
+    expect(sectionOfElement(page, ids[0]!)?.id).toBe(page.sections[0]?.id);
+  });
+
+  it("returns null for an element that is not on the page", () => {
+    const { document, pageId } = withElements(0);
+    const page = document.pages.find((candidate) => candidate.id === pageId)!;
+    expect(sectionOfElement(page, "missing")).toBeNull();
   });
 });

@@ -25,6 +25,7 @@ import { ApiError } from "@/api/client";
 import { projectsApi } from "@/api/projects";
 import * as clipboardOps from "./clipboard";
 import * as elementOps from "./elements";
+import type { InsertionTarget } from "./elements";
 import * as history from "./history";
 import * as pageOps from "./pages";
 import * as sectionOps from "./sections";
@@ -68,6 +69,8 @@ export type EditorState = {
     /** Panel mode to return to when the selection is cleared. */
     lastPanelMode: PanelMode;
     panelMode: PanelMode;
+    /** Whether the panel is showing the chosen destination or the selection's inspector. */
+    panelIntent: "destination" | "inspector";
     zoom: number;
     /**
      * Width the canvas is being authored at. It selects which breakpoint's overrides are edited
@@ -115,6 +118,9 @@ export type EditorState = {
   setHomePage: (pageId: string) => void;
 
   addElement: (sectionId: string, type: ElementType, viewportCentre?: { x: number; y: number }) => void;
+  /** Creates an element at an explicit target, or at the resolved destination when none is given. */
+  insertElement: (type: ElementType, target?: InsertionTarget) => void;
+  moveElementTo: (elementId: string, target: InsertionTarget) => void;
   deleteElement: (elementId: string) => void;
   duplicateElement: (elementId: string) => void;
   moveElement: (elementId: string, geometry: Geometry) => void;
@@ -127,7 +133,7 @@ export type EditorState = {
   cutSelection: () => void;
   paste: () => void;
 
-  addSection: (layoutMode?: SectionLayoutMode) => void;
+  addSection: (layoutMode?: SectionLayoutMode, atIndex?: number) => void;
   renameSection: (sectionId: string, name: string) => void;
   setSectionBackground: (sectionId: string, color: string) => void;
   setSectionHidden: (sectionId: string, hidden: boolean) => void;
@@ -199,6 +205,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
       currentPageId: null,
       selection: null,
       lastPanelMode: "pages",
+      panelIntent: "destination",
       panelMode: "pages",
       zoom: 1,
       editingWidth: DESIGN_WIDTH,
@@ -317,15 +324,17 @@ export const useEditorStore = create<EditorState>((set, get) => {
         ui: {
           ...state.ui,
           selection: target,
-          // Remember where to return when the selection is cleared.
-          lastPanelMode: target === null ? state.ui.lastPanelMode : state.ui.lastPanelMode,
+          panelIntent: target === null ? "destination" : "inspector",
+          // Clearing the selection returns to the destination the user last chose on purpose.
           panelMode: target === null ? state.ui.lastPanelMode : state.ui.panelMode,
         },
       }));
     },
 
     setPanelMode(mode) {
-      set((state) => ({ ui: { ...state.ui, panelMode: mode, lastPanelMode: mode, selection: null } }));
+      // The selection survives: a person opening the library to add something to the container they
+      // just selected is the ordinary case, not an edge one.
+      set((state) => ({ ui: { ...state.ui, panelMode: mode, lastPanelMode: mode, panelIntent: "destination" } }));
     },
 
     setZoom(zoom) {
@@ -455,6 +464,46 @@ export const useEditorStore = create<EditorState>((set, get) => {
       if (created !== null) get().select({ kind: "element", elementId: created });
     },
 
+    insertElement(type, target) {
+      const state = get();
+      const page = selectCurrentPage(state);
+      if (page === undefined || page === null) return;
+
+      // One transaction for the whole insertion, including the section it may have to create first:
+      // a person who undoes an accidental drop expects the empty section to go with it.
+      state.beginTransaction(`insert:${type}`);
+
+      let destination = target ?? selectInsertionTarget(state);
+      if (destination === null) {
+        // Nothing was selected, so there is no destination to infer. A structured section at the
+        // page bottom is the one answer that is always valid and always visible.
+        state.addSection("flex");
+        const created = get().history.present.pages.find((candidate) => candidate.id === page.id);
+        const last = created?.sections[created.sections.length - 1];
+        if (last === undefined) {
+          get().endTransaction();
+          return;
+        }
+        destination = { sectionId: last.id };
+      }
+
+      let elementId: string | null = null;
+      get().update((document) => {
+        const result = elementOps.insertElement(document, page.id, type, destination);
+        elementId = result.elementId;
+        return result.elementId === null ? document : result.document;
+      });
+      get().endTransaction();
+
+      if (elementId !== null) get().select({ kind: "element", elementId });
+    },
+
+    moveElementTo(elementId, target) {
+      const pageId = selectCurrentPage(get())?.id;
+      if (pageId === undefined) return;
+      get().update((document) => elementOps.moveElementTo(document, pageId, elementId, target));
+    },
+
     deleteElement(elementId) {
       get().update((document) => elementOps.deleteElement(document, elementId));
       const selection = get().ui.selection;
@@ -537,13 +586,13 @@ export const useEditorStore = create<EditorState>((set, get) => {
       if (created !== null) get().select({ kind: "element", elementId: created });
     },
 
-    addSection(layoutMode = "free") {
+    addSection(layoutMode = "free", atIndex) {
       const pageId = selectCurrentPage(get())?.id;
       if (pageId === undefined) return;
 
       let created: string | null = null;
       get().update((document) => {
-        const result = sectionOps.addSection(document, pageId, layoutMode);
+        const result = sectionOps.addSection(document, pageId, layoutMode, atIndex);
         created = result.sectionId;
         return result.document;
       });
@@ -590,6 +639,34 @@ export function selectCurrentPage(state: EditorState): BuilderPage | null {
 /** Whether a breakpoint id names one of the three devices rather than something else. */
 function isDeviceMode(id: string): id is DeviceMode {
   return (DEVICE_ORDER as readonly string[]).includes(id);
+}
+
+/**
+ * Where a click on a library item puts the element.
+ *
+ * A selected container takes it as a child; any other selection contributes its section. `null`
+ * means nothing is selected and the caller has to create a destination — which is a deliberate
+ * answer, not a failure: silently dropping the element into the first section on the page would put
+ * it somewhere the person was not looking.
+ */
+export function selectInsertionTarget(state: EditorState): InsertionTarget | null {
+  const page = selectCurrentPage(state);
+  const selection = state.ui.selection;
+  if (page === null || selection === null) return null;
+
+  if (selection.kind === "section") {
+    return page.sections.some((section) => section.id === selection.sectionId)
+      ? { sectionId: selection.sectionId }
+      : null;
+  }
+
+  const section = sectionOps.sectionOfElement(page, selection.elementId);
+  if (section === null) return null;
+
+  const selected = elementOps.findElement(state.history.present, selection.elementId);
+  return selected?.type === "container"
+    ? { sectionId: section.id, containerId: selected.id }
+    : { sectionId: section.id };
 }
 
 export function selectEditingDevice(state: EditorState): DeviceMode {

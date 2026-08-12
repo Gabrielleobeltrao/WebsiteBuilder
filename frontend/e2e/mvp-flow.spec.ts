@@ -55,7 +55,7 @@ test.describe("the MVP flow", () => {
     await expect(page.getByRole("button", { name: /About/ })).toBeVisible({ timeout: 10_000 });
 
     // Place a text element.
-    await page.getByRole("tab", { name: "Elements" }).click();
+    await page.getByRole("tab", { name: "Add elements" }).click();
     await page.getByRole("button", { name: "Text", exact: true }).click();
 
     // Save, reload, and confirm the work survived. This is the criterion the whole persistence
@@ -64,7 +64,7 @@ test.describe("the MVP flow", () => {
     await expect(page.getByText(/All changes saved|Saved/)).toBeVisible({ timeout: 20_000 });
 
     await page.reload();
-    await expect(page.getByRole("tab", { name: "Elements" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("tab", { name: "Add elements" })).toBeVisible({ timeout: 20_000 });
   });
 
   test("keeps builder content unchanged when the interface language changes", async ({ page }) => {
@@ -74,7 +74,7 @@ test.describe("the MVP flow", () => {
     await page.getByRole("link", { name: "Open" }).first().click();
     await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
 
-    await page.getByRole("tab", { name: "Elements" }).click();
+    await page.getByRole("tab", { name: "Add elements" }).click();
     await page.getByRole("button", { name: "Text", exact: true }).click();
     await page.keyboard.press("Control+s");
 
@@ -145,7 +145,7 @@ test.describe("preview", () => {
     await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
 
     // The desktop preview link in the editor.
-    await page.getByRole("link", { name: /Preview desktop|Desktop preview/ }).first().click();
+    await page.getByRole("link", { name: "Preview" }).first().click();
 
     await expect(page).toHaveURL(/\/preview\//, { timeout: 20_000 });
     // The workspace must be in the address, because the API refuses a request without one.

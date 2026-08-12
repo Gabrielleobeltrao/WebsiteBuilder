@@ -15,7 +15,18 @@ export type PanelView =
   | { kind: "sectionInspector"; sectionId: string }
   | { kind: "elementInspector"; elementId: string };
 
-export function resolvePanelView(input: { panelMode: PanelMode; selection: InspectorTarget | null }): PanelView {
+export function resolvePanelView(input: {
+  panelMode: PanelMode;
+  selection: InspectorTarget | null;
+  /**
+   * What the user asked for last. Without it, a selection would outrank every destination and the
+   * rail would be unusable while anything was selected — which is why choosing a destination used to
+   * clear the selection, and why clicking "Add elements" could not add to the thing you had selected.
+   */
+  intent?: "destination" | "inspector";
+}): PanelView {
+  if (input.intent === "destination") return { kind: input.panelMode };
+
   if (input.selection?.kind === "element") {
     return { kind: "elementInspector", elementId: input.selection.elementId };
   }

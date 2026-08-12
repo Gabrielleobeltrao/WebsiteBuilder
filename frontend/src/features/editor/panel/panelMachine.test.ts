@@ -35,3 +35,27 @@ describe("resolvePanelView", () => {
     expect(resolvePanelView({ panelMode: "layers", selection: null })).toEqual({ kind: "layers" });
   });
 });
+
+describe("destination versus inspector", () => {
+  it("shows the chosen destination even while something is selected", () => {
+    // Choosing a destination used to clear the selection, which is why adding an element to the
+    // container you had just selected was impossible: opening the library discarded the target.
+    expect(
+      resolvePanelView({
+        panelMode: "elements",
+        selection: { kind: "element", elementId: "e1" },
+        intent: "destination",
+      }),
+    ).toEqual({ kind: "elements" });
+  });
+
+  it("shows the inspector when the selection is what the user asked for", () => {
+    expect(
+      resolvePanelView({
+        panelMode: "elements",
+        selection: { kind: "element", elementId: "e1" },
+        intent: "inspector",
+      }),
+    ).toEqual({ kind: "elementInspector", elementId: "e1" });
+  });
+});

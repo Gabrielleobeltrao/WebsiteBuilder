@@ -37,6 +37,13 @@ export function freeGeometryStyle(geometry: Geometry): CSSProperties {
   };
 }
 
+/** How a container lays its children out. Shared so the editor's copy cannot drift from output. */
+export function containerStyle(element: { layout: "free" | "flex" | "grid" }): CSSProperties {
+  if (element.layout === "grid") return { display: "grid" };
+  if (element.layout === "flex") return { display: "flex" };
+  return { position: "relative" };
+}
+
 export function textStyle(element: TextElement): CSSProperties {
   return {
     fontFamily: element.style.fontFamily,
