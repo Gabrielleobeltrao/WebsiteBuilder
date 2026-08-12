@@ -71,13 +71,13 @@ The current form implementation is incomplete and must not be treated as product
 
 ### Phase 1 — Shared form model and migration
 
-- [ ] **1.1 Introduce versioned shared form contracts.** Add strict schemas for definition revision, placement presentation, published form snapshot, public submission request/result, submission source, and stored schema snapshot.
+- [x] **1.1 Introduce versioned shared form contracts.** Add strict schemas for definition revision, placement presentation, published form snapshot, public submission request/result, submission source, and stored schema snapshot.
   - Acceptance: unknown fields are rejected; limits exist for field count, labels, options, and payload size; all schemas are shared by frontend/backend/renderer.
 
-- [ ] **1.2 Migrate legacy form elements safely.** Convert raw/duplicate block properties to the canonical definition/placement model while preserving old documents and published snapshots.
+- [x] **1.2 Migrate legacy form elements safely.** Convert raw/duplicate block properties to the canonical definition/placement model while preserving old documents and published snapshots.
   - Acceptance: old documents load without data loss; newly saved documents use the new schema; migration is idempotent and tested.
 
-- [ ] **1.3 Add optimistic concurrency and revision semantics.** Definition updates require the expected revision and return a typed conflict response.
+- [x] **1.3 Add optimistic concurrency and revision semantics.** Definition updates require the expected revision and return a typed conflict response.
   - Acceptance: two tabs cannot silently overwrite one another; the UI can reload or intentionally retry.
 
 ### Phase 2 — Complete authenticated form APIs
@@ -212,6 +212,9 @@ YYYY-MM-DD HH:mm | Task X.Y | files/behavior changed | verification command + re
 2026-08-12 11:10 | Task 0.1 | no code change; branch audited | HEAD 6702acddc55cd99d2715c3e09a5d9d736577bb54 == audited baseline and == origin/development, 27 ahead of origin/main; working tree clean but for the replaced IMPLEMENTATION_PLAN.md; no drift, no unrelated work discarded. npm run typecheck exit 0; npm run test exit 0 with 1,940 tests / 134 files (shared 639/37, backend 631/41, frontend 670/56) | —
 2026-08-12 11:12 | Task 0.2 | docs/FORMS.md (new), packages/shared/src/forms-contract.test.ts (new), packages/shared/src/forms.ts header points at the contract | vitest packages/shared src/forms-contract.test.ts → 2 passed; the test parses §7 of the document and fails if it names a path that does not exist | —
 2026-08-12 11:21 | Task 0.3 (partial) | pricing-table CTA/link/highlight now rendered; announcement-bar link now rendered; site-logo home link resolved through a new RendererContext.homePath instead of resolvePagePath("") which was never a page id; richText block given the real editor (moved to components/common/RichTextEditor, shared with the blog) and its false "toolbar on the canvas" copy replaced in both locales; publishedReferenceCount computed from the active snapshot instead of a hardcoded 0; the false comment about a form dispatcher corrected | vitest frontend advertised-controls (9 new) + structured-blocks (38) + backend site-status (12, 2 new) all pass; npm run typecheck exit 0; npm run test exit 0 with 1,954 tests. REMAINS OPEN: the acceptance also requires "no dead dashboard link", and /app/:workspaceId/sites/:projectId/forms is delivered by 3.1 — 0.3 is checked only after that route exists | —
+2026-08-12 11:32 | Task 1.1 | packages/shared/src/forms.ts: field ids restricted to what an HTML name may be and the __wb_ prefix reserved; errorMessage, formSuccessBehaviorSchema, formDefinitionUpdateSchema, publishedFormSchema, submissionFieldSnapshotSchema, formSubmissionRequestSchema, formPresentationSchema, legacyFormCopySchema, FORM_SUBMISSION_MAX_BYTES, FORM_CONTROL_FIELDS, FORM_RESULT_PARAMS added; visual-elements form element rewritten to reference + presentation | vitest packages/shared src/form-contracts.test.ts → 15 passed, including that a submission payload has nowhere to name a workspace, project or page | —
+2026-08-12 11:32 | Task 1.2 | element-registry form schemaVersion 1 -> 2; ELEMENT_MIGRATIONS.form 1->2 moves submit label, success/error message and consent off the block and parks anything the designer actually authored in legacyCopy; a block still holding the untouched defaults migrates clean | vitest form-contracts: migrated element parses against the real document schema, is idempotent (same object on a second run), and the version-1 shape is refused once the block is version 2 | —
+2026-08-12 11:32 | Task 1.3 | FormDefinition.revision (content revision only; archive/restore do not move it), FormRevisionConflictError, update() takes expectedRevision and tells "gone" apart from "stale"; PUT /forms/:formId parses formDefinitionUpdateSchema and maps the conflict to 409 REVISION_CONFLICT | vitest backend form-repository (21) + new forms-api (6): a second tab saving against revision 1 gets 409 with "current revision is 2" and the first save survives | —
 ```
 
 ## 7. Decision Log

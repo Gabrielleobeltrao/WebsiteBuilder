@@ -225,3 +225,49 @@ describe("submission management", () => {
     expect((await repository.listSubmissions(B, PROJECT, formB.id)).total).toBe(1);
   });
 });
+
+describe("revisions", () => {
+  it("starts at one and moves with every edit to what the form asks", async () => {
+    const form = await repository.create(A, PROJECT, definition());
+    expect(form.revision).toBe(1);
+
+    const updated = await repository.update(A, PROJECT, form.id, definition({ name: "Sales" }), {
+      expectedRevision: 1,
+    });
+    expect(updated?.revision).toBe(2);
+  });
+
+  it("refuses a save made against a revision that has moved on", async () => {
+    const form = await repository.create(A, PROJECT, definition());
+    await repository.update(A, PROJECT, form.id, definition({ name: "First" }), { expectedRevision: 1 });
+
+    // The second tab still believes it is editing revision 1. Its save must not take the fields the
+    // first one added with it.
+    await expect(
+      repository.update(A, PROJECT, form.id, definition({ name: "Second" }), { expectedRevision: 1 }),
+    ).rejects.toMatchObject({ name: "FormRevisionConflictError", currentRevision: 2 });
+
+    expect((await repository.findById(A, PROJECT, form.id))?.name).toBe("First");
+  });
+
+  it("tells a missing form apart from a stale one", async () => {
+    const form = await repository.create(A, PROJECT, definition());
+
+    // Another tenant's id is "not found", never "conflict": a conflict would confirm the form
+    // exists somewhere.
+    expect(await repository.update(B, PROJECT, form.id, definition(), { expectedRevision: 1 })).toBeNull();
+    expect(await repository.update(A, PROJECT, "ffffffffffffffffffffffff", definition(), { expectedRevision: 1 })).toBeNull();
+  });
+
+  it("leaves the revision alone when a form is archived and restored", async () => {
+    const form = await repository.create(A, PROJECT, definition());
+    await repository.submit({ projectId: PROJECT, formId: form.id, values: { name: "A", email: "a@b.com" } });
+
+    expect(await repository.removeOrArchive(A, PROJECT, form.id)).toBe("archived");
+    const restored = await repository.restore(A, PROJECT, form.id);
+
+    // The revision answers "are there changes waiting to publish". Archiving does not change a
+    // single question the form asks.
+    expect(restored?.revision).toBe(1);
+  });
+});

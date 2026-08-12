@@ -28,9 +28,44 @@ export type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
 export const FORM_STATUSES = ["draft", "needs_setup", "ready", "archived"] as const;
 export type FormStatus = (typeof FORM_STATUSES)[number];
 
+/**
+ * Names this product reserves inside a submitted form.
+ *
+ * A field id becomes the `name` attribute of a real input, so the endpoint receives the site's
+ * fields and its own control values in one flat body. Reserving one prefix is what keeps a designer
+ * from creating a field that shadows the path, the revision or the honeypot — and what lets the
+ * endpoint tell them apart without a second envelope that a plain HTML form could not produce.
+ */
+export const FORM_CONTROL_PREFIX = "__wb_";
+export const FORM_CONTROL_FIELDS = {
+  path: `${FORM_CONTROL_PREFIX}path`,
+  revision: `${FORM_CONTROL_PREFIX}revision`,
+  /** Left empty by a person and filled in by anything that fills every input it finds. */
+  honeypot: `${FORM_CONTROL_PREFIX}company`,
+} as const;
+
+/** Query parameters a no-JavaScript submission is sent back with, so the page can say what happened. */
+export const FORM_RESULT_PARAMS = { ok: "wb_form_ok", error: "wb_form_error" } as const;
+
+/** The largest body the public endpoint reads before refusing it unread. */
+export const FORM_SUBMISSION_MAX_BYTES = 32_000;
+
+/**
+ * A field id is an HTML `name`, so it is restricted to what is safe to be one.
+ *
+ * Free text was accepted here, which meant a stored definition could name a field anything at all
+ * and the published markup would carry it verbatim.
+ */
+export const formFieldIdSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[A-Za-z][A-Za-z0-9_-]*$/, "A field id starts with a letter and holds letters, digits, - and _")
+  .refine((id) => !id.startsWith(FORM_CONTROL_PREFIX), "That prefix is reserved");
+
 export const formFieldSchema = z
   .object({
-    id: z.string().min(1),
+    id: formFieldIdSchema,
     type: z.enum(FORM_FIELD_TYPES),
     label: z.string().min(1).max(120),
     required: z.boolean(),
@@ -44,21 +79,194 @@ export const formFieldSchema = z
 
 export type FormField = z.infer<typeof formFieldSchema>;
 
+export const formSuccessBehaviorSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("message"), message: z.string().min(1).max(500) }).strict(),
+  z.object({ type: z.literal("internalRedirect"), pageId: z.string().min(1) }).strict(),
+]);
+
+export type FormSuccessBehavior = z.infer<typeof formSuccessBehaviorSchema>;
+
 export const formDefinitionInputSchema = z
   .object({
     name: z.string().trim().min(1).max(160),
     fields: z.array(formFieldSchema).max(40),
     submitLabel: z.string().min(1).max(80),
-    successBehavior: z.discriminatedUnion("type", [
-      z.object({ type: z.literal("message"), message: z.string().min(1).max(500) }).strict(),
-      z.object({ type: z.literal("internalRedirect"), pageId: z.string().min(1) }).strict(),
-    ]),
+    successBehavior: formSuccessBehaviorSchema,
+    /**
+     * What the form says when it could not be sent.
+     *
+     * On the definition rather than on the block, with everything else the form says: two
+     * placements of one form apologising differently is a bug rather than a design choice. Optional
+     * because a definition written before this existed has none, and the renderer has a default.
+     */
+    errorMessage: z.string().min(1).max(500).optional(),
     notificationRecipients: z.array(z.string().email()).max(10),
     retentionDays: z.number().int().min(1).max(3650).optional(),
   })
   .strict();
 
 export type FormDefinitionInput = z.infer<typeof formDefinitionInputSchema>;
+
+/**
+ * An update carries the revision it was made against.
+ *
+ * Without it, two tabs editing one form is last-write-wins with no way to notice: the second save
+ * silently discards fields the first one added. This is the same contract project documents use.
+ */
+export const formDefinitionUpdateSchema = formDefinitionInputSchema.extend({
+  expectedRevision: z.number().int().min(1),
+});
+
+export type FormDefinitionUpdate = z.infer<typeof formDefinitionUpdateSchema>;
+
+/**
+ * A form as a published version carries it.
+ *
+ * Frozen at publish time and never migrated. A visitor filling in a form is answering *this*
+ * revision's questions, and the endpoint validates against the same copy they were shown rather
+ * than against a definition that may have been rewritten since.
+ */
+export const publishedFormSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().max(160),
+    revision: z.number().int().min(1),
+    fields: z.array(formFieldSchema).max(40),
+    submitLabel: z.string().min(1).max(80),
+    successBehavior: formSuccessBehaviorSchema,
+    errorMessage: z.string().min(1).max(500).optional(),
+    status: z.enum(FORM_STATUSES),
+  })
+  .strict();
+
+export type PublishedForm = z.infer<typeof publishedFormSchema>;
+
+/**
+ * The part of a field a submission keeps for itself.
+ *
+ * Enough to read the answer back after the definition has moved on: the label that was asked, and
+ * the options that were offered. Without it, renaming a field turns every past answer into a value
+ * beside a question nobody asked.
+ */
+export const submissionFieldSnapshotSchema = z
+  .object({
+    id: formFieldIdSchema,
+    type: z.enum(FORM_FIELD_TYPES),
+    label: z.string().min(1).max(120),
+    options: z.array(z.string().min(1).max(120)).max(50).optional(),
+  })
+  .strict();
+
+export type SubmissionFieldSnapshot = z.infer<typeof submissionFieldSnapshotSchema>;
+
+export function snapshotFields(fields: readonly FormField[]): SubmissionFieldSnapshot[] {
+  return fields.map((field) => ({
+    id: field.id,
+    type: field.type,
+    label: field.label,
+    ...(field.options === undefined ? {} : { options: [...field.options] }),
+  }));
+}
+
+/**
+ * What the public endpoint accepts, after the body has been flattened to strings.
+ *
+ * There is no workspace, project or page in here, and that is the point: a field that does not
+ * exist cannot be spoofed. Everything about *where* a submission came from is derived on the server
+ * from the hostname it arrived on and the published route manifest.
+ */
+export const formSubmissionRequestSchema = z
+  .object({
+    /** The path the visitor was on. Believed only if it is a published route of this site. */
+    path: z.string().max(2048).optional(),
+    /** Which published revision of the form was filled in. Believed only if that revision exists. */
+    revision: z.number().int().min(1).optional(),
+    /** Values keyed by field id. Anything the definition does not declare is discarded, not stored. */
+    values: z.record(z.string().max(64), z.unknown()),
+  })
+  .strict();
+
+export type FormSubmissionRequest = z.infer<typeof formSubmissionRequestSchema>;
+
+/** What a submission attempt returns. Field-level detail only where the form itself asked wrongly. */
+export type FormSubmissionResult =
+  | { status: "accepted" }
+  | { status: "invalid"; errors: ValidationError[] }
+  | { status: "rejected" };
+
+/**
+ * How a placement presents the form it points at.
+ *
+ * Everything here is about *this page*: the same definition can be a full-width sign-up on the home
+ * page and a compact box in a sidebar, and neither placement can change what the form asks or what
+ * a submission is validated against.
+ *
+ * The presets are arrangements rather than widths. A width belongs to the element's own responsive
+ * layout, which every other block already uses, and duplicating it here would give a form two
+ * answers to the same question.
+ */
+export const FORM_PRESETS = ["stacked", "twoColumn", "compact"] as const;
+export type FormPreset = (typeof FORM_PRESETS)[number];
+
+export const formPresentationSchema = z
+  .object({
+    preset: z.enum(FORM_PRESETS),
+    /** Where the form sits inside the space the element occupies. */
+    alignment: z.enum(["start", "center", "end"]),
+    /** Space between one field and the next. */
+    fieldGap: z.number().int().min(0).max(64),
+    padding: z.number().int().min(0).max(96),
+    /**
+     * Fields that take the whole row in `twoColumn`.
+     *
+     * A message box beside a telephone number reads as two unrelated things; long answers want the
+     * width. Keyed by field id, so a field the definition no longer has is simply not found.
+     */
+    fullWidthFieldIds: z.array(formFieldIdSchema).max(40),
+    backgroundColor: z.string().max(40),
+    textColor: z.string().max(40),
+    /** The submit control and the focus ring: one colour, so a form reads as one thing. */
+    accentColor: z.string().max(40),
+    borderColor: z.string().max(40),
+    borderWidth: z.number().int().min(0).max(8),
+    borderRadius: z.number().int().min(0).max(48),
+  })
+  .strict();
+
+export type FormPresentation = z.infer<typeof formPresentationSchema>;
+
+export const DEFAULT_FORM_PRESENTATION: FormPresentation = {
+  preset: "stacked",
+  alignment: "start",
+  fieldGap: 16,
+  padding: 0,
+  fullWidthFieldIds: [],
+  backgroundColor: "transparent",
+  textColor: "#111827",
+  accentColor: "#2563eb",
+  borderColor: "#d1d5db",
+  borderWidth: 1,
+  borderRadius: 8,
+};
+
+/**
+ * Copy a version-1 form block carried before the definition owned it.
+ *
+ * Kept on the element by the migration and never rendered. The builder offers it as the starting
+ * point when a form is created from that block, and clears it once the block is bound — so nothing
+ * a designer wrote is discarded, and nothing that is no longer the source of truth is displayed.
+ */
+export const legacyFormCopySchema = z
+  .object({
+    submitLabel: z.string().max(80),
+    successMessage: z.string().max(500),
+    errorMessage: z.string().max(500),
+    consentText: z.string().max(500),
+    consentRequired: z.boolean(),
+  })
+  .strict();
+
+export type LegacyFormCopy = z.infer<typeof legacyFormCopySchema>;
 
 export type SetupIssue =
   | { code: "no-fields" }

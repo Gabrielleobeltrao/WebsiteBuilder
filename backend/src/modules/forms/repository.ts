@@ -25,9 +25,30 @@ export type FormDefinition = FormDefinitionInput & {
   projectId: string;
   status: FormStatus;
   archived: boolean;
+  /**
+   * The content revision: what the form asks and what it says, and nothing else.
+   *
+   * It moves when a definition is edited and stays put when one is archived or restored, because a
+   * published page compares this number with the revision in its snapshot to answer "are there
+   * changes waiting to publish". Archiving is not a change to the questions.
+   */
+  revision: number;
   createdAt: string;
   updatedAt: string;
 };
+
+/**
+ * Two tabs, one form.
+ *
+ * Without this the second save wins silently and takes the fields the first one added with it. The
+ * caller is told the current revision so it can reload and show what it would have overwritten.
+ */
+export class FormRevisionConflictError extends Error {
+  constructor(public readonly currentRevision: number) {
+    super("revision-changed");
+    this.name = "FormRevisionConflictError";
+  }
+}
 
 export type SubmissionSource = { pageId?: string; path?: string; utm?: Record<string, string> };
 export const SUBMISSION_STATUSES = ["new", "read", "archived", "spam"] as const;
@@ -105,6 +126,7 @@ export class FormRepository {
       projectId,
       status: resolveFormStatus(input, options),
       archived: false,
+      revision: 1,
       createdAt: now,
       updatedAt: now,
     };
@@ -112,20 +134,37 @@ export class FormRepository {
     return toDefinition({ ...document, _id: result.insertedId } as DefinitionDocument);
   }
 
+  /**
+   * Replaces a definition, but only the revision the caller was looking at.
+   *
+   * Returns null when the form does not exist for this tenant, and throws when it exists at a
+   * different revision. Those are two different answers and a caller has to tell them apart: one is
+   * "gone", the other is "somebody else edited this while you were typing".
+   */
   async update(
     context: WorkspaceContext,
     projectId: string,
     formId: string,
     input: FormDefinitionInput,
-    options: { pageExists?: (pageId: string) => boolean } = {},
+    options: { pageExists?: (pageId: string) => boolean; expectedRevision?: number } = {},
   ): Promise<FormDefinition | null> {
     if (!ObjectId.isValid(formId) || formId.length !== 24) return null;
+
+    const scope = { _id: new ObjectId(formId), workspaceId: context.workspaceId, projectId };
     const updated = await this.definitions.findOneAndUpdate(
-      { _id: new ObjectId(formId), workspaceId: context.workspaceId, projectId },
-      { $set: { ...input, status: resolveFormStatus(input, options), updatedAt: new Date().toISOString() } },
+      options.expectedRevision === undefined ? scope : { ...scope, revision: options.expectedRevision },
+      {
+        $set: { ...input, status: resolveFormStatus(input, options), updatedAt: new Date().toISOString() },
+        $inc: { revision: 1 },
+      },
       { returnDocument: "after" },
     );
-    return updated === null ? null : toDefinition(updated);
+
+    if (updated !== null) return toDefinition(updated);
+
+    const current = await this.definitions.findOne(scope);
+    if (current === null) return null;
+    throw new FormRevisionConflictError(current.revision ?? 1);
   }
 
   /**
@@ -290,7 +329,9 @@ function fingerprintOf(values: SubmissionValues): string {
 
 function toDefinition(document: DefinitionDocument): FormDefinition {
   const { _id, ...rest } = document;
-  return { ...rest, id: _id.toHexString() };
+  // A definition written before revisions existed is revision 1: it has been edited zero times
+  // since, which is exactly what that number means.
+  return { ...rest, revision: rest.revision ?? 1, id: _id.toHexString() };
 }
 
 function toSubmission(document: SubmissionDocument): FormSubmission {

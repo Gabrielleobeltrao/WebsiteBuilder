@@ -189,17 +189,19 @@ describe("guards a person would not think to ask for", () => {
     expect(screen.getByLabelText("Text").getAttribute("contenteditable")).toBe("true");
   });
 
-  it("asks for consent text only when consent is required", async () => {
-    const { user } = withBlock("form");
+  it("keeps a form block to presentation, and never to what the form says", async () => {
+    const { id, user } = withBlock("form");
 
-    await user.click(screen.getByRole("tab", { name: "Advanced" }));
-    // Two groups live under this tab: the block's own advanced fields and the shared ones. The
-    // first is the block's.
-    await user.click(screen.getAllByRole("button", { name: /Advanced/ })[0]!);
+    // Consent, the submit label and the messages moved to the definition, where one edit reaches
+    // every page that shows the form. A copy here would drift from the copy that validates.
+    expect(screen.queryByLabelText("Ask for consent before storing a submission")).toBeNull();
+    expect(screen.queryByLabelText("Submit button")).toBeNull();
 
-    expect(screen.queryByLabelText("Consent text")).toBeNull();
-    await user.click(screen.getByLabelText("Ask for consent before storing a submission"));
-    expect(screen.getByLabelText("Consent text")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Style" }));
+    await user.selectOptions(screen.getByLabelText("Arrangement"), "twoColumn");
+
+    const element = current(id);
+    expect(element?.type === "form" && element.presentation.preset).toBe("twoColumn");
   });
 });
 

@@ -1,5 +1,6 @@
 import {
   CONTACT_ITEM_KINDS,
+  FORM_PRESETS,
   hasTimezone,
   ICON_NAMES,
   SOCIAL_NETWORKS,
@@ -417,24 +418,49 @@ export function VisualElementInspector({
         </>
       );
 
-    case "form":
+    case "form": {
+      // Presentation only. What the form asks and what it says after a submission belong to the
+      // definition, which the Forms Center edits once for every page that shows it.
+      const presentation = element.presentation;
+      const setPresentation = (values: Partial<typeof presentation>) =>
+        set({ presentation: { ...presentation, ...values } });
+
       return (
         <>
           <InspectorGroup titleKey="content">
             <TextField label={t("fields.formId")} value={element.formId} transactionKey={`${key}:formId`} onChange={(formId) => set({ formId })} />
             <p className="text-[11px] text-ink-500">{t("fields.formIdHint")}</p>
-            <TextField label={t("fields.submitLabel")} value={element.submitLabel} transactionKey={`${key}:submitLabel`} onChange={(submitLabel) => set({ submitLabel })} />
-            <TextField label={t("fields.successMessage")} value={element.successMessage} multiline transactionKey={`${key}:success`} onChange={(successMessage) => set({ successMessage })} />
-            <TextField label={t("fields.errorMessage")} value={element.errorMessage} multiline transactionKey={`${key}:error`} onChange={(errorMessage) => set({ errorMessage })} />
           </InspectorGroup>
-          <InspectorGroup titleKey="advanced" defaultOpen={false}>
-            <ToggleField label={t("fields.consentRequired")} checked={element.consentRequired} onChange={(consentRequired) => set({ consentRequired })} />
-            {element.consentRequired && (
-              <TextField label={t("fields.consentText")} value={element.consentText} multiline transactionKey={`${key}:consent`} onChange={(consentText) => set({ consentText })} />
-            )}
+          <InspectorGroup titleKey="layout">
+            <SelectField
+              label={t("fields.formPreset")}
+              value={presentation.preset}
+              options={FORM_PRESETS.map((preset) => ({ value: preset, label: t(`fields.formPresetOption.${preset}` as "fields.formPresetOption.stacked") }))}
+              onChange={(preset) => setPresentation({ preset: preset as typeof presentation.preset })}
+            />
+            <SelectField
+              label={t("fields.formAlignment")}
+              value={presentation.alignment}
+              options={(["start", "center", "end"] as const).map((value) => ({
+                value,
+                label: t(`fields.formAlignmentOption.${value}` as "fields.formAlignmentOption.start"),
+              }))}
+              onChange={(alignment) => setPresentation({ alignment: alignment as typeof presentation.alignment })}
+            />
+            <NumberField label={t("fields.fieldGap")} value={presentation.fieldGap} min={0} max={64} transactionKey={`${key}:fieldGap`} onChange={(fieldGap) => setPresentation({ fieldGap })} />
+            <NumberField label={t("fields.formPadding")} value={presentation.padding} min={0} max={96} transactionKey={`${key}:formPadding`} onChange={(padding) => setPresentation({ padding })} />
+          </InspectorGroup>
+          <InspectorGroup titleKey="style">
+            <ColorField label={t("fields.backgroundColor")} value={presentation.backgroundColor} transactionKey={`${key}:formBackground`} onChange={(backgroundColor) => setPresentation({ backgroundColor })} />
+            <ColorField label={t("fields.textColor")} value={presentation.textColor} transactionKey={`${key}:formText`} onChange={(textColor) => setPresentation({ textColor })} />
+            <ColorField label={t("fields.accentColor")} value={presentation.accentColor} transactionKey={`${key}:formAccent`} onChange={(accentColor) => setPresentation({ accentColor })} />
+            <ColorField label={t("fields.borderColor")} value={presentation.borderColor} transactionKey={`${key}:formBorder`} onChange={(borderColor) => setPresentation({ borderColor })} />
+            <NumberField label={t("fields.borderWidth")} value={presentation.borderWidth} min={0} max={8} transactionKey={`${key}:formBorderWidth`} onChange={(borderWidth) => setPresentation({ borderWidth })} />
+            <NumberField label={t("fields.borderRadius")} value={presentation.borderRadius} min={0} max={48} transactionKey={`${key}:formBorderRadius`} onChange={(borderRadius) => setPresentation({ borderRadius })} />
           </InspectorGroup>
         </>
       );
+    }
 
     case "richText":
       return (

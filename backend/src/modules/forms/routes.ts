@@ -1,9 +1,19 @@
-import { formDefinitionInputSchema, resourceIdSchema } from "@websitebuilder/shared";
+import { formDefinitionInputSchema, formDefinitionUpdateSchema, resourceIdSchema } from "@websitebuilder/shared";
 import { Router } from "express";
 
 import { ApiProblem } from "../../middleware/errors";
 import type { WorkspaceResolver } from "../projects/routes";
-import type { FormRepository } from "./repository";
+import { FormRevisionConflictError, type FormRepository } from "./repository";
+
+/** A stale write is a 409 carrying the revision to reload, never a silent overwrite. */
+function mapFormError(error: unknown): unknown {
+  if (error instanceof FormRevisionConflictError) {
+    return new ApiProblem("REVISION_CONFLICT", "This form was modified after it was loaded", [
+      { path: "expectedRevision", message: `current revision is ${error.currentRevision}` },
+    ]);
+  }
+  return error;
+}
 
 /**
  * Form definitions, mounted beneath `/workspaces/:workspaceId/projects/:projectId/forms`.
@@ -75,14 +85,17 @@ export function createFormsRouter(options: {
       const context = await resolveWorkspace(req, "project:edit");
       const projectId = parseId(param(req, "projectId"), "Project not found");
 
-      const parsed = formDefinitionInputSchema.safeParse(req.body);
+      const parsed = formDefinitionUpdateSchema.safeParse(req.body);
       if (!parsed.success) throw new ApiProblem("VALIDATION_ERROR", "That form definition is not valid");
 
-      const updated = await repository.update(context, projectId, param(req, "formId"), parsed.data);
+      const { expectedRevision, ...definition } = parsed.data;
+      const updated = await repository.update(context, projectId, param(req, "formId"), definition, {
+        expectedRevision,
+      });
       if (updated === null) throw new ApiProblem("NOT_FOUND", "Form not found");
       res.json({ data: updated });
     } catch (error) {
-      next(error);
+      next(mapFormError(error));
     }
   });
 

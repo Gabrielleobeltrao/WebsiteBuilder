@@ -1,5 +1,6 @@
 import { elementDefinition, ELEMENT_REGISTRY } from "./element-registry";
 import { type BuilderElement, type ElementType } from "./elements";
+import { DEFAULT_FORM_PRESENTATION } from "./forms";
 import type { BuilderPage } from "./project";
 
 /**
@@ -25,7 +26,53 @@ export type ElementMigration = (payload: Record<string, unknown>) => Record<stri
  * fact cannot repair the documents it needed to fix, which is why the mechanism exists before the
  * first change rather than after it.
  */
+/** What a version-1 form block held before the definition owned what a form says. */
+const LEGACY_FORM_DEFAULTS = {
+  submitLabel: "Send",
+  successMessage: "Thank you. Your message has been sent.",
+  errorMessage: "Your message could not be sent. Please try again.",
+  consentText: "",
+  consentRequired: false,
+} as const;
+
+const text = (value: unknown, fallback: string): string => (typeof value === "string" ? value : fallback);
+
 export const ELEMENT_MIGRATIONS: Partial<Record<ElementType, Record<number, ElementMigration>>> = {
+  form: {
+    /**
+     * 1 → 2: what the form says moves to the definition; the block keeps presentation.
+     *
+     * The old values are not thrown away. A migration is a pure function over one element payload —
+     * it cannot reach the collection holding the definition, and a block whose `formId` is empty has
+     * no definition to write into — so they are parked on the element as `legacyCopy`, which nothing
+     * renders. The builder offers them as the starting point when a form is created from this block
+     * and clears them on binding.
+     *
+     * A block still carrying the untouched defaults has nothing worth preserving, so it migrates to
+     * a clean element rather than one carrying a copy of the constants above.
+     */
+    1: (payload) => {
+      const { submitLabel, successMessage, errorMessage, consentText, consentRequired, ...rest } = payload;
+
+      const legacy = {
+        submitLabel: text(submitLabel, LEGACY_FORM_DEFAULTS.submitLabel),
+        successMessage: text(successMessage, LEGACY_FORM_DEFAULTS.successMessage),
+        errorMessage: text(errorMessage, LEGACY_FORM_DEFAULTS.errorMessage),
+        consentText: text(consentText, LEGACY_FORM_DEFAULTS.consentText),
+        consentRequired: consentRequired === true,
+      };
+
+      const authored = (Object.keys(legacy) as Array<keyof typeof legacy>).some(
+        (key) => legacy[key] !== LEGACY_FORM_DEFAULTS[key],
+      );
+
+      return {
+        ...rest,
+        presentation: { ...DEFAULT_FORM_PRESENTATION },
+        ...(authored ? { legacyCopy: legacy } : {}),
+      };
+    },
+  },
   gallery: {
     /**
      * 1 → 2: bare media ids become items that can carry their own alternative text.

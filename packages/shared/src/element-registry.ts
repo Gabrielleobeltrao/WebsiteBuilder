@@ -1,4 +1,5 @@
 import { ELEMENT_TYPES, type BuilderElement, type ElementType } from "./elements";
+import { DEFAULT_FORM_PRESENTATION } from "./forms";
 import type { SiteFeatureKey } from "./project";
 import { ICON_NAMES } from "./visual-elements";
 
@@ -371,7 +372,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
 
   form: {
     type: "form",
-    schemaVersion: 1,
+    schemaVersion: 2,
     category: "interactive",
     labelKey: "form",
     keywords: ["contact", "lead", "fields", "submit"],
@@ -383,14 +384,9 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     // The one block that activates an optional module. Inserting it is what makes the Forms
     // destination appear; removing the last one is what hides it again.
     feature: "forms",
-    defaults: () => ({
-      formId: "",
-      submitLabel: "Send",
-      successMessage: "Thank you. Your message has been sent.",
-      errorMessage: "Your message could not be sent. Please try again.",
-      consentText: "",
-      consentRequired: false,
-    }),
+    // A reference and how it looks, and nothing the form says: version 2 moved submit label,
+    // success behaviour, error message and consent to the definition. See `docs/FORMS.md` §1.
+    defaults: () => ({ formId: "", presentation: { ...DEFAULT_FORM_PRESENTATION } }),
   },
 
   pricingTable: {

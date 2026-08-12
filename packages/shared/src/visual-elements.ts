@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { formPresentationSchema, legacyFormCopySchema } from "./forms";
 import { safeLinkSchema } from "./links";
 import { elementBaseShape } from "./responsive";
 
@@ -207,9 +208,10 @@ export const announcementBarElementSchema = z
 /**
  * A form placed on a page.
  *
- * The element holds a *reference* and its presentation, never the field definitions: those live in
- * the forms module, are edited once, and are shared by every page that shows the form. A copy here
- * would drift from the definition that actually validates a submission.
+ * The element holds a *reference* and its presentation, never the field definitions and never what
+ * the form says: those live in the forms module, are edited once, and are shared by every page that
+ * shows the form. A copy here would drift from the definition that actually validates a submission,
+ * and two placements would disagree about what "required" means.
  *
  * An empty `formId` is the state a freshly inserted block is in. Readiness reports it, and
  * publishing refuses a page whose form was never chosen — an empty form silently accepting nothing
@@ -220,12 +222,9 @@ export const formElementSchema = z
     ...elementBase,
     type: z.literal("form"),
     formId: z.string().max(120),
-    submitLabel: z.string().max(80),
-    successMessage: z.string().max(500),
-    errorMessage: z.string().max(500),
-    /** Shown beside the submit control when the site asks for consent before storing a submission. */
-    consentText: z.string().max(500),
-    consentRequired: z.boolean(),
+    presentation: formPresentationSchema,
+    /** Version-1 copy, preserved by the migration and never rendered. See `docs/FORMS.md` §5. */
+    legacyCopy: legacyFormCopySchema.optional(),
   })
   .strict();
 
