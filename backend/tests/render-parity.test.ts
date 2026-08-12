@@ -125,3 +125,55 @@ describe("a shared header is part of every rendering", () => {
     expect(stylesheetOf(render(project))).not.toContain('[data-section-id="ref-1"]');
   });
 });
+
+describe("blocks that need the page around them", () => {
+  const blockPage = (element: Record<string, unknown>) => {
+    const base = overriddenProject() as BuilderProject;
+    const home = base.pages[0]!;
+    const about = { ...home, id: "about-page", name: "About", slug: "about", isHome: false, sections: [] };
+
+    return {
+      ...base,
+      pages: [
+        { ...home, name: "Home", sections: [{ ...home.sections[0]!, elements: [element as never] }] },
+        about,
+      ],
+    } as BuilderProject;
+  };
+
+  const blockElement = (type: string, overrides: Record<string, unknown> = {}) => ({
+    id: `${type}-1`,
+    name: "",
+    geometry: { x: 0, y: 0, width: 200, height: 40, rotation: 0 },
+    responsiveLayout: {
+      width: { value: 200, unit: "px" },
+      height: { value: 40, unit: "px" },
+      horizontalConstraint: "left",
+      verticalConstraint: "top",
+      visible: true,
+    },
+    zIndex: 1,
+    locked: false,
+    hidden: false,
+    type,
+    version: 1,
+    ...overrides,
+  });
+
+  it("resolves a breadcrumb trail from the page's own place in the site", () => {
+    const html = render(
+      blockPage(blockElement("breadcrumbs", { separator: "chevron", label: "You are here" })),
+    );
+
+    // The trail is resolved, not stored: a block that kept its own copy of the site structure would
+    // be wrong the first time a page moved.
+    expect(html).toContain('aria-label="You are here"');
+    expect(html).toContain('aria-current="page"');
+    expect(html).toContain("Home");
+  });
+
+  it("loads no runtime for a page whose blocks need none", () => {
+    const html = render(blockPage(blockElement("breadcrumbs", { separator: "dot", label: "Trail" })));
+    expect(html).not.toContain("<script");
+  });
+});

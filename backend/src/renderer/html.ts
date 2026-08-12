@@ -78,6 +78,17 @@ export function renderRouteHtml(input: {
               value: {
                 resolvePagePath: (pageId: string) => pathByPageId.get(pageId) ?? null,
                 resolveMediaUrl: (mediaId: string) => `${input.mediaBaseUrl}/${encodeURIComponent(mediaId)}`,
+                // Home, then this page. The site's own structure is one level deep today; when
+                // sections of a site exist, this is the one place that changes.
+                resolveTrail: () => {
+                  const home = document.pages.find((candidate) => candidate.isHome);
+                  const trail: Array<{ label: string; href: string | null }> = [];
+                  if (home !== undefined && home.id !== page?.id) {
+                    trail.push({ label: home.name, href: href("/") });
+                  }
+                  if (page !== null) trail.push({ label: page.name, href: null });
+                  return trail;
+                },
               },
             },
             createElement(ProjectPageRenderer, { page }),

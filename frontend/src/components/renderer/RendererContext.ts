@@ -19,6 +19,14 @@ export type RendererContextValue = {
   resolveMediaVariants?: (mediaId: string) => { width: number; height: number }[];
   /** URL of one specific variant width. */
   resolveMediaVariantUrl?: (mediaId: string, width: number) => string | null;
+  /**
+   * The trail to the page being rendered, outermost first, ending at the page itself.
+   *
+   * Supplied by whoever knows where this page sits — the renderer has the route manifest, the
+   * editor has the document. A breadcrumb block cannot resolve its own trail, and a block that
+   * stored one would be a second copy of the site structure that drifts the first time a page moves.
+   */
+  resolveTrail?: () => ReadonlyArray<{ label: string; href: string | null }>;
   /** Allows http links in local development only. */
   allowHttp?: boolean;
 };

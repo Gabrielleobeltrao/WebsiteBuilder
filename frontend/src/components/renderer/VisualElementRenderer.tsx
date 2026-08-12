@@ -18,7 +18,7 @@ import { useRendererContext } from "./RendererContext";
  * browser upgrades them in place.
  */
 export function VisualElementRenderer({ element }: { element: VisualElement }) {
-  const { resolveMediaUrl, resolvePagePath, allowHttp } = useRendererContext();
+  const { resolveMediaUrl, resolvePagePath, resolveTrail, allowHttp } = useRendererContext();
 
   // Resolved before the switch, because hooks and helpers cannot be called inside one branch only.
   const iconHref =
@@ -75,16 +75,49 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
         </ul>
       );
 
-    case "breadcrumbs":
-      // The trail itself is resolved by the page that renders it; this is the landmark it lives in.
-      // Its name comes from the document because a visitor hears it in the site's language.
-      return <nav aria-label={element.label} data-separator={element.separator} />;
+    case "breadcrumbs": {
+      // The trail is resolved by whoever knows where this page sits. Its name comes from the
+      // document because a visitor hears it in the site's language, not the editor's.
+      const trail = resolveTrail?.() ?? [];
+      if (trail.length === 0) return <nav aria-label={element.label} data-separator={element.separator} />;
+
+      const separator = element.separator === "slash" ? "/" : element.separator === "dot" ? "·" : "›";
+
+      return (
+        <nav aria-label={element.label} data-separator={element.separator}>
+          <ol style={{ display: "flex", flexWrap: "wrap", gap: 8, listStyle: "none", margin: 0, padding: 0 }}>
+            {trail.map((step, index) => (
+              <li key={`${step.label}-${index}`} style={{ display: "flex", gap: 8 }}>
+                {index > 0 && <span aria-hidden>{separator}</span>}
+                {step.href === null || index === trail.length - 1 ? (
+                  // The last step is where the visitor already is: a link to here is a link to
+                  // nowhere, and `aria-current` is what says so.
+                  <span {...(index === trail.length - 1 ? { "aria-current": "page" as const } : {})}>{step.label}</span>
+                ) : (
+                  <a href={step.href}>{step.label}</a>
+                )}
+              </li>
+            ))}
+          </ol>
+        </nav>
+      );
+    }
 
     case "downloadButton": {
-      const href = resolveMediaUrl(element.mediaId);
-      if (href === null) return null;
+      // An unconfigured button renders as disabled rather than vanishing: a control that is simply
+      // absent from the page looks like a bug to the person who placed it.
+      const href = element.mediaId === "" ? null : resolveMediaUrl(element.mediaId);
+      if (href === null) {
+        return (
+          <button type="button" disabled style={{ display: "inline-block" }}>
+            {element.label}
+          </button>
+        );
+      }
+
       return (
-        <a href={href} download style={{ display: "inline-block" }}>
+        <a href={href} download style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <BlockIcon name="download" size={16} />
           {element.label}
         </a>
       );
@@ -169,6 +202,8 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
       );
 
     case "pricingTable":
+      // A wrapping row with a per-plan floor: plans sit side by side while they fit and stack when
+      // they do not, with no media query and no width the document had to guess.
       return (
         <ul style={{ display: "flex", gap: 16, listStyle: "none", padding: 0, flexWrap: "wrap" }}>
           {element.plans.map((plan, index) => (
