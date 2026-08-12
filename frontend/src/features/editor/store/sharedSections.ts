@@ -1,11 +1,15 @@
 import {
   createEmptySection,
   createId,
+  findSharedSection,
+  resolvePageSections,
   type BuilderDocumentInput,
   type BuilderPage,
   type BuilderSection,
   type SectionRole,
 } from "@websitebuilder/shared";
+
+export { findSharedSection, resolvePageSections };
 
 /**
  * Shared header and footer sections.
@@ -32,32 +36,12 @@ export function createSharedReference(sharedSectionId: string, role: SectionRole
   };
 }
 
-export function findSharedSection(
-  document: Pick<BuilderDocumentInput, "sharedSections">,
-  sharedSectionId: string,
-): BuilderSection | null {
-  return document.sharedSections.find((section) => section.id === sharedSectionId) ?? null;
-}
-
 /**
  * Replaces each reference with the shared section's real content for rendering.
  *
  * A reference whose target has been deleted resolves to nothing rather than to an empty box, so a
  * dangling reference cannot leave a mysterious gap on a published page.
  */
-export function resolvePageSections(
-  document: Pick<BuilderDocumentInput, "sharedSections">,
-  page: BuilderPage,
-): BuilderSection[] {
-  return page.sections.flatMap((section) => {
-    if (section.sharedSectionId === undefined) return [section];
-    const shared = findSharedSection(document, section.sharedSectionId);
-    if (shared === null) return [];
-    // Keep the reference's own id and hidden flag so a page can hide the shared header locally.
-    return [{ ...shared, id: section.id, sharedSectionId: shared.id, hidden: section.hidden || shared.hidden }];
-  });
-}
-
 export function createSharedSection(
   document: BuilderDocumentInput,
   role: Exclude<SectionRole, "content">,

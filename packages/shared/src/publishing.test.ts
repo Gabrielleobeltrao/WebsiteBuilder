@@ -203,3 +203,60 @@ describe("canonical redirects", () => {
     expect(canonicalRedirectFor(secondary, [otherPrimary, secondary])).toBeNull();
   });
 });
+
+describe("responsive findings in the readiness report", () => {
+  const report = (responsive: Parameters<typeof preflight>[0]["responsive"]) =>
+    preflight({
+      sourceRevision: 1,
+      routes: [{ path: "/", kind: "page", resourceId: "p1", statusCode: 200, seo: {} }],
+      responsive,
+      referencedMediaIds: [],
+      mediaExists: () => true,
+      schemaVersion: 1,
+      supportedSchemaVersion: 1,
+      moduleBlockers: 0,
+      documentBytes: 100,
+      maxDocumentBytes: 10_000,
+    });
+
+  const finding = (severity: "error" | "warning", ranges: Array<{ from: number; to: number }>) => ({
+    code: "overflow",
+    severity,
+    path: "/",
+    pageId: "p1",
+    elementId: "e1",
+    detail: "This element extends past the right edge of the screen.",
+    ranges,
+  });
+
+  it("blocks a layout error at a phone width", () => {
+    const result = report([finding("error", [{ from: 320, to: 390 }])]);
+
+    expect(result.blocked).toBe(true);
+    expect(result.issues[0]).toMatchObject({ code: "responsive-layout", severity: "blocking", elementId: "e1" });
+  });
+
+  it("blocks a layout error at a tablet width", () => {
+    expect(report([finding("error", [{ from: 641, to: 768 }])]).blocked).toBe(true);
+  });
+
+  it("does not block at a width the builder gives nobody a way to author", () => {
+    // 320 alone, and 1280 alone: real widths, but there is no device mode, no override and no
+    // auto-fit for either. A gate nobody can pass is a gate that gets switched off.
+    expect(report([finding("error", [{ from: 320, to: 320 }])]).blocked).toBe(false);
+    expect(report([finding("error", [{ from: 1280, to: 1280 }])]).blocked).toBe(false);
+  });
+
+  it("never blocks on a warning, at any width", () => {
+    const result = report([finding("warning", [{ from: 390, to: 768 }])]);
+
+    expect(result.blocked).toBe(false);
+    expect(result.issues[0]?.severity).toBe("warning");
+  });
+
+  it("carries page, element and widths so the report can be acted on", () => {
+    const issue = report([finding("error", [{ from: 390, to: 390 }])]).issues[0];
+
+    expect(issue).toMatchObject({ pageId: "p1", elementId: "e1", ranges: [{ from: 390, to: 390 }] });
+  });
+});

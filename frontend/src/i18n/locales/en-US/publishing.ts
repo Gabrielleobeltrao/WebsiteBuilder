@@ -27,6 +27,9 @@ export default {
     checking: "Checking this site…",
   },
   blockers: {
+    openInBuilder: "Open in builder",
+    atWidths: "at {{widths}}",
+    "responsive-layout": "A layout problem on this page.",
     title: "This site cannot be published yet",
     subtitle: "Fix the following, then try again.",
     warningsTitle: "Worth knowing",

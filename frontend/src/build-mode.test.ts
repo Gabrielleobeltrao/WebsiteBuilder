@@ -29,9 +29,10 @@ describe("built bundle", () => {
   it.skipIf(files.length === 0)("was compiled in production mode", () => {
     const source = files.join("\n");
 
-    // Vite inlines `import.meta.env.DEV`; in a production build every use becomes a false literal.
-    expect(source).toContain("allowHttp:!1");
-    expect(source).not.toContain("allowHttp:!0");
+    // Vite inlines `import.meta.env` at build time. A surviving reference means the bundle was
+    // built in a mode where the flags are read at runtime, which is the development client.
+    expect(source).not.toContain("import.meta.env");
+    expect(source).not.toContain("__vite__");
   });
 
   it.skipIf(files.length === 0)("ships no development-only warnings", () => {

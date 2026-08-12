@@ -1,6 +1,7 @@
-import { isDomainLive, type PreflightIssue, type SiteDomain } from "@websitebuilder/shared";
+import { deviceForWidth, isDomainLive, type PreflightIssue, type SiteDomain } from "@websitebuilder/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 
 import { ApiError } from "@/api/client";
 import { publishingApi, type PreflightResponse, type VersionSummary } from "@/api/publishing";
@@ -188,6 +189,8 @@ export function PublishPanel({ workspaceId, projectId }: { workspaceId: string; 
           title={t("publishing:blockers.title")}
           subtitle={t("publishing:blockers.subtitle")}
           issues={blocking}
+          workspaceId={workspaceId}
+          projectId={projectId}
           tone="error"
         />
       ) : (
@@ -197,7 +200,13 @@ export function PublishPanel({ workspaceId, projectId }: { workspaceId: string; 
       )}
 
       {warnings.length > 0 && (
-        <IssueList title={t("publishing:blockers.warningsTitle")} issues={warnings} tone="warning" />
+        <IssueList
+          title={t("publishing:blockers.warningsTitle")}
+          issues={warnings}
+          tone="warning"
+          workspaceId={workspaceId}
+          projectId={projectId}
+        />
       )}
 
       <button
@@ -272,16 +281,43 @@ export function PublishPanel({ workspaceId, projectId }: { workspaceId: string; 
   );
 }
 
+const describeRange = (range: { from: number; to: number }) =>
+  range.from === range.to ? `${range.from}px` : `${range.from}–${range.to}px`;
+
+/**
+ * Where a finding lives, as an address.
+ *
+ * Page, device and element travel in the URL rather than in memory, so the link survives a reload
+ * and can be shared — and so the builder has one way of being told what to open, not two.
+ */
+function openInBuilder(input: { workspaceId: string; projectId: string; issue: PreflightIssue }): string {
+  const { workspaceId, projectId, issue } = input;
+  const params = new URLSearchParams();
+  if (issue.elementId !== undefined) params.set("element", issue.elementId);
+
+  // The narrowest width the problem appears at is the one worth opening on: it is where the layout
+  // has the least room, and fixing it there usually fixes the wider cases too.
+  const narrowest = issue.ranges?.reduce((lowest, range) => Math.min(lowest, range.from), Number.POSITIVE_INFINITY);
+  if (narrowest !== undefined && Number.isFinite(narrowest)) params.set("device", deviceForWidth(narrowest));
+
+  const query = params.toString();
+  return `/app/${workspaceId}/sites/${projectId}/builder/${issue.pageId}${query === "" ? "" : `?${query}`}`;
+}
+
 function IssueList({
   title,
   subtitle,
   issues,
   tone,
+  workspaceId,
+  projectId,
 }: {
   title: string;
   subtitle?: string;
   issues: PreflightIssue[];
   tone: "error" | "warning";
+  workspaceId: string;
+  projectId: string;
 }) {
   const { t } = useTranslation("publishing");
   const styles =
@@ -293,9 +329,27 @@ function IssueList({
       {subtitle !== undefined && <p className="mt-0.5 text-xs">{subtitle}</p>}
       <ul className="mt-2 space-y-1 text-sm">
         {issues.map((issue, index) => (
-          <li key={`${issue.code}-${issue.path ?? index}`}>
-            {t(`blockers.${issue.code}` as "blockers.no-pages")}
+          <li key={`${issue.code}-${issue.elementId ?? issue.path ?? index}`}>
+            <span>{t(`blockers.${issue.code}` as "blockers.no-pages")}</span>
             {issue.path !== undefined && <span className="ml-1 font-mono text-xs">{issue.path}</span>}
+            {issue.code === "responsive-layout" && (
+              <>
+                <span className="ml-1 text-xs">{issue.detail}</span>
+                {issue.ranges !== undefined && issue.ranges.length > 0 && (
+                  <span className="ml-1 text-xs">
+                    {t("blockers.atWidths", { widths: issue.ranges.map(describeRange).join(", ") })}
+                  </span>
+                )}
+              </>
+            )}
+            {issue.pageId !== undefined && (
+              <Link
+                to={openInBuilder({ workspaceId, projectId, issue })}
+                className="ml-2 text-xs font-medium underline underline-offset-2"
+              >
+                {t("blockers.openInBuilder")}
+              </Link>
+            )}
           </li>
         ))}
       </ul>

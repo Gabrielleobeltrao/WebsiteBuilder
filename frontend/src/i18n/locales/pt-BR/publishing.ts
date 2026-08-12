@@ -20,6 +20,9 @@ export default {
     checking: "Verificando este site…",
   },
   blockers: {
+    openInBuilder: "Abrir no construtor",
+    atWidths: "em {{widths}}",
+    "responsive-layout": "Um problema de layout nesta página.",
     title: "Este site ainda não pode ser publicado",
     subtitle: "Resolva os itens abaixo e tente de novo.",
     warningsTitle: "Vale saber",

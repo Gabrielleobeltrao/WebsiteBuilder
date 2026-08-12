@@ -1,6 +1,7 @@
 import {
   consentCopyFor,
   PUBLISHED_BASE_CSS,
+  renderablePage,
   resolveSafeLinkHref,
   type BuilderProject,
   type RouteManifestEntry,
@@ -49,7 +50,10 @@ export function renderRouteHtml(input: {
   pageHref?: (path: string) => string;
 }): string {
   const { route, document } = input;
-  const page = document.pages.find((candidate) => candidate.id === route.resourceId) ?? null;
+  const found = document.pages.find((candidate) => candidate.id === route.resourceId) ?? null;
+  // Shared references carry no content of their own. Rendering the page without resolving them is
+  // how a site with a shared header published without its header while the builder showed one.
+  const page = found === null ? null : renderablePage(document, found);
 
   const href = input.pageHref ?? ((path: string) => path);
   const pathByPageId = new Map(

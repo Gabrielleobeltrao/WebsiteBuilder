@@ -1,8 +1,10 @@
 import { createProjectDocument, MAX_CONTAINER_DEPTH, type BuilderProject, type ElementType } from "@websitebuilder/shared";
 import { act, fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { EditorRoute } from "@/features/editor/EditorRoute";
 import { EditorShell } from "@/features/editor/EditorShell";
 import { CREATE_MIME, MOVE_MIME, SECTION_MIME } from "@/features/editor/canvas/dnd";
 import { findElement } from "@/features/editor/store/elements";
@@ -387,5 +389,52 @@ describe("canvas actions", () => {
     render();
 
     expect(screen.queryByRole("toolbar", { name: "Selected element" })).toBeNull();
+  });
+});
+
+describe("opening a readiness finding in the builder", () => {
+  const routes = (
+    <Routes>
+      <Route path="/app/:workspaceId/sites/:projectId/builder" element={<EditorRoute />} />
+      <Route path="/app/:workspaceId/sites/:projectId/builder/:pageId" element={<EditorRoute />} />
+    </Routes>
+  );
+
+  /** The address a readiness finding produces, resolved against a loaded project. */
+  async function openFinding(query: string) {
+    useEditorStore.getState().loadFromProject(project());
+    const page = currentPage();
+    act(() => useEditorStore.getState().addElement(page.sections[0]!.id, "text"));
+    const elementId = firstSection().elements[0]!.id;
+    act(() => useEditorStore.getState().select(null));
+    act(() => useEditorStore.getState().setEditingDevice("desktop"));
+
+    // `load` would replace the store from the network; the fixture is already loaded, so the route
+    // is rendered with a load that resolves to what is there.
+    vi.spyOn(useEditorStore.getState(), "load").mockResolvedValue(undefined);
+    useEditorStore.setState({ loadStatus: "ready" });
+
+    renderWithProviders(routes, {
+      route: `/app/w1/sites/aaaaaaaaaaaaaaaaaaaaaaaa/builder/${page.id}${query.replace("ELEMENT", elementId)}`,
+    });
+
+    return { pageId: page.id, elementId };
+  }
+
+  it("opens the page, the device and the element the finding names", async () => {
+    const { pageId, elementId } = await openFinding("?element=ELEMENT&device=mobile");
+
+    expect(useEditorStore.getState().ui.currentPageId).toBe(pageId);
+    expect(useEditorStore.getState().ui.editingWidth).toBe(390);
+    expect(useEditorStore.getState().ui.selection).toEqual({ kind: "element", elementId });
+    // ...and the inspector is what the panel shows, without a second click.
+    expect(screen.getByRole("tablist", { name: "Element settings" })).toBeInTheDocument();
+  });
+
+  it("ignores an element that is no longer there", async () => {
+    await openFinding("?element=deleted-element&device=tablet");
+
+    expect(useEditorStore.getState().ui.selection).toBeNull();
+    expect(useEditorStore.getState().ui.editingWidth).toBe(768);
   });
 });

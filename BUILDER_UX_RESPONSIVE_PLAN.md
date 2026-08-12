@@ -648,19 +648,19 @@ Opening a finding sets the current page, device, selection, and inspector contex
 
 ### Phase 7 — Readiness and parity
 
-- [ ] **7.1 Move diagnostics to readiness/publish flow.**
+- [x] **7.1 Move diagnostics to readiness/publish flow.**
   - Acceptance: clean preview has none; publish flow lists actionable findings.
   - Verify: route/component tests.
 
-- [ ] **7.2 Block severe responsive failures.**
+- [x] **7.2 Block severe responsive failures.**
   - Acceptance: off-canvas/overflow errors block publish; warnings remain non-blocking.
   - Verify: publishing service tests.
 
-- [ ] **7.3 Implement Open in builder context.**
+- [x] **7.3 Implement Open in builder context.**
   - Acceptance: finding opens correct page/device/element/inspector.
   - Verify: end-to-end readiness navigation.
 
-- [ ] **7.4 Prove draft-preview-published parity.**
+- [x] **7.4 Prove draft-preview-published parity.**
   - Acceptance: same document produces equivalent scoped responsive rules and visible geometry.
   - Verify: parity snapshots plus browser measurements.
 
@@ -774,6 +774,7 @@ Add entries in chronological order. Do not replace previous entries.
 
 | Date | Task | Commit | Verification | Result |
 | --- | --- | --- | --- | --- |
+| 2026-08-11 | 7.1-7.4 readiness and parity | n/a | `npm run typecheck && npm run test && npm run build && npm run test:e2e` | 1,800 unit tests and 49 E2E pass. Readiness lists layout findings with widths and an Open in builder link; phone/tablet overflow blocks publication; a shared header now renders on the published site, which it did not before |
 | 2026-08-11 | 6.1-6.5 clean isolated preview | n/a | `npm run typecheck && npm run test && npm run build && npm run test:e2e` | 1,777 unit tests and 49 E2E pass. The draft is served as a document by an authenticated same-origin route and framed at exactly 1440/768/390; the shell is Back and three devices |
 | 2026-08-11 | 5.1-5.5 drag/drop authoring | n/a | `npm run typecheck && npm run test && npm run build` | 1,748 tests pass, zero failures. Native drag and drop with markers only while dragging; click insertion states its destination; Free/Flex/Grid section rows between every section; Structure reorders by drag and by button; canvas toolbar is Duplicate and Delete only |
 | 2026-08-11 | 4.1-4.5 builder shell and right sidebar | n/a | `npm run typecheck && npm run test && npm run build` | 1,717 tests pass, zero failures. Top bar is the Section 4.2 inventory plus manual Save; five destinations on an icon rail; inspector is Content/Style/Advanced; Page SEO is a subsection of Page settings; feature links appear only once a feature is used |
@@ -794,6 +795,8 @@ Add material implementation decisions here before or while making them.
 
 | ID | Decision | Reason | Consequences |
 | --- | --- | --- | --- |
+| D-020 | Shared header and footer resolution moved into `packages/shared` | It lived in the editor store, so the editor resolved references and the published renderer did not — a site with a shared header published without one | `renderablePage` is called by `renderRouteHtml`, so preview and publication resolve identically; the parity suite fails if either stops |
+| D-019 | Only phone and tablet overflow blocks publication | The sweep reports at 320, 641, 1280 and other widths nobody authors. Blocking there is a gate the product cannot help anyone through: there is no device mode, no override and no auto-fit for those widths, and a 1440 design on a 1280 laptop scrolling is not a defect | `BLOCKING_DEVICE_WIDTHS` derives from `DEVICE_MODES`, so adding a device mode extends the gate automatically; every other finding is reported as a warning |
 | D-018 | Preview frames a server-rendered draft instead of rendering in-app | A div sized to 390 px inside the application's document resolves media queries against the *window*, so the preview showed desktop rules at phone width — the exact failure this plan exists to remove. A frame has its own layout viewport | One authenticated API route serves unpublished content as HTML; its policy differs from a published page by one directive, `frame-ancestors 'self'` |
 | D-017 | The preview route lives under publishing, not projects | It is the same document the publisher would produce, from the same manifest builder, and reusing that path is what keeps preview and publication from drifting | `buildCompileInput` is shared by `compile` and `previewRoute`; preview deliberately skips preflight, so a draft that cannot be published can still be looked at |
 | D-016 | Choosing a destination keeps the canvas selection | The panel used to clear the selection to make the rail usable, which made "add to the selected container" unreachable — opening the library discarded the target it needed | `panelIntent` records what the user asked for last; the inspector returns as soon as anything is selected |

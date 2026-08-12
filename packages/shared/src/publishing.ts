@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { DEVICE_MODES } from "./devices";
+import type { ResponsiveFinding, WidthRange } from "./diagnostics";
 import { isReservedSubdomain, normalizeHostname, projectSlugSchema } from "./slug";
 
 /**
@@ -105,11 +107,45 @@ export type PreflightIssue = {
     | "unsupported-schema"
     | "module-incomplete"
     | "document-too-large"
-    | "revision-changed";
+    | "revision-changed"
+    | "responsive-layout";
   severity: "blocking" | "warning";
   detail: string;
   path?: string;
+  /**
+   * Where the problem is, when it is somewhere in particular.
+   *
+   * A readiness report that says "an element overflows" and stops is a report the reader has to
+   * re-derive by hand. These three fields are what let the UI offer to open the exact element, on
+   * the exact device, in the builder.
+   */
+  pageId?: string;
+  elementId?: string;
+  /** Widths the problem occurs at. */
+  ranges?: WidthRange[];
 };
+
+/**
+ * Whether a layout error reaches a width the author was given a way to fix.
+ *
+ * The sweep reports at widths nobody authors, and it should: a page correct at 390 and 1440 can
+ * still break at 700, and that is worth knowing. But refusing to publish over it would be a gate
+ * the product cannot help anyone through — there is no 320 device mode, no 700 device mode, and no
+ * auto-fit for either. A 1440-wide design on a 1280 laptop scrolls horizontally, which is what a
+ * fixed-width design does; it is not a defect.
+ *
+ * So blocking is limited to the narrow widths the builder actually exposes: phone and tablet. There
+ * a person has a device button, an override and a "fit to this device" action, so "this is broken"
+ * comes with somewhere to go. Everything else is reported and left to the person who designed it.
+ */
+function breaksANarrowDevice(finding: { ranges: readonly WidthRange[] }): boolean {
+  return finding.ranges.some((range) =>
+    BLOCKING_DEVICE_WIDTHS.some((width) => range.from <= width && width <= range.to),
+  );
+}
+
+/** The authored widths where horizontal overflow makes content unreachable: phone and tablet. */
+export const BLOCKING_DEVICE_WIDTHS = [DEVICE_MODES.mobile.referenceWidth, DEVICE_MODES.tablet.referenceWidth] as const;
 
 export type PreflightReport = {
   issues: PreflightIssue[];
@@ -128,6 +164,8 @@ export type PreflightReport = {
 export function preflight(input: {
   sourceRevision: number;
   routes: readonly RouteManifestEntry[];
+  /** Layout findings from the responsive sweep, already attributed to their page. */
+  responsive?: readonly (ResponsiveFinding & { pageId: string })[];
   referencedMediaIds: readonly string[];
   mediaExists: (mediaId: string) => boolean;
   schemaVersion: number;
@@ -180,6 +218,18 @@ export function preflight(input: {
       code: "module-incomplete",
       severity: "blocking",
       detail: `${input.moduleBlockers} module setup issue(s) must be resolved before publishing.`,
+    });
+  }
+
+  for (const finding of input.responsive ?? []) {
+    issues.push({
+      code: "responsive-layout",
+      severity: finding.severity === "error" && breaksANarrowDevice(finding) ? "blocking" : "warning",
+      detail: finding.detail,
+      path: finding.path,
+      pageId: finding.pageId,
+      ...(finding.elementId === undefined ? {} : { elementId: finding.elementId }),
+      ranges: finding.ranges,
     });
   }
 

@@ -1,5 +1,6 @@
 import { postPath, type BlogSettings } from "./blog";
 import { normalizeCollectionSlug, type CmsCollectionInput, type CmsItemStatus } from "./cms";
+import { diagnoseResponsive, type ResponsiveFinding } from "./diagnostics";
 import { walkElements } from "./elements";
 import { pagePath, type BuilderProject } from "./project";
 import {
@@ -11,6 +12,7 @@ import {
 } from "./publishing";
 import { flattenChains, type Redirect } from "./redirects";
 import { buildSearchIndex, type SearchDocument, type SearchSource } from "./search";
+import { renderablePage } from "./shared-sections";
 import { resolvePageMetadata } from "./seo";
 import { SYSTEM_PAGE_CONTRACTS, SYSTEM_PAGE_KINDS } from "./system-pages";
 
@@ -86,6 +88,22 @@ export type CompileResult =
   | { ok: true; snapshot: CompiledSnapshot; report: PreflightReport }
   | { ok: false; snapshot: null; report: PreflightReport };
 
+/**
+ * The responsive sweep over every page, as the publisher sees it.
+ *
+ * Shared references are resolved first, because a header is where an overflow usually is and a page
+ * that never resolves its header would report the site as clean while a phone shows it broken.
+ */
+function sweepPages(project: CompileInput["project"]): Array<ResponsiveFinding & { pageId: string }> {
+  return project.pages.flatMap((page) =>
+    diagnoseResponsive({
+      page: renderablePage(project, page),
+      path: page.isHome ? "/" : `/${page.slug}`,
+      breakpoints: project.breakpoints,
+    }).map((finding) => ({ ...finding, pageId: page.id })),
+  );
+}
+
 export function compileSite(input: CompileInput): CompileResult {
   const routes = buildRouteManifest(input);
   const referencedMediaIds = collectMediaIds(input);
@@ -97,6 +115,7 @@ export function compileSite(input: CompileInput): CompileResult {
   const report = preflight({
     sourceRevision: input.project.revision,
     routes,
+    responsive: sweepPages(input.project),
     referencedMediaIds,
     mediaExists: input.mediaExists,
     schemaVersion: input.project.schemaVersion,
