@@ -14,6 +14,7 @@ import { createGridFsStorage } from "../src/modules/media/storage";
 import { ProjectRepository, type WorkspaceContext } from "../src/modules/projects/repository";
 import { ensurePublishingIndexes, PublishingRepository } from "../src/modules/publishing/repository";
 import { PublishingService } from "../src/modules/publishing/service";
+import { ensureFormIndexes, FormRepository } from "../src/modules/forms/repository";
 import { startTestDatabase, type TestDatabase } from "./mongo";
 
 /**
@@ -29,6 +30,7 @@ let database: TestDatabase;
 let projects: ProjectRepository;
 let publishing: PublishingRepository;
 let service: PublishingService;
+let forms: FormRepository;
 
 const A: WorkspaceContext = { workspaceId: "workspace-a", userId: "user-a" };
 
@@ -75,11 +77,20 @@ beforeAll(async () => {
   database = await startTestDatabase();
   projects = new ProjectRepository(database.db);
   publishing = new PublishingRepository(database.db, database.db.collection(COLLECTIONS.projects));
+  forms = new FormRepository(database.db);
   service = new PublishingService({
     projects,
     publishing,
     blog: new BlogRepository(database.db),
     media: new MediaRepository(database.db, createGridFsStorage(database.db)),
+    loadForms: async (context, projectId) =>
+      (await forms.list(context, projectId)).map((form) => ({
+        id: form.id,
+        name: form.name,
+        fields: form.fields,
+        submitLabel: form.submitLabel,
+        status: form.status,
+      })),
   });
 }, 120_000);
 
@@ -91,6 +102,7 @@ beforeEach(async () => {
   await database.clear();
   await ensureBlogIndexes(database.db);
   await ensurePublishingIndexes(database.db);
+  await ensureFormIndexes(database.db);
 });
 
 async function saveEveryBlock() {
@@ -98,7 +110,21 @@ async function saveEveryBlock() {
   const loaded = await projects.findById(A, project.id);
   const { id, workspaceId, createdByUserId, revision, createdAt, updatedAt, ...document } = loaded!;
 
-  const withBlocks = { ...document, pages: documentWithEveryBlock().pages } as BuilderProject;
+  // A real, finished form: the form block references a definition, and publication checks that the
+  // definition exists and can take a submission.
+  const form = await forms.create(A, project.id, {
+    name: "Contact",
+    fields: [{ id: "name", type: "shortText", label: "Your name", required: true }],
+    submitLabel: "Send",
+    successBehavior: { type: "message", message: "Thank you." },
+    notificationRecipients: [],
+  });
+
+  const pages = documentWithEveryBlock().pages;
+  const formBlock = pages[0]!.sections[0]!.elements.find((element) => element.type === "form");
+  if (formBlock !== undefined) (formBlock as unknown as { formId: string }).formId = form.id;
+
+  const withBlocks = { ...document, pages } as BuilderProject;
   const saved = await projects.saveDocument(A, project.id, revision, withBlocks as never);
   return { projectId: project.id, revision: saved?.revision };
 }
@@ -160,5 +186,72 @@ describe("every block reaches a visitor", () => {
     const snapshot = version?.document as BuilderProject | undefined;
     const types = snapshot?.pages[0]?.sections[0]?.elements.map((element) => element.type) ?? [];
     expect(types).toHaveLength(ELEMENT_TYPES.length - 1);
+  });
+});
+
+describe("a page whose form points somewhere", () => {
+  const formBlockDocument = (formId: string) => {
+    const document = createProjectDocument({ name: "Acme", slug: "acme" });
+    document.pages[0]!.sections[0]!.elements = [
+      {
+        id: "form-block",
+        name: "",
+        geometry: { x: 0, y: 0, width: 400, height: 300, rotation: 0 },
+        responsiveLayout: {
+          width: { value: 400, unit: "px" },
+          height: { value: 300, unit: "px" },
+          horizontalConstraint: "left",
+          verticalConstraint: "top",
+          visible: true,
+        },
+        zIndex: 1,
+        locked: false,
+        hidden: false,
+        type: "form",
+        version: 1,
+        ...elementDefinition("form").defaults(),
+        formId,
+      },
+    ] as never;
+    return document;
+  };
+
+  async function publishWithForm(formId: string) {
+    const project = await projects.create(A, { name: "Acme" });
+    const loaded = await projects.findById(A, project.id);
+    const { id, workspaceId, createdByUserId, revision, createdAt, updatedAt, ...document } = loaded!;
+
+    await projects.saveDocument(A, project.id, revision, {
+      ...document,
+      pages: formBlockDocument(formId).pages,
+    } as never);
+
+    return service.publish(A, project.id);
+  }
+
+  it("refuses to publish when the form does not exist", async () => {
+    const outcome = await publishWithForm("no-such-form");
+
+    // A set of inputs that accepts an answer and loses it is worse than a page that says it is not
+    // ready, and only the publisher can tell the difference: the page holds an id and nothing else.
+    expect(outcome.status).toBe("blocked");
+    expect(
+      outcome.status === "blocked" &&
+        outcome.report.issues.some((issue) => issue.blockCode === "form-missing"),
+    ).toBe(true);
+  });
+
+  it("refuses to publish when the form is not finished", async () => {
+    const form = await forms.create(A, "any-project", {
+      name: "Contact",
+      // No fields: the module's own status calls this unfinished.
+      fields: [],
+      submitLabel: "Send",
+      successBehavior: { type: "message", message: "Thanks" },
+      notificationRecipients: [],
+    });
+
+    const outcome = await publishWithForm(form.id);
+    expect(outcome.status).toBe("blocked");
   });
 });

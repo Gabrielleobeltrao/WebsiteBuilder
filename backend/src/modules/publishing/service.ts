@@ -8,6 +8,7 @@ import {
   type CompileResult,
   type PublishableCmsItem,
   type PublishableCollection,
+  type PublishableForm,
   type PublishedSiteVersion,
   type Redirect,
 } from "@websitebuilder/shared";
@@ -73,6 +74,8 @@ export class PublishingService {
       loadCmsCollections?: (context: WorkspaceContext, projectId: string) => Promise<PublishableCollection[]>;
       loadCmsItems?: (context: WorkspaceContext, projectId: string) => Promise<PublishableCmsItem[]>;
       loadRedirects?: (context: WorkspaceContext, projectId: string) => Promise<Redirect[]>;
+      /** Form definitions, so a published page can render the fields its blocks reference. */
+      loadForms?: (context: WorkspaceContext, projectId: string) => Promise<PublishableForm[]>;
       collectModuleFacts?: (input: {
         workspaceId: string;
         projectId: string;
@@ -263,6 +266,8 @@ export class PublishingService {
       },
       cms: { collections, items },
       redirects,
+      // Only the definitions this project owns; the compiler keeps the ones its pages reference.
+      forms: (await this.deps.loadForms?.(context, projectId)) ?? [],
       mediaExists: (mediaId) => ownedMedia.has(mediaId),
       supportedSchemaVersion: SCHEMA_VERSION,
       moduleBlockers: status.blockingIssueCount,

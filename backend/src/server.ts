@@ -30,6 +30,8 @@ import { FakeHostnameProvider } from "./modules/domains/fakeProvider";
 import { UnconfiguredHostnameProvider } from "./modules/domains/unconfiguredProvider";
 import { DomainService } from "./modules/domains/service";
 import type { CustomHostnameProvider } from "./modules/domains/provider";
+import { createFormsRouter } from "./modules/forms/routes";
+import { FormRepository, ensureFormIndexes } from "./modules/forms/repository";
 import { createPublishingRouter } from "./modules/publishing/routes";
 import { ensurePublishingIndexes, PublishingRepository } from "./modules/publishing/repository";
 import { PublishingService } from "./modules/publishing/service";
@@ -83,11 +85,13 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
   const preferences = new PreferencesRepository(database.db);
   const media = new MediaRepository(database.db, createGridFsStorage(database.db));
   const blog = new BlogRepository(database.db);
+  const forms = new FormRepository(database.db);
   const cms = new CmsRepository(database.db);
   const publishing = new PublishingRepository(database.db, database.db.collection(COLLECTIONS.projects));
   const analytics = new AnalyticsRepository(database.db);
   const domains = new DomainService(database.db, createHostnameProvider(env, logger), env.PLATFORM_ROOT_DOMAIN);
   await ensureBlogIndexes(database.db);
+  await ensureFormIndexes(database.db);
   await ensurePublishingIndexes(database.db);
   await ensureCmsIndexes(database.db);
   await ensureAnalyticsIndexes(database.db);
@@ -175,6 +179,13 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
       }),
     },
     {
+      path: "/workspaces/:workspaceId/projects/:projectId/forms",
+      router: createFormsRouter({
+        repository: forms,
+        resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
+      }),
+    },
+    {
       path: "/workspaces/:workspaceId/projects/:projectId/publishing",
       router: createPublishingRouter({
         service: new PublishingService({
@@ -183,6 +194,14 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
           blog,
           media,
           collectModuleFacts,
+          loadForms: async (context, projectId) =>
+            (await forms.list(context, projectId)).map((form) => ({
+              id: form.id,
+              name: form.name,
+              fields: form.fields,
+              submitLabel: form.submitLabel,
+              status: form.status,
+            })),
           loadCmsCollections: async (context, projectId) => {
             const [collections, templates] = await Promise.all([
               cms.listCollections(context, projectId),

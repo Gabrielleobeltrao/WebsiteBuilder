@@ -1,6 +1,6 @@
 import { postPath, type BlogSettings } from "./blog";
 import { normalizeCollectionSlug, type CmsCollectionInput, type CmsItemStatus } from "./cms";
-import { auditPageBlocks } from "./block-readiness";
+import { auditPageBlocks, type BlockFinding } from "./block-readiness";
 import { diagnoseResponsive, type ResponsiveFinding } from "./diagnostics";
 import { walkElements } from "./elements";
 import { pagePath, type BuilderProject } from "./project";
@@ -65,6 +65,14 @@ export type CompileInput = {
   blog: { settings: BlogSettings; posts: readonly PublishablePost[] };
   cms: { collections: readonly PublishableCollection[]; items: readonly PublishableCmsItem[] };
   redirects: readonly Redirect[];
+  /**
+   * Form definitions this project owns, so a published page can render the fields it references.
+   *
+   * Copied into the snapshot rather than read live: a published version is immutable, and a form
+   * edited after publication must not silently change the page a visitor is filling in. The next
+   * publish carries the new definition.
+   */
+  forms?: readonly PublishableForm[];
   /** Media ids the workspace actually owns. Ownership is decided by the caller, never inferred. */
   mediaExists: (mediaId: string) => boolean;
   supportedSchemaVersion: number;
@@ -73,12 +81,22 @@ export type CompileInput = {
   maxDocumentBytes: number;
 };
 
+/** The parts of a form definition a published page needs to render and validate it. */
+export type PublishableForm = {
+  id: string;
+  name: string;
+  fields: readonly unknown[];
+  submitLabel: string;
+  status: string;
+};
+
 export type CompiledSnapshot = {
   sourceRevision: number;
   schemaVersion: number;
   document: BuilderProject;
   routes: RouteManifestEntry[];
   redirects: PublishedRedirect[];
+  forms: readonly PublishableForm[];
   referencedMediaIds: string[];
   searchIndex: SearchDocument[];
   sitemapPaths: string[];
@@ -95,6 +113,60 @@ export type CompileResult =
  * Shared references are resolved first, because a header is where an overflow usually is and a page
  * that never resolves its header would report the site as clean while a phone shows it broken.
  */
+/**
+ * Blocks pointing at a form that cannot take a submission.
+ *
+ * Checked here rather than in block readiness because only the publisher knows which definitions
+ * exist: a page's own document holds an id and nothing else. A form that was deleted, archived, or
+ * never finished would otherwise publish as a set of inputs that accept an answer and lose it.
+ */
+function auditFormReferences(input: CompileInput): BlockFinding[] {
+  const byId = new Map((input.forms ?? []).map((form) => [form.id, form]));
+  const findings: BlockFinding[] = [];
+
+  for (const page of input.project.pages) {
+    for (const section of page.sections) {
+      for (const element of walkElements(section.elements)) {
+        if (element.type !== "form" || element.hidden || element.formId === "") continue;
+
+        const form = byId.get(element.formId);
+        const detail =
+          form === undefined
+            ? "This block points at a form that no longer exists."
+            : form.status === "ready"
+              ? null
+              : "The form this block shows is not finished, so a visitor's answer would go nowhere.";
+
+        if (detail !== null) {
+          findings.push({
+            code: form === undefined ? "form-missing" : "form-incomplete",
+            severity: "error",
+            path: pagePath(page),
+            detail,
+            elementId: element.id,
+            pageId: page.id,
+          });
+        }
+      }
+    }
+  }
+
+  return findings;
+}
+
+/** Form ids referenced by any block on any page. */
+function referencedFormIds(project: CompileInput["project"]): Set<string> {
+  const ids = new Set<string>();
+  for (const page of project.pages) {
+    for (const section of page.sections) {
+      for (const element of walkElements(section.elements)) {
+        if (element.type === "form" && element.formId !== "") ids.add(element.formId);
+      }
+    }
+  }
+  return ids;
+}
+
 function sweepPages(project: CompileInput["project"]): Array<ResponsiveFinding & { pageId: string }> {
   return project.pages.flatMap((page) =>
     diagnoseResponsive({
@@ -117,9 +189,10 @@ export function compileSite(input: CompileInput): CompileResult {
     sourceRevision: input.project.revision,
     routes,
     responsive: sweepPages(input.project),
-    blocks: input.project.pages.flatMap((page) =>
-      auditPageBlocks({ page, path: pagePath(page), document: input.project }),
-    ),
+    blocks: [
+      ...input.project.pages.flatMap((page) => auditPageBlocks({ page, path: pagePath(page), document: input.project })),
+      ...auditFormReferences(input),
+    ],
     referencedMediaIds,
     mediaExists: input.mediaExists,
     schemaVersion: input.project.schemaVersion,
@@ -137,6 +210,9 @@ export function compileSite(input: CompileInput): CompileResult {
     document,
     routes,
     redirects,
+    // Only the forms this site's pages actually reference: a snapshot carrying every definition in
+    // the project would publish drafts nobody placed.
+    forms: (input.forms ?? []).filter((form) => referencedFormIds(input.project).has(form.id)),
     referencedMediaIds,
     searchIndex: buildSearchIndex(collectSearchSources(input, routes)),
     // Only indexable routes belong in a sitemap; a 404 route is not a destination.
