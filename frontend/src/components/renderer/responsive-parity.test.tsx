@@ -1,4 +1,4 @@
-import { compilePageCss, DEVICE_MODES } from "@websitebuilder/shared";
+import { compilePageCss, DEVICE_MODES, elementDefinition, type BuilderElement } from "@websitebuilder/shared";
 import {
   FAR_RIGHT_X,
   flexSectionFixture,
@@ -109,5 +109,74 @@ describe("what the stylesheet says about a device", () => {
     // One rule, unconditional. A media query restating its parent costs a visitor bytes to change
     // nothing they can see.
     expect(centred).toHaveLength(1);
+  });
+});
+
+describe("what a published page draws for a block", () => {
+  const element = (type: Parameters<typeof elementDefinition>[0], overrides: Record<string, unknown> = {}) =>
+    ({
+      id: `${type}-1`,
+      name: "",
+      geometry: { x: 0, y: 0, width: 100, height: 40, rotation: 0 },
+      responsiveLayout: {
+        width: { value: 100, unit: "px" },
+        height: { value: 40, unit: "px" },
+        horizontalConstraint: "left",
+        verticalConstraint: "top",
+        visible: true,
+      },
+      zIndex: 1,
+      locked: false,
+      hidden: false,
+      type,
+      version: elementDefinition(type).schemaVersion,
+      ...elementDefinition(type).defaults(),
+      ...overrides,
+    }) as BuilderElement;
+
+  const pageOf = (elements: BuilderElement[]) => {
+    const page = pageWith([freeSectionFixture()]);
+    return { ...page, sections: [{ ...page.sections[0]!, elements }] };
+  };
+
+  it("draws a real icon rather than a placeholder glyph", () => {
+    const { container } = renderPage(pageOf([element("icon", { icon: "check" })]));
+
+    // The bullet this replaced was the same mark for every icon in the set, so a page with a phone
+    // icon and a mail icon showed two identical dots.
+    const svg = container.querySelector("svg");
+    expect(svg).not.toBeNull();
+    expect(svg?.querySelector("path")?.getAttribute("d")).toContain("M20 6");
+    expect(container.textContent).not.toContain("●");
+  });
+
+  it("renders nothing for an icon name outside the set", () => {
+    // The vocabulary is closed: an unknown name draws nothing rather than anything.
+    const { container } = renderPage(pageOf([element("icon", { icon: "not-an-icon" })]));
+    expect(container.querySelector("svg")).toBeNull();
+  });
+
+  it("renders a button's icon beside its label", () => {
+    const { container } = renderPage(
+      pageOf([element("button", { text: "Download", icon: { name: "download", position: "before" } })]),
+    );
+
+    expect(container.querySelector("svg")).not.toBeNull();
+    expect(container.textContent).toContain("Download");
+  });
+
+  it("builds a video frame from the provider and id, never from a stored URL", () => {
+    const { container } = renderPage(pageOf([element("video", { videoId: "abc123", title: "A talk" })]));
+    const frame = container.querySelector("iframe");
+
+    expect(frame?.getAttribute("src")).toBe("https://www.youtube-nocookie.com/embed/abc123");
+    expect(frame?.getAttribute("title")).toBe("A talk");
+  });
+
+  it("shows a placeholder for a video nobody has configured yet", () => {
+    const { container } = renderPage(pageOf([element("video")]));
+
+    expect(container.querySelector("iframe")).toBeNull();
+    expect(container.querySelector('[role="img"]')).not.toBeNull();
   });
 });

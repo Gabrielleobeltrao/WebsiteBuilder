@@ -12,6 +12,7 @@ import { createElement } from "react";
 
 import { useRendererContext } from "./RendererContext";
 import { VisualElementRenderer } from "./VisualElementRenderer";
+import { BlockIcon } from "./BlockIcon";
 import { buttonStyle, containerStyle, imageStyle, isRenderable, textStyle } from "./styles";
 
 /**
@@ -90,7 +91,16 @@ export function ButtonRenderer({ element }: { element: ButtonElement }) {
     ...(allowHttp === undefined ? {} : { allowHttp }),
   });
 
-  const content = <span>{element.text}</span>;
+  // The icon a button stores is finally rendered. It is decorative: the label beside it says the
+  // same thing, and a screen reader announcing both reads it twice.
+  const icon = element.icon === undefined ? null : <BlockIcon name={element.icon.name} size={16} />;
+  const content = (
+    <>
+      {element.icon?.position === "before" && icon}
+      <span>{element.text}</span>
+      {element.icon?.position === "after" && icon}
+    </>
+  );
 
   // An unconfigured or broken link renders a non-navigating button. Nothing is silently linked to
   // the wrong place, and no unsafe href can ever be produced.

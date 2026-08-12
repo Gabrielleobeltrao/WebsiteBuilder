@@ -1,8 +1,11 @@
 import {
   serializeFocalPoint,
+  videoEmbedUrl,
+  VIDEO_IFRAME_ALLOW,
   type VisualElement,
 } from "@websitebuilder/shared";
 
+import { BlockIcon } from "./BlockIcon";
 import { useRendererContext } from "./RendererContext";
 
 /**
@@ -38,20 +41,14 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
       return <div aria-hidden style={{ width: "100%", height: "100%" }} />;
 
     case "icon":
-      return (
-        <span aria-hidden style={{ fontSize: element.size, color: element.color, lineHeight: 1 }}>
-          ●
-        </span>
-      );
+      return <BlockIcon name={element.icon} size={element.size} color={element.color} />;
 
     case "iconList":
       return (
         <ul style={{ display: "flex", flexDirection: "column", gap: element.gap, listStyle: "none", padding: 0 }}>
           {element.items.map((item, index) => (
             <li key={index} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span aria-hidden style={{ fontSize: element.iconSize }}>
-                ●
-              </span>
+              <BlockIcon name={item.icon} size={element.iconSize} />
               <span>{item.text}</span>
             </li>
           ))}
@@ -158,9 +155,7 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
               {/* Named, so it is not announced as a bare bullet, and opened without handing over
                   the opener. */}
               <a href={item.url} rel="noreferrer noopener" target="_blank" aria-label={item.network}>
-                <span aria-hidden style={{ fontSize: element.iconSize }}>
-                  ●
-                </span>
+                <BlockIcon name="external-link" size={element.iconSize} />
               </a>
             </li>
           ))}
@@ -168,7 +163,24 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
       );
 
     case "video":
-      return <div data-video-provider={element.provider} data-video-id={element.videoId} aria-label={element.title} />;
+      // An unconfigured block is a visible placeholder rather than an empty frame: a page that says
+      // nothing is indistinguishable from one that failed to load.
+      if (element.videoId.trim() === "") {
+        return <div role="img" aria-label={element.title} style={{ width: "100%", height: "100%", backgroundColor: "#eceef2" }} />;
+      }
+
+      return (
+        <iframe
+          // The URL is built from the provider and an id-shaped string; no document value is ever
+          // loaded as a frame source.
+          src={videoEmbedUrl(element)}
+          title={element.title}
+          allow={VIDEO_IFRAME_ALLOW}
+          referrerPolicy="strict-origin-when-cross-origin"
+          loading="lazy"
+          style={{ width: "100%", height: "100%", border: 0 }}
+        />
+      );
 
     case "accordion":
       // `<details>` needs no script, so the published page is fully usable as served.
