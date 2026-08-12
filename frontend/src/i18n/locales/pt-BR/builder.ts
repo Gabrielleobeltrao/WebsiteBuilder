@@ -258,6 +258,7 @@ export default {
 
   "fields": {
     richText: "Texto",
+    richTextLoading: "Carregando o editor…",
     richTextHint: "A formatação se limita ao que uma página publicada carrega com segurança: títulos, listas, citações, negrito, itálico e links.",
     menuItems: "Itens do menu",
     orientation: "Direção",

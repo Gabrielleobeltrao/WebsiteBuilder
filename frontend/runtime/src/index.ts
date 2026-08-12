@@ -288,6 +288,77 @@ function upgradeNavigation(): void {
   });
 }
 
+/**
+ * Form submission, upgraded.
+ *
+ * The served markup is a real `<form method="post">` that works on its own: it posts, the server
+ * answers with a redirect, and the page comes back carrying the outcome. That path is the one that
+ * must never break, so this only intercepts once it is sure it can do better.
+ *
+ * What it adds is what a full page reload cannot: the answers stay in the fields, the outcome is
+ * announced without the page moving, and focus lands on the message rather than at the top of a
+ * document the visitor has to re-find their place in.
+ */
+function upgradeForms(): void {
+  each<HTMLFormElement>("form[data-wb-form]", (form) => {
+    const action = form.getAttribute("action");
+    if (action === null || action === "") return;
+
+    const status = form.querySelector<HTMLElement>("[data-wb-form-status]");
+    const errors = form.querySelector<HTMLElement>("[data-wb-form-errors]");
+    const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+
+    form.addEventListener("submit", (event) => {
+      // The browser's own validation runs first. Anything it can catch, it should: its messages are
+      // localised, familiar, and already attached to the right field.
+      if (!form.checkValidity()) return;
+
+      event.preventDefault();
+      if (submit !== null) submit.disabled = true;
+
+      const values: Record<string, unknown> = {};
+      // `forEach` rather than destructuring an entries loop: the build targets Safari 14, where
+      // esbuild cannot lower a destructuring for-of binding.
+      new FormData(form).forEach((value, name) => {
+        if (typeof value === "string") values[name] = value;
+      });
+
+      fetch(action, {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify(values),
+      })
+        .then((response) => {
+          if (submit !== null) submit.disabled = false;
+          const ok = response.ok;
+
+          if (errors !== null) errors.hidden = ok;
+          if (ok) {
+            form.reset();
+            if (status !== null && status.textContent === "") {
+              // Nothing to say and nothing invented: the definition's own message is already in the
+              // markup when there is one.
+              status.textContent = form.getAttribute("data-wb-form-sent") ?? "";
+            }
+            // Announced where focus already is, then moved to it, so the outcome is not something a
+            // screen-reader user has to go looking for.
+            status?.focus?.();
+            return;
+          }
+
+          errors?.focus?.();
+        })
+        .catch(() => {
+          // The network failed, and the page still has a working form. Handing it back to the
+          // browser is a better answer than a message this file invented.
+          if (submit !== null) submit.disabled = false;
+          form.removeAttribute("data-wb-form");
+          form.submit();
+        });
+    });
+  });
+}
+
 ready(() => {
   // Each returns immediately when its blocks are absent, so a page carrying one capability pays
   // almost nothing for the others.
@@ -298,4 +369,5 @@ ready(() => {
   upgradeReveals();
   upgradeTableOfContents();
   upgradeNavigation();
+  upgradeForms();
 });

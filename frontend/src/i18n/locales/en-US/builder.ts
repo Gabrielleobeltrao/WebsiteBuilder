@@ -258,6 +258,7 @@ export default {
 
   "fields": {
     richText: "Text",
+    richTextLoading: "Loading the editor…",
     richTextHint: "Formatting is limited to what a published page can carry safely: headings, lists, quotes, bold, italic and links.",
     menuItems: "Menu items",
     orientation: "Direction",

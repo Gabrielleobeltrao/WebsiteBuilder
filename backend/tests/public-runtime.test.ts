@@ -30,12 +30,18 @@ describe("the runtime a visitor downloads", () => {
     expect(RUNTIME_VERSION).toBe(createHash("sha256").update(RUNTIME_SOURCE).digest("hex").slice(0, 16));
   });
 
-  it("requests nothing from anywhere", () => {
-    // No fetch, no beacon, no origin. It touches the DOM and nothing else.
+  it("names no origin of its own", () => {
+    /*
+     * It used to request nothing at all. It now posts one thing — a form the visitor filled in —
+     * and only ever to the address the server wrote into that form's `action`. What is asserted is
+     * the part a string can prove: no URL is baked into the file, and no transport that would
+     * escape the page's `connect-src 'self'` is used.
+     */
     expect(RUNTIME_SOURCE).not.toMatch(/https?:\/\/(?!127\.0\.0\.1|localhost)/);
-    expect(RUNTIME_SOURCE).not.toContain("fetch(");
     expect(RUNTIME_SOURCE).not.toContain("XMLHttpRequest");
     expect(RUNTIME_SOURCE).not.toContain("sendBeacon");
+    // The one request it makes takes its address from the document.
+    expect(RUNTIME_SOURCE).toContain('getAttribute("action")');
   });
 
   it("uses no construct a strict policy forbids", () => {
@@ -52,5 +58,41 @@ describe("the runtime a visitor downloads", () => {
 
   it("respects a visitor who asked for less motion", () => {
     expect(RUNTIME_SOURCE).toContain("prefers-reduced-motion");
+  });
+});
+
+describe("what a page without a form downloads", () => {
+  it("is nothing: the runtime is referenced only by a page that needs it", async () => {
+    const { createProjectDocument, elementDefinition, runtimeCapabilitiesFor } = await import("@websitebuilder/shared");
+
+    const plain = createProjectDocument({ name: "Acme", slug: "acme" });
+    expect(runtimeCapabilitiesFor(plain.pages[0]!.sections.flatMap((section) => section.elements))).toEqual([]);
+
+    // The same page with a form on it asks for exactly one capability, and only then.
+    const withForm = createProjectDocument({ name: "Acme", slug: "acme" });
+    withForm.pages[0]!.sections[0]!.elements = [
+      {
+        id: "form-block",
+        name: "",
+        geometry: { x: 0, y: 0, width: 480, height: 360, rotation: 0 },
+        responsiveLayout: {
+          width: { value: 480, unit: "px" },
+          height: { value: 360, unit: "px" },
+          horizontalConstraint: "left",
+          verticalConstraint: "top",
+          visible: true,
+        },
+        zIndex: 1,
+        locked: false,
+        hidden: false,
+        type: "form",
+        version: elementDefinition("form").schemaVersion,
+        ...elementDefinition("form").defaults(),
+      },
+    ] as never;
+
+    expect(runtimeCapabilitiesFor(withForm.pages[0]!.sections.flatMap((section) => section.elements))).toEqual([
+      "formSubmit",
+    ]);
   });
 });

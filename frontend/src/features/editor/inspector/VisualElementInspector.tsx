@@ -9,9 +9,19 @@ import {
   type BuilderElement,
   type BuilderPage,
 } from "@websitebuilder/shared";
+import { lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 
-import { RichTextEditor } from "@/components/common/RichTextEditor";
+/**
+ * Loaded when a rich-text block is selected, not when the builder opens.
+ *
+ * The editor carries its whole document model — 125 KB compressed — and one block in twenty-nine
+ * uses it. Importing it statically charged that to every builder session, including the ones that
+ * never place one.
+ */
+const RichTextEditor = lazy(async () => ({
+  default: (await import("@/components/common/RichTextEditor")).RichTextEditor,
+}));
 import { useBuilderForms } from "@/features/forms/BuilderFormsContext";
 
 import { FormBindingField } from "./FormBindingField";
@@ -486,11 +496,13 @@ export function VisualElementInspector({
           {/* The same editor the blog post body uses, against the same validated document shape.
               This block previously offered a sentence pointing at a canvas toolbar that does not
               exist, which left it as the one block in the catalog nobody could put words into. */}
-          <RichTextEditor
-            label={t("fields.richText")}
-            value={element.content}
-            onChange={(content) => set({ content })}
-          />
+          <Suspense fallback={<p role="status" className="text-[11px] text-ink-500">{t("fields.richTextLoading")}</p>}>
+            <RichTextEditor
+              label={t("fields.richText")}
+              value={element.content}
+              onChange={(content) => set({ content })}
+            />
+          </Suspense>
           <p className="text-[11px] text-ink-500">{t("fields.richTextHint")}</p>
         </InspectorGroup>
       );

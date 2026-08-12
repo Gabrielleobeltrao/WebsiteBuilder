@@ -93,13 +93,14 @@ export function FormRenderer({ elementId, formId, presentation }: {
 
       {/* One live region for the whole form: a screen reader announces the outcome once, wherever
           focus happens to be. */}
-      <div data-wb-form-status role="status" aria-live="polite" style={{ marginBottom: presentation.fieldGap }}>
+      <div data-wb-form-status role="status" aria-live="polite" tabIndex={-1} style={{ marginBottom: presentation.fieldGap }}>
         {submitted === "ok" && form.successBehavior.type === "message" ? form.successBehavior.message : null}
       </div>
 
       <div
         data-wb-form-errors
         role="alert"
+        tabIndex={-1}
         hidden={submitted !== "error"}
         style={{ marginBottom: presentation.fieldGap, color: "#b91c1c" }}
       >

@@ -45,6 +45,7 @@ export const RUNTIME_CAPABILITIES = [
   "countdown",
   "reveal",
   "tableOfContents",
+  "formSubmit",
 ] as const;
 export type RuntimeCapability = (typeof RUNTIME_CAPABILITIES)[number];
 
@@ -384,6 +385,9 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     // The one block that activates an optional module. Inserting it is what makes the Forms
     // destination appear; removing the last one is what hides it again.
     feature: "forms",
+    // The form posts and works without it; the runtime keeps the answers in the fields and the page
+    // where it was. A page carrying no form still ships no JavaScript.
+    runtime: "formSubmit",
     // A reference and how it looks, and nothing the form says: version 2 moved submit label,
     // success behaviour, error message and consent to the definition. See `docs/FORMS.md` §1.
     defaults: () => ({ formId: "", presentation: { ...DEFAULT_FORM_PRESENTATION } }),

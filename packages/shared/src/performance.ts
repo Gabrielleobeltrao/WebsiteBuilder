@@ -35,10 +35,15 @@ export const PERFORMANCE_BUDGETS = {
   /**
    * Compressed JavaScript for the authenticated application, summed across every chunk. It is
    * allowed to be heavy: it is loaded by someone who chose to open a design tool, behind a login,
-   * and it carries the canvas, the rich-text editor, the drag layer and the charts. Measured at
-   * ~418 KB across all chunks.
+   * and it carries the canvas, the rich-text editor, the drag layer and the charts.
+   *
+   * Raised from 480 KB when the Forms Center landed — an overview, a question editor and a
+   * submissions inbox, plus the shared contracts and the form renderer they share with the public
+   * site. Measured at 457 KB across all chunks after that, which left 4.8% headroom against the old
+   * number and would have made the guard below unactionable. The new number is set from the
+   * measurement plus room to be worth checking, not from the measurement alone.
    */
-  applicationBundleBytes: 480_000,
+  applicationBundleBytes: 520_000,
   /**
    * Compressed JavaScript the *first* screen downloads: the entry chunk and anything the browser is
    * told to preload with it.

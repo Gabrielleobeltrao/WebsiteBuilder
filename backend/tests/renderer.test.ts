@@ -10,7 +10,7 @@ import { createGridFsStorage } from "../src/modules/media/storage";
 import { ProjectRepository, type WorkspaceContext } from "../src/modules/projects/repository";
 import { ensurePublishingIndexes, PublishingRepository } from "../src/modules/publishing/repository";
 import { PublishingService } from "../src/modules/publishing/service";
-import { createRendererApp, PUBLISHED_SITE_CSP, PUBLISHED_SITE_CSP_WITH_ANALYTICS } from "../src/renderer/app";
+import { createRendererApp, PUBLISHED_SITE_CSP, PUBLISHED_SITE_CSP_WITH_SCRIPT } from "../src/renderer/app";
 import { SiteResolver } from "../src/renderer/resolver";
 import { testEnv, testLogger } from "./helpers";
 import { startTestDatabase, type TestDatabase } from "./mongo";
@@ -459,14 +459,14 @@ describe("the analytics content-security policy", () => {
   });
 
   it("admits the tracker and its beacon, and nothing else", () => {
-    expect(PUBLISHED_SITE_CSP_WITH_ANALYTICS).toContain("script-src 'self'");
+    expect(PUBLISHED_SITE_CSP_WITH_SCRIPT).toContain("script-src 'self'");
     // Without this the tracker loads and then silently fails: `default-src 'none'` blocks fetch and
     // sendBeacon whatever `script-src` permits.
-    expect(PUBLISHED_SITE_CSP_WITH_ANALYTICS).toContain("connect-src 'self'");
+    expect(PUBLISHED_SITE_CSP_WITH_SCRIPT).toContain("connect-src 'self'");
   });
 
   it("admits no inline script and no external origin", () => {
-    const scriptDirectives = PUBLISHED_SITE_CSP_WITH_ANALYTICS.split("; ").filter((directive) =>
+    const scriptDirectives = PUBLISHED_SITE_CSP_WITH_SCRIPT.split("; ").filter((directive) =>
       directive.startsWith("script-src") || directive.startsWith("connect-src"),
     );
 
@@ -484,9 +484,9 @@ describe("the analytics content-security policy", () => {
         .split("; ")
         .filter((directive) => !directive.startsWith("script-src") && !directive.startsWith("connect-src"));
 
-    expect(without(PUBLISHED_SITE_CSP_WITH_ANALYTICS)).toEqual(without(PUBLISHED_SITE_CSP));
+    expect(without(PUBLISHED_SITE_CSP_WITH_SCRIPT)).toEqual(without(PUBLISHED_SITE_CSP));
     // Named explicitly because heatmaps were specified to frame the published page, and do not.
-    expect(PUBLISHED_SITE_CSP_WITH_ANALYTICS).toContain("frame-ancestors 'none'");
+    expect(PUBLISHED_SITE_CSP_WITH_SCRIPT).toContain("frame-ancestors 'none'");
   });
 });
 

@@ -51,11 +51,15 @@ export const PUBLISHED_SITE_CSP = publishedSiteCsp(["script-src 'none'"]);
 export const RUNTIME_SCRIPT_PATH = "/__wb/r.js";
 
 /**
- * The policy for a page that carries the analytics tracker.
+ * The policy for a page that carries a script of the platform's own.
  *
- * Two constants rather than one changed constant, because analytics is disabled by default: a site
- * that has not enabled it receives the policy above, byte for byte, and shipping this feature
- * changes nothing for a customer who does not use it.
+ * Two constants rather than one changed constant, because most pages carry neither: a static page
+ * receives the policy above, byte for byte, and shipping either feature changes nothing for a
+ * customer whose pages do not use them.
+ *
+ * Two files can be admitted by it — the analytics tracker and the interaction runtime, the second
+ * of which now posts a form the visitor filled in. Both are served by this renderer on the site's
+ * own hostname, which is why `'self'` is enough and why no origin is ever added to this list.
  *
  * `script-src 'self'` admits exactly one file — the tracker, served by this renderer on the site's
  * own hostname, including custom domains. No external origin and no `'unsafe-inline'`: an inline
@@ -69,7 +73,7 @@ export const RUNTIME_SCRIPT_PATH = "/__wb/r.js";
  * `frame-ancestors 'none'` is unchanged. Heatmaps render their snapshot inside the dashboard using
  * the same component that produced the page, so nothing here needs to be framable.
  */
-export const PUBLISHED_SITE_CSP_WITH_ANALYTICS = publishedSiteCsp(["script-src 'self'", "connect-src 'self'"]);
+export const PUBLISHED_SITE_CSP_WITH_SCRIPT = publishedSiteCsp(["script-src 'self'", "connect-src 'self'"]);
 
 /**
  * The policy for an authenticated draft preview.
@@ -267,7 +271,7 @@ export function createRendererApp(options: {
         // files, no inline allowance. A page with neither keeps `script-src 'none'` byte for byte.
         .set(
           "content-security-policy",
-          tracker === undefined && capabilities.length === 0 ? PUBLISHED_SITE_CSP : PUBLISHED_SITE_CSP_WITH_ANALYTICS,
+          tracker === undefined && capabilities.length === 0 ? PUBLISHED_SITE_CSP : PUBLISHED_SITE_CSP_WITH_SCRIPT,
         )
         .set("x-content-type-options", "nosniff")
         .set("referrer-policy", "strict-origin-when-cross-origin")
