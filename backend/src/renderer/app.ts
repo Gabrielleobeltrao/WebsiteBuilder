@@ -1,3 +1,4 @@
+import { renderablePage, runtimeCapabilitiesFor, walkElements } from "@websitebuilder/shared";
 import express, { type Express, type Request } from "express";
 import { pinoHttp } from "pino-http";
 import type { Logger } from "pino";
@@ -6,6 +7,7 @@ import type { Env } from "../config/env";
 import { isLikelyBot } from "../modules/analytics/repository";
 import { ANALYTICS_EVENTS_PATH, type AnalyticsRuntime } from "./analytics";
 import { renderRouteHtml, type AnalyticsScript } from "./html";
+import { RUNTIME_SOURCE, RUNTIME_VERSION } from "./runtime.generated";
 import { normalizePath, resolveRoute, SiteResolver } from "./resolver";
 
 /**
@@ -42,6 +44,9 @@ const publishedSiteCsp = (scriptDirectives: string[], frameAncestors = "'none'")
   ].join("; ");
 
 export const PUBLISHED_SITE_CSP = publishedSiteCsp(["script-src 'none'"]);
+
+/** Where the interaction runtime is served. One URL for the whole platform. */
+export const RUNTIME_SCRIPT_PATH = "/__wb/r.js";
 
 /**
  * The policy for a page that carries the analytics tracker.
@@ -131,6 +136,22 @@ export function createRendererApp(options: {
   // the same address.
   if (analytics !== undefined) app.use(analytics.router);
 
+  /**
+   * The interaction runtime.
+   *
+   * One URL for every site, cached forever under its content hash. Serving it unconditionally costs
+   * nothing: a page that needs no capability never references it, and one that does gets a file the
+   * visitor's browser has probably already cached from another site on the platform.
+   */
+  app.get(RUNTIME_SCRIPT_PATH, (_request, response) => {
+    response
+      .status(200)
+      .type("application/javascript; charset=utf-8")
+      .set("cache-control", "public, max-age=31536000, immutable")
+      .set("x-content-type-options", "nosniff")
+      .send(RUNTIME_SOURCE);
+  });
+
   if (resolver === undefined) {
     app.use((_req, res) => {
       res.status(503).type("text/plain").send("This site is not available.");
@@ -187,9 +208,20 @@ export function createRendererApp(options: {
               categories: settings.categories,
             };
 
+      // Only for a page that contains a block needing it. A static page loads no script at all,
+      // which is what keeps the published output the thing this product promises.
+      const capabilities = runtimeCapabilitiesFor(
+        renderablePage(site.document, site.document.pages.find((page) => page.id === route.resourceId) ?? { sections: [] } as never).sections.flatMap(
+          (section) => [...walkElements(section.elements)],
+        ),
+      );
+
       const html = renderRouteHtml({
         route,
         document: site.document,
+        ...(capabilities.length === 0
+          ? {}
+          : { runtime: { src: `${RUNTIME_SCRIPT_PATH}?v=${RUNTIME_VERSION}`, capabilities } }),
         canonicalUrl: `https://${site.domain.hostname}${normalizePath(req.path)}`,
         // Same origin as the application: the API has no public hostname of its own, and a
         // published page must not reference one that does not exist.
@@ -208,7 +240,12 @@ export function createRendererApp(options: {
         .status(outcome.kind === "route" ? 200 : 404)
         .type("text/html; charset=utf-8")
         .set("cache-control", `public, max-age=0, s-maxage=${env.PUBLIC_SITE_CACHE_TTL_SECONDS}`)
-        .set("content-security-policy", tracker === undefined ? PUBLISHED_SITE_CSP : PUBLISHED_SITE_CSP_WITH_ANALYTICS)
+        // `script-src 'self'` covers both the tracker and the interaction runtime: one origin, two
+        // files, no inline allowance. A page with neither keeps `script-src 'none'` byte for byte.
+        .set(
+          "content-security-policy",
+          tracker === undefined && capabilities.length === 0 ? PUBLISHED_SITE_CSP : PUBLISHED_SITE_CSP_WITH_ANALYTICS,
+        )
         .set("x-content-type-options", "nosniff")
         .set("referrer-policy", "strict-origin-when-cross-origin")
         .set("permissions-policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()")

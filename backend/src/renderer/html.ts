@@ -43,6 +43,14 @@ export function renderRouteHtml(input: {
   mediaBaseUrl: string;
   analytics?: AnalyticsScript;
   /**
+   * The interaction runtime, when this page contains a block that needs one.
+   *
+   * A file rather than a snippet, deferred, and absent entirely for a page that is static — which
+   * is most pages. The capabilities travel as an attribute so the file can be one build for every
+   * site while a page still declares what it asked for.
+   */
+  runtime?: { src: string; capabilities: readonly string[] };
+  /**
    * Rewrites internal page links, for a caller that serves this document from somewhere other than
    * the site's own root — the draft preview, which lives on an authenticated API path. Without it a
    * link inside a preview would leave the preview.
@@ -90,6 +98,7 @@ export function renderRouteHtml(input: {
     {
       lang: document.seo.locale,
       head: headTags({
+        ...(input.runtime === undefined ? {} : { runtime: input.runtime }),
         route,
         site: document.seo,
         canonicalUrl: input.canonicalUrl,
@@ -154,6 +163,14 @@ function headTags(input: {
   site: SiteSeoSettings;
   canonicalUrl: string;
   analytics?: AnalyticsScript;
+  /**
+   * The interaction runtime, when this page contains a block that needs one.
+   *
+   * A file rather than a snippet, deferred, and absent entirely for a page that is static — which
+   * is most pages. The capabilities travel as an attribute so the file can be one build for every
+   * site while a page still declares what it asked for.
+   */
+  runtime?: { src: string; capabilities: readonly string[] };
 }): string {
   const seo = input.route.seo as { title?: string; description?: string; robots?: { index: boolean; follow: boolean } };
   const title = seo.title ?? input.site.siteName;
@@ -195,6 +212,16 @@ function headTags(input: {
         `data-version="${escapeHtml(analytics.versionId)}" data-consent="${analytics.consentRequired ? "1" : "0"}" ` +
         `data-signals="${analytics.honorPrivacySignals ? "1" : "0"}" data-sample="${escapeHtml(String(analytics.sampleRate))}" ` +
         `data-categories="${escapeHtml(analytics.categories.join(","))}"></script>`,
+    );
+  }
+
+  const runtime = input.runtime;
+  if (runtime !== undefined) {
+    // Deferred, like the tracker, and carrying what the page asked for as data rather than as a
+    // generated snippet — the policy this page is served under forbids inline script, and that is
+    // worth keeping for a file whose whole job is to touch the DOM.
+    tags.push(
+      `<script defer src="${escapeHtml(runtime.src)}" data-capabilities="${escapeHtml(runtime.capabilities.join(","))}"></script>`,
     );
   }
 

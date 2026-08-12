@@ -18,14 +18,15 @@
     "dev:frontend": "npm run dev -w frontend",
     "dev:backend": "npm run dev -w backend",
     "dev:renderer": "npm run dev:renderer -w backend",
-    "build": "npm run build -w packages/shared && npm run build:tracker && npm run build -w backend && npm run build -w frontend",
+    "build": "npm run build -w packages/shared && npm run build:tracker && npm run build:runtime && npm run build -w backend && npm run build -w frontend",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "npm run test:e2e -w frontend",
     "check:plan-skill": "node --test .claude/skills/execute-plan-task/scripts/extract-plan-task.test.mjs",
     "check:runbook": "node .claude/skills/project-runbook/scripts/check-runbook.mjs",
     "smoke:containers": "bash scripts/container-smoke.sh",
-    "build:tracker": "node frontend/tracker/build.mjs"
+    "build:tracker": "node frontend/tracker/build.mjs",
+    "build:runtime": "node frontend/runtime/build.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

@@ -95,6 +95,7 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
       // this with the lightbox version, which needs a real dialog and therefore a DOM.
       return (
         <ul
+          {...(element.lightbox ? { "data-wb-lightbox": "" } : {})}
           style={{
             display: "grid",
             gridTemplateColumns: `repeat(${element.columns}, minmax(0, 1fr))`,
@@ -243,10 +244,13 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
       // Without scripting every panel is visible rather than none: content a visitor cannot reach
       // is worse than content shown all at once.
       return (
-        <div>
+        // The attributes are the contract with the runtime: it finds the panels, borrows each
+        // heading as a tab label, and hides all but one. Without it every panel stays visible and
+        // readable, which is the fallback that makes the upgrade optional.
+        <div data-wb-tabs id={`tabs-${element.id}`}>
           {element.items.map((item, index) => (
-            <section key={index} aria-label={item.label}>
-              <h3>{item.label}</h3>
+            <section key={index} aria-label={item.label} data-wb-tab-panel>
+              <h3 data-wb-tab-label>{item.label}</h3>
               <div>{item.content}</div>
             </section>
           ))}
@@ -258,6 +262,9 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
         <div
           role="region"
           aria-label={element.text}
+          // Keyed by the text: an announcement a visitor dismissed stays dismissed until it changes,
+          // and a new announcement is a new thing to have missed.
+          {...(element.dismissible ? { "data-wb-dismiss": element.id } : {})}
           style={{ backgroundColor: element.backgroundColor, color: element.textColor, padding: "8px 12px" }}
         >
           {element.text}
