@@ -277,6 +277,23 @@ describe("renderer routing", () => {
     expect(label("traefik.http.middlewares.wb-https-redirect.redirectscheme.scheme")).toBe("https");
   });
 
+  it("asks for one wildcard certificate rather than one per subdomain", () => {
+    // Every published site gets its own hostname, so a per-hostname certificate means a new ACME
+    // order per publish — rate-limited, slow, and impossible for a challenge that has to answer on
+    // a hostname whose certificate does not exist yet. One wildcard covers all of them.
+    expect(label("traefik.http.routers.wb-renderer-projects.tls.domains[0].sans")).toBe(
+      "*.${PLATFORM_ROOT_DOMAIN}",
+    );
+    expect(label("traefik.http.routers.wb-renderer-projects.tls.domains[0].main")).toBe(
+      "${PLATFORM_ROOT_DOMAIN}",
+    );
+    // The resolver is a variable because a wildcard requires DNS-01, and the proxy's default
+    // resolver on a Coolify host answers the HTTP challenge instead.
+    expect(label("traefik.http.routers.wb-renderer-projects.tls.certresolver")).toContain(
+      "WILDCARD_CERT_RESOLVER",
+    );
+  });
+
   it("adds no catch-all that would claim hostnames this platform knows nothing about", () => {
     // A rule matching everything belongs to a deliberate, documented decision on the VPS, not to a
     // file that deploys to it.

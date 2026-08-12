@@ -107,6 +107,11 @@ match a rule written without the backslashes. Copy it exactly as shown.
 `PUBLIC_RENDERER_HOST` is a hostname, with no `https://`. It is used as a DNS name in a routing rule
 and as the Cloudflare fallback origin, and neither accepts a scheme.
 
+`WILDCARD_CERT_RESOLVER` defaults to `letsencrypt`, the resolver a Coolify host already has — and
+that resolver answers the **HTTP** challenge, which cannot issue a wildcard. Section 5.1 sets up a
+DNS-01 resolver; name it here once it exists. Until then every project subdomain is served with
+Traefik's self-signed certificate, and a browser reports the site as impersonating itself.
+
 `COOLIFY_PROXY_NETWORK` defaults to `coolify`. Set it only if your installation named its proxy
 network something else — `docker network ls` shows it. The renderer must share that network with
 Traefik or its routes resolve to a container Traefik cannot reach, which presents as a 502 with no
@@ -135,6 +140,45 @@ deliberate: a default would start a service configured with an empty string and 
 from the cause.
 
 ---
+
+## 4.1 The wildcard certificate
+
+Every published site gets its own hostname under the root domain, so the proxy needs one certificate
+that covers all of them: `*.websitebuilder.oneplataforma.com`. Let's Encrypt issues a wildcard **only
+through the DNS-01 challenge** — it has to see a TXT record in the zone, because there is no single
+hostname an HTTP challenge could answer on.
+
+That is a proxy-level change, made once, outside this repository.
+
+1. Create a Cloudflare API token scoped to **Zone → DNS → Edit** on that zone only.
+2. In Coolify: **Servers → your server → Proxy → Configuration**, add a resolver to the Traefik
+   static configuration:
+
+   ```yaml
+   certificatesResolvers:
+     wildcard:
+       acme:
+         email: <your address>
+         storage: /traefik/acme-wildcard.json
+         dnsChallenge:
+           provider: cloudflare
+           resolvers:
+             - "1.1.1.1:53"
+   ```
+
+3. Give the proxy container the token as `CF_DNS_API_TOKEN`, and restart it.
+4. Set `WILDCARD_CERT_RESOLVER=wildcard` on this resource and redeploy.
+
+Verify from anywhere, not from the server:
+
+```bash
+echo | openssl s_client -connect <anything>.websitebuilder.oneplataforma.com:443 \
+  -servername <anything>.websitebuilder.oneplataforma.com 2>/dev/null \
+  | openssl x509 -noout -subject -issuer
+```
+
+`CN=TRAEFIK DEFAULT CERT` means the wildcard was never issued and the browser will refuse the page.
+An issuer of `Let's Encrypt` means it worked.
 
 ## 5. DNS
 

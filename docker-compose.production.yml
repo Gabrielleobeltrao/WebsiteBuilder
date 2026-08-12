@@ -128,7 +128,17 @@ services:
       - traefik.http.routers.wb-renderer-projects.rule=HostRegexp(`^[a-z0-9][a-z0-9-]*\.${PLATFORM_ROOT_DOMAIN_REGEX:?set the root domain with dots escaped, e.g. websitebuilder\.oneplataforma\.com}$$`)
       - traefik.http.routers.wb-renderer-projects.entrypoints=https
       - traefik.http.routers.wb-renderer-projects.tls=true
-      - traefik.http.routers.wb-renderer-projects.tls.certresolver=letsencrypt
+      # A certificate for every project subdomain, which means one wildcard certificate.
+      #
+      # This is the part that cannot be solved with an HTTP challenge: Let's Encrypt issues
+      # `*.example.com` only through DNS-01, so the resolver named here must be configured on the
+      # proxy with a `dnsChallenge` and a DNS provider token. Point `WILDCARD_CERT_RESOLVER` at that
+      # resolver. Left at the default, Traefik will try the HTTP challenge for every new subdomain
+      # separately, fail to obtain one, and serve its own self-signed certificate — which is a
+      # browser warning that says the site is impersonating itself.
+      - traefik.http.routers.wb-renderer-projects.tls.certresolver=${WILDCARD_CERT_RESOLVER:-letsencrypt}
+      - traefik.http.routers.wb-renderer-projects.tls.domains[0].main=${PLATFORM_ROOT_DOMAIN}
+      - traefik.http.routers.wb-renderer-projects.tls.domains[0].sans=*.${PLATFORM_ROOT_DOMAIN}
       - traefik.http.routers.wb-renderer-projects.service=wb-renderer
       # Below any exact-host router: this platform's own two domain fields, and every other
       # application on this VPS.
