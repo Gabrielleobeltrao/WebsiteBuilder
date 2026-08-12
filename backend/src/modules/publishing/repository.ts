@@ -237,16 +237,22 @@ export class PublishingRepository {
       return toDomain(existing);
     }
 
-    // Primary only when the project has none yet.
-    //
-    // A project can end up with more than one platform hostname — the root domain changes, or a
-    // customer connects their own domain and makes it canonical. Marking every new one primary
-    // would leave two rows claiming it, and the address the dashboard shows would then depend on
-    // which one the query happened to return first.
-    const hasPrimary = await this.domains.countDocuments(
-      { workspaceId: context.workspaceId, projectId, isPrimary: true },
-      { limit: 1 },
-    );
+    /**
+     * Which address is canonical after this.
+     *
+     * Two rows claiming primary would make the address the dashboard shows depend on query order,
+     * so exactly one is chosen here.
+     *
+     * A customer's own domain is never demoted: they chose it. A *platform* hostname under a root
+     * domain the platform no longer serves is a different matter — it is an address that resolves
+     * nowhere, and leaving it canonical means the renderer redirects every visitor of the working
+     * address to a dead one, which is what a root-domain change did to every existing site.
+     */
+    const primary = await this.domains.findOne({ workspaceId: context.workspaceId, projectId, isPrimary: true });
+    const stranded =
+      primary !== null && primary.kind === "platform" && !primary.hostname.endsWith(`.${rootDomain}`);
+
+    if (stranded) await this.domains.updateOne({ _id: primary._id }, { $set: { isPrimary: false } });
 
     const now = new Date().toISOString();
     const document: Omit<DomainDocument, "_id"> = {
@@ -255,7 +261,7 @@ export class PublishingRepository {
       hostname,
       kind: "platform",
       status: "active",
-      isPrimary: hasPrimary === 0,
+      isPrimary: primary === null || stranded,
       provider: "platform_wildcard",
       sslStatus: "active",
       createdAt: now,

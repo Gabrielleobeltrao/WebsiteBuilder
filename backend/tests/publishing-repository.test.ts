@@ -3,7 +3,12 @@ import { ObjectId } from "mongodb";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { COLLECTIONS } from "../src/db/indexes";
-import { ensurePublishingIndexes, PublishError, PublishingRepository } from "../src/modules/publishing/repository";
+import {
+  ensurePublishingIndexes,
+  PublishError,
+  PUBLISHING_COLLECTIONS,
+  PublishingRepository,
+} from "../src/modules/publishing/repository";
 import { ProjectRepository, type WorkspaceContext } from "../src/modules/projects/repository";
 import { startTestDatabase, type TestDatabase } from "./mongo";
 
@@ -217,6 +222,53 @@ describe("platform domains", () => {
     expect(first?.hostname).toBe("acme-studio.osistema.com");
     expect(second?.id).toBe(first?.id);
     expect(await publishing.listDomains(A, project.id)).toHaveLength(1);
+  });
+
+  it("takes over as the canonical address when the root domain changes", async () => {
+    const project = await projects.create(A, { name: "Acme Studio" });
+    await publishing.ensurePlatformDomain(A, project.id, project.slug, "sistema-antigo.example");
+
+    // The operator moved published sites to a shorter root. The address on the old one resolves
+    // nowhere now, and leaving it canonical makes the renderer redirect every visitor of the
+    // working address to a dead one.
+    const moved = await publishing.ensurePlatformDomain(A, project.id, project.slug, "osistema.com");
+
+    const domains = await publishing.listDomains(A, project.id);
+    expect(moved?.hostname).toBe("acme-studio.osistema.com");
+    expect(domains.filter((domain) => domain.isPrimary).map((domain) => domain.hostname)).toEqual([
+      "acme-studio.osistema.com",
+    ]);
+  });
+
+  it("never demotes a customer's own domain", async () => {
+    const project = await projects.create(A, { name: "Acme Studio" });
+    await publishing.ensurePlatformDomain(A, project.id, project.slug, "sistema-antigo.example");
+
+    // A domain the customer connected and made canonical. It is not under any platform root, so the
+    // stranded-address rule must not reach it: they chose this address, and publishing again is not
+    // them changing their mind.
+    await database.db.collection(PUBLISHING_COLLECTIONS.domains).insertOne({
+      workspaceId: A.workspaceId,
+      projectId: project.id,
+      hostname: "www.acme.example",
+      kind: "custom",
+      status: "active",
+      isPrimary: true,
+      provider: "cloudflare_saas",
+      sslStatus: "active",
+      createdAt: new Date().toISOString(),
+      verifiedAt: new Date().toISOString(),
+    } as never);
+    await database.db
+      .collection(PUBLISHING_COLLECTIONS.domains)
+      .updateOne({ hostname: `acme-studio.sistema-antigo.example` }, { $set: { isPrimary: false } });
+
+    await publishing.ensurePlatformDomain(A, project.id, project.slug, "osistema.com");
+
+    const domains = await publishing.listDomains(A, project.id);
+    expect(domains.filter((domain) => domain.isPrimary).map((domain) => domain.hostname)).toEqual([
+      "www.acme.example",
+    ]);
   });
 
   it("refuses a reserved infrastructure label", async () => {
