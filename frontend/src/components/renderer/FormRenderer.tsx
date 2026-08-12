@@ -60,6 +60,15 @@ export function FormRenderer({ elementId, formId, presentation }: {
       // Not a bare id: two placements of one form on one page would otherwise share element ids.
       id={`${elementId}-form`}
       data-wb-form={form.id}
+      /*
+       * What to say once it has been sent, for the upgraded path.
+       *
+       * The no-JavaScript path gets the message rendered into the page it is redirected back to.
+       * The runtime never reloads, so the message has to already be here — and it has to be the
+       * definition's own, because a message this file invented would be the product speaking in a
+       * customer's voice.
+       */
+      {...(form.successBehavior.type === "message" ? { "data-wb-form-sent": form.successBehavior.message } : {})}
       method="post"
       // The canvas posts nowhere; a preview posts to a route that validates and stores nothing, and
       // a published page posts to the site's own origin. All three are the same markup.

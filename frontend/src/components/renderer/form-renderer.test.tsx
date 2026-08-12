@@ -159,3 +159,76 @@ describe("presentation", () => {
     expect(grid.style.gridTemplateColumns).toContain("min(220px, 100%)");
   });
 });
+
+describe("at every width a site is authored for", () => {
+  /** A form built to be awkward: long labels, many options, and a long answer. */
+  const awkward: PublishedForm = {
+    id: "f2",
+    name: "Awkward",
+    revision: 1,
+    fields: [
+      {
+        id: "organisation",
+        type: "shortText",
+        label: "The full registered legal name of the organisation you are enquiring on behalf of",
+        required: true,
+      },
+      {
+        id: "country",
+        type: "select",
+        label: "Country",
+        required: false,
+        options: Array.from({ length: 50 }, (_, index) => `Country number ${index + 1}`),
+      },
+      { id: "detail", type: "longText", label: "Tell us everything", required: false },
+    ],
+    submitLabel: "Send",
+    successBehavior: { type: "message", message: "Thanks" },
+    status: "ready",
+  };
+
+  for (const preset of ["stacked", "twoColumn", "compact"] as const) {
+    it(`keeps every control inside its own box in the ${preset} arrangement`, () => {
+      const { container } = render(
+        <RendererContext.Provider
+          value={{ resolvePagePath: () => null, resolveMediaUrl: () => null, resolveForm: () => awkward, formMode: "live" }}
+        >
+          <FormRenderer elementId="b" formId="f2" presentation={{ ...DEFAULT_FORM_PRESENTATION, preset }} />
+        </RendererContext.Provider>,
+      );
+
+      // Every control is width:100% inside a border-box parent, and every column track has a
+      // `min(…, 100%)` floor — which is what makes this true at 320 as well as at 1440, including
+      // the widths nobody thought to test.
+      for (const control of container.querySelectorAll<HTMLElement>("input:not([type=hidden]), textarea, select")) {
+        if (control.getAttribute("type") === "checkbox" || control.getAttribute("type") === "radio") continue;
+        // The honeypot is off-screen by design and is not a control anybody lays out.
+        if (control.closest('[aria-hidden="true"]') !== null) continue;
+        expect(control.style.maxWidth, control.getAttribute("name") ?? "").toBe("100%");
+        expect(control.style.boxSizing).toBe("border-box");
+      }
+
+      // A field that holds a long answer is never allowed to define the row's width: a grid item
+      // defaults to `min-width: auto`, which is what makes a long word push a whole row sideways.
+      for (const cell of container.querySelectorAll<HTMLElement>("form > div:last-of-type > *")) {
+        const fullRow = cell.style.gridColumn.includes("-1");
+        expect(Number.parseFloat(cell.style.minWidth) === 0 || fullRow, cell.outerHTML.slice(0, 120)).toBe(true);
+      }
+    });
+  }
+
+  it("gives a fifty-option list a normal select rather than fifty rendered controls", () => {
+    render(
+      <RendererContext.Provider
+        value={{ resolvePagePath: () => null, resolveMediaUrl: () => null, resolveForm: () => awkward, formMode: "live" }}
+      >
+        <FormRenderer elementId="b" formId="f2" presentation={DEFAULT_FORM_PRESENTATION} />
+      </RendererContext.Provider>,
+    );
+
+    // A native select scrolls its own list; fifty radio buttons would be fifty rows on a phone.
+    const select = screen.getByLabelText(/Country/);
+    expect(select.tagName).toBe("SELECT");
+    expect(within(select).getAllByRole("option")).toHaveLength(51);
+  });
+});

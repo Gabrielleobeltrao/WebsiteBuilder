@@ -365,3 +365,17 @@ describe("localization", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Todas as alterações salvas");
   });
 });
+
+describe("hooks", () => {
+  it("survives the load finishing, which is when a misplaced hook shows up", async () => {
+    // Every hook has to run before the early returns for loading and error. Placed after them, the
+    // component renders a different number of hooks once the project arrives, and React tears the
+    // whole builder down — which unit tests that start in one state never see.
+    useEditorStore.setState({ loadStatus: "loading" });
+    renderWithProviders(<EditorShell workspaceId="w1" projectId="aaaaaaaaaaaaaaaaaaaaaaaa" />);
+    expect(screen.getByRole("status")).toBeInTheDocument();
+
+    act(() => useEditorStore.getState().loadFromProject(project()));
+    expect(await screen.findByRole("group", { name: "Page canvas" })).toBeInTheDocument();
+  });
+});

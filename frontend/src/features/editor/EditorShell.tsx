@@ -57,6 +57,44 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
     intent: store.ui.panelIntent,
   });
 
+  /**
+   * The canvas renders through the same context the published page does.
+   *
+   * Media resolves to the workspace's own asset URLs — without this the canvas showed a grey
+   * placeholder for every image a designer had already chosen — and forms resolve to the draft
+   * definition, inert, so clicking a field selects the block rather than typing into it.
+   */
+  const rendererContext = useMemo(
+    (): RendererContextValue => ({
+      // Internal links stay unresolved here on purpose: clicking a button on the canvas selects it,
+      // and a working link would navigate out of the builder.
+      resolvePagePath: () => null,
+      resolveMediaUrl: (mediaId) => mediaUrl(workspaceId, mediaId),
+      resolveMediaVariantUrl: (mediaId, width) => mediaUrl(workspaceId, mediaId, width),
+      resolveForm: projectForms.resolveForm,
+      formMode: "inert",
+      formStrings: {
+        unbound: t("builder:form.unbound"),
+        missing: t("builder:form.missing"),
+        archived: t("builder:form.archived"),
+        error: t("builder:form.error"),
+        required: t("builder:form.required"),
+      },
+    }),
+    [workspaceId, projectForms.resolveForm, t],
+  );
+
+  const builderForms = useMemo(
+    () => ({
+      workspaceId,
+      projectId,
+      forms: projectForms.forms,
+      loading: projectForms.loading,
+      reload: () => void projectForms.reload(),
+    }),
+    [workspaceId, projectId, projectForms.forms, projectForms.loading, projectForms.reload],
+  );
+
   useUnsavedChangesWarning(hasUnsaved);
   // Shortcuts are mounted only where authoring is allowed, never in the preview-only shell.
   useKeyboardShortcuts(capability.canAuthor);
@@ -170,44 +208,6 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
         return <SiteSettingsPanel workspaceId={workspaceId} projectId={projectId} />;
     }
   };
-
-  /**
-   * The canvas renders through the same context the published page does.
-   *
-   * Media resolves to the workspace's own asset URLs — without this the canvas showed a grey
-   * placeholder for every image a designer had already chosen — and forms resolve to the draft
-   * definition, inert, so clicking a field selects the block rather than typing into it.
-   */
-  const rendererContext = useMemo(
-    (): RendererContextValue => ({
-      // Internal links stay unresolved here on purpose: clicking a button on the canvas selects it,
-      // and a working link would navigate out of the builder.
-      resolvePagePath: () => null,
-      resolveMediaUrl: (mediaId) => mediaUrl(workspaceId, mediaId),
-      resolveMediaVariantUrl: (mediaId, width) => mediaUrl(workspaceId, mediaId, width),
-      resolveForm: projectForms.resolveForm,
-      formMode: "inert",
-      formStrings: {
-        unbound: t("builder:form.unbound"),
-        missing: t("builder:form.missing"),
-        archived: t("builder:form.archived"),
-        error: t("builder:form.error"),
-        required: t("builder:form.required"),
-      },
-    }),
-    [workspaceId, projectForms.resolveForm, t],
-  );
-
-  const builderForms = useMemo(
-    () => ({
-      workspaceId,
-      projectId,
-      forms: projectForms.forms,
-      loading: projectForms.loading,
-      reload: () => void projectForms.reload(),
-    }),
-    [workspaceId, projectId, projectForms.forms, projectForms.loading, projectForms.reload],
-  );
 
   return (
     <BuilderFormsContext.Provider value={builderForms}>

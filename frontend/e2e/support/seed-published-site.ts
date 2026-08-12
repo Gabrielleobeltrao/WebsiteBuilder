@@ -8,7 +8,14 @@
  * Run from the backend workspace with the launcher's environment. It is idempotent only in the
  * sense that the database is thrown away between runs.
  */
-import { createEmptySection, createPage, DEFAULT_ANALYTICS_SETTINGS, type AnalyticsSettings } from "@websitebuilder/shared";
+import {
+  createEmptySection,
+  createPage,
+  DEFAULT_ANALYTICS_SETTINGS,
+  DEFAULT_FORM_PRESENTATION,
+  elementDefinition,
+  type AnalyticsSettings,
+} from "@websitebuilder/shared";
 
 import { connectDatabase } from "../../../backend/src/db/client";
 import { loadEnv } from "../../../backend/src/config/env";
@@ -19,6 +26,7 @@ import { BlogRepository } from "../../../backend/src/modules/blog/repository";
 import { MediaRepository } from "../../../backend/src/modules/media/repository";
 import { createGridFsStorage } from "../../../backend/src/modules/media/storage";
 import { ProjectRepository } from "../../../backend/src/modules/projects/repository";
+import { ensureFormIndexes, FormRepository } from "../../../backend/src/modules/forms/repository";
 import { ensurePublishingIndexes, PublishingRepository } from "../../../backend/src/modules/publishing/repository";
 import { PublishingService } from "../../../backend/src/modules/publishing/service";
 
@@ -32,6 +40,7 @@ import { PublishingService } from "../../../backend/src/modules/publishing/servi
 export const E2E_SITE_SLUG = "e2e-site";
 export const E2E_TRACKED_SLUG = "e2e-tracked";
 export const E2E_CONSENT_SLUG = "e2e-consent";
+export const E2E_FORM_SLUG = "e2e-form";
 export const E2E_WORKSPACE_ID = "e2e-workspace";
 
 const context = { workspaceId: E2E_WORKSPACE_ID, userId: "e2e-user" };
@@ -44,19 +53,31 @@ async function main(): Promise<void> {
   await ensureIndexes(db);
   await ensurePublishingIndexes(db);
   await ensureAnalyticsIndexes(db);
+  await ensureFormIndexes(db);
 
   const projects = new ProjectRepository(db);
+  const forms = new FormRepository(db);
   const publishing = new PublishingRepository(db, db.collection(COLLECTIONS.projects));
   const service = new PublishingService({
     projects,
     publishing,
     blog: new BlogRepository(db),
     media: new MediaRepository(db, createGridFsStorage(db)),
+    loadForms: async (workspace, projectId) =>
+      (await forms.list(workspace, projectId)).map((form) => ({
+        id: form.id,
+        name: form.name,
+        revision: form.revision,
+        fields: form.fields,
+        submitLabel: form.submitLabel,
+        successBehavior: form.successBehavior,
+        status: form.archived ? ("archived" as const) : form.status,
+      })),
   });
 
   const analytics = new AnalyticsRepository(db);
 
-  const publish = async (name: string, slug: string, settings?: Partial<AnalyticsSettings>) => {
+  const publish = async (name: string, slug: string, settings?: Partial<AnalyticsSettings>, withForm = false) => {
     const project = await projects.create(context, { name });
     const { id, workspaceId, createdByUserId, revision, createdAt, updatedAt, ...document } = project;
 
@@ -71,6 +92,23 @@ async function main(): Promise<void> {
       section("middle", 1600, [heading("Halfway down")]),
       section("foot", 1600, [heading("The bottom")]),
     ];
+
+    // One site carries a real form, so the submission journey has somewhere to post to.
+    if (withForm) {
+      const form = await forms.create(context, project.id, {
+        name: "Contact",
+        fields: [
+          { id: "name", type: "shortText", label: "Your name", required: true },
+          { id: "email", type: "email", label: "Email", required: true },
+          { id: "message", type: "longText", label: "Message", required: false },
+        ],
+        submitLabel: "Send message",
+        successBehavior: { type: "message", message: "Thank you. We will reply soon." },
+        notificationRecipients: [],
+      });
+
+      home.sections.push(section("contact", 800, [formBlock(form.id)]) as never);
+    }
 
     const about = createPage({ name: "About", slug: "about", order: 1 });
     about.seo = { ...about.seo, title: "E2E about", description: "The fixture's second route." };
@@ -95,12 +133,16 @@ async function main(): Promise<void> {
     logger.info({ hostname: domain.hostname, projectId: project.id }, "seeded a published site");
   };
 
-  // Collection off: what every existing customer has, and the state that must ship no script.
+  // Collection off and no form: what every existing customer has, and the state that must be
+  // provably free of script. A form on this site would put the interaction runtime on it and make
+  // that claim untestable, so the form gets its own.
   await publish("E2E Site", E2E_SITE_SLUG);
   // Collection on with no consent gate, so measurement is observable in one page load.
   await publish("E2E Tracked", E2E_TRACKED_SLUG, { enabled: true, consentRequired: false });
   // Collection on behind consent, so silence before an answer is observable too.
   await publish("E2E Consent", E2E_CONSENT_SLUG, { enabled: true, consentRequired: true });
+  // A real form, on its own site, so the submission journey has somewhere to post to.
+  await publish("E2E Form", E2E_FORM_SLUG, undefined, true);
 
   await close();
 }
@@ -151,6 +193,16 @@ function button(id: string, text: string, path: string) {
       borderRadius: 8,
       horizontalAlign: "center",
     },
+  };
+}
+
+function formBlock(formId: string) {
+  return {
+    ...base("contact-form", 40, 40, 720, 520),
+    type: "form",
+    version: elementDefinition("form").schemaVersion,
+    formId,
+    presentation: { ...DEFAULT_FORM_PRESENTATION },
   };
 }
 

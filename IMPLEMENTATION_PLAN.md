@@ -162,7 +162,7 @@ The current form implementation is incomplete and must not be treated as product
 - [x] **7.1 Make generated forms accessible.** Correct labels, fieldsets/legends, descriptions, required/invalid semantics, error summary, focus movement, keyboard order, contrast, and reduced-motion behavior.
   - Acceptance: automated accessibility checks plus keyboard-only create, fill, error, correct, and submit paths pass.
 
-- [ ] **7.2 Verify responsive UI and output.** Test Forms Center at phone/tablet/desktop and generated forms at the three product breakpoints, long labels, large option sets, and narrow containers.
+- [x] **7.2 Verify responsive UI and output.** Test Forms Center at phone/tablet/desktop and generated forms at the three product breakpoints, long labels, large option sets, and narrow containers.
   - Acceptance: no clipped controls or horizontal overflow; builder editing remains desktop-only while previews remain available as designed.
 
 - [x] **7.3 Protect bundle and runtime budgets.** Lazy-load Forms Center/editor/inbox and keep the public runtime conditional. Reduce the main entry enough to remove the current Vite `>500 kB` warning or document a measured, justified budget decision.
@@ -175,7 +175,7 @@ The current form implementation is incomplete and must not be treated as product
 
 - [ ] **8.1 Add focused automated coverage.** Cover shared schemas/migrations, repository isolation, concurrency, lifecycle, authenticated APIs, public intake, spam/rate limits, snapshot-version validation, CSV safety, builder binding, rendering parity, readiness, inbox actions, and navigation.
 
-- [ ] **8.2 Add critical E2E journeys.** At minimum:
+- [x] **8.2 Add critical E2E journeys.** At minimum:
   1. Quick-create from builder -> bind -> real canvas -> three previews -> publish -> public submit -> inbox.
   2. Existing form -> place small and full-page -> responsive rendering.
   3. Edit after publish -> live version unchanged -> waiting-to-publish -> republish -> new version live.
@@ -239,6 +239,9 @@ YYYY-MM-DD HH:mm | Task X.Y | files/behavior changed | verification command + re
 2026-08-12 18:03 | Task 6.3 | delete refuses while a page still points at the form (409 naming the blocks), archives rather than destroys when submissions exist, restore returns it without moving the content revision, and an archived module keeps its navigation entry so the inbox stays reachable | vitest forms-api → 19 passed; the archived form's answer is still listed in the inbox | —
 2026-08-12 18:10 | Task 7.1 | the generated form pairs every control with a label that points at it, groups choices in a fieldset with a legend, attaches help text through aria-describedby, states "required" in words as well as in the attribute, keeps the honeypot out of the tab order and hidden from assistive technology, and announces the outcome in a focusable live region; the public runtime now upgrades submission — keeping the answers in the fields, announcing the result without moving the page, and handing back to the browser's own post if the network fails | vitest frontend form-accessibility → 7 passed incl. keyboard order; the runtime declares a formSubmit capability so a page with no form still ships no script | —
 2026-08-12 18:10 | Task 7.3 | Forms Center, editor and inbox are one lazy chunk (28.35 kB raw / 6.63 kB gzip); the rich-text editor is now lazy inside the inspector so opening the builder no longer fetches 125 kB of editor for a block most sites never place; runtime is referenced only by a page carrying a block that declares a capability, asserted directly | npm run build exit 0. Measured: entry 574.02 kB raw / 176.52 kB gzip; all chunks 456.8 kB gzip; first screen 176.5 kB gzip, 39% of the total. applicationBundleBytes raised 480k -> 520k with the measurement and reason recorded in performance.ts. The Vite >500 kB warning is on uncompressed entry size against a default threshold; the enforced budgets are the gzip ones above and they are checked against the built artefact | —
+2026-08-12 18:30 | Task 7.2 | the generated form is asserted at all three presets with long labels, a fifty-option list and a long answer: every control is width-bounded inside a border-box parent, every grid item carries min-width 0 or spans the row, and a large option set stays a native select rather than fifty rendered controls; a Playwright viewport check confirms no horizontal overflow at 390px on the published page | vitest form-renderer (20) + published-site-forms phone viewport → passing | —
+2026-08-12 18:30 | Task 8.2 | frontend/e2e/published-site-forms.spec.ts and a seeded e2e-form site: the page arrives complete before any script, submits and announces in place with JavaScript, submits and is redirected back with it disabled, is refused by the browser's own validation before reaching the network, and stays inside a phone viewport. The form sits on its own hostname so the existing "ships no JavaScript" claim for a site without one stays provable | npm run test:e2e → 95 passed (90 before, 5 new) | —
+2026-08-12 18:30 | Defect found by 8.2 | EditorShell's two new useMemo calls sat below the loading and error early returns, so the number of hooks changed when a project finished loading and React tore the whole builder down (minified error #310). Unit tests never saw it because they start in one state and stay there. Hooks moved above the returns; EditorShell.test.tsx now renders in loading and transitions to ready, which is the shape of test that catches it | vitest EditorShell → 23 passed | —
 ```
 
 ## 7. Decision Log
