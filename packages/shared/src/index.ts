@@ -11,6 +11,7 @@ export * from "./containers";
 export * from "./diagnostics";
 export * from "./elements";
 export * from "./block-readiness";
+export * from "./patterns";
 export * from "./content-elements";
 export * from "./element-registry";
 export * from "./element-migrations";

@@ -3,6 +3,8 @@ import { ChevronDown, ChevronRight, Search, Star } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { PATTERNS } from "@websitebuilder/shared";
+
 import { CREATE_MIME } from "@/features/editor/canvas/dnd";
 import { catalogEntries, groupEntries, matchesQuery, type CatalogEntry } from "./catalog";
 import { catalogIcon } from "./catalogIcons";
@@ -22,11 +24,14 @@ import { readFavorites, readRecent, recordUse, switchFavorite } from "./catalogP
  */
 export function ElementsPanel({
   onAdd,
+  onInsertPattern,
   destination,
   context = "page",
   unavailable,
 }: {
   onAdd?: (type: ElementType) => void;
+  /** Inserts a starter composition. It becomes ordinary blocks the moment it lands. */
+  onInsertPattern?: (patternId: string) => void;
   /** Human-readable name of where a click puts the element. */
   destination?: string;
   context?: ElementContext;
@@ -34,6 +39,7 @@ export function ElementsPanel({
   unavailable?: (definition: ElementDefinition) => string | undefined;
 }) {
   const { t } = useTranslation("builder");
+  const [mode, setMode] = useState<"blocks" | "patterns">("blocks");
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<readonly string[]>([]);
   const [recent, setRecent] = useState<readonly ElementType[]>(() => readRecent());
@@ -80,8 +86,36 @@ export function ElementsPanel({
   const pinned = (types: readonly ElementType[]) =>
     types.map((type) => byType.get(type)).filter((entry): entry is CatalogEntry => entry !== undefined);
 
+  if (mode === "patterns") {
+    return (
+      <div className="space-y-3">
+        <ModeSwitch mode={mode} onChange={setMode} />
+        <ul className="space-y-1">
+          {PATTERNS.map((pattern) => (
+            <li key={pattern.id}>
+              <button
+                type="button"
+                disabled={onInsertPattern === undefined}
+                onClick={() => onInsertPattern?.(pattern.id)}
+                className="w-full rounded-md border border-ink-200 px-2 py-2 text-left text-xs text-ink-700
+                  hover:border-ink-300 hover:bg-ink-50 disabled:opacity-50"
+              >
+                <span className="block font-medium">{t(`patterns.${pattern.id}.name` as "patterns.hero.name")}</span>
+                <span className="mt-0.5 block text-[11px] text-ink-500">
+                  {pattern.uses.map((type) => t(`elements.${type}` as "elements.text")).join(" · ")}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <p className="text-[11px] text-ink-500">{t("patterns.hint")}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
+      <ModeSwitch mode={mode} onChange={setMode} />
       <label className="block">
         <span className="sr-only">{t("catalog.search")}</span>
         <span className="relative block">
@@ -137,6 +171,31 @@ export function ElementsPanel({
           {t("elements.destination", { destination })}
         </p>
       )}
+    </div>
+  );
+}
+
+/** Blocks or patterns. Two ways to start, one destination. */
+function ModeSwitch({ mode, onChange }: { mode: "blocks" | "patterns"; onChange: (mode: "blocks" | "patterns") => void }) {
+  const { t } = useTranslation("builder");
+
+  return (
+    <div role="tablist" aria-label={t("patterns.switch")} className="flex gap-1">
+      {(["blocks", "patterns"] as const).map((candidate) => (
+        <button
+          key={candidate}
+          role="tab"
+          type="button"
+          aria-selected={mode === candidate}
+          onClick={() => onChange(candidate)}
+          className={[
+            "flex-1 rounded-md px-2 py-1 text-xs font-medium",
+            mode === candidate ? "bg-ink-900 text-white" : "text-ink-600 hover:bg-ink-50",
+          ].join(" ")}
+        >
+          {t(`patterns.${candidate}` as "patterns.blocks")}
+        </button>
+      ))}
     </div>
   );
 }

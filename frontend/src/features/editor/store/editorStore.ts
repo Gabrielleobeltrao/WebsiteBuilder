@@ -30,6 +30,7 @@ import type { InsertionTarget } from "./elements";
 import * as history from "./history";
 import * as pageOps from "./pages";
 import * as sectionOps from "./sections";
+import { createId, patternById } from "@websitebuilder/shared";
 
 /**
  * Editor state in four slices, exactly as the plan requires:
@@ -135,6 +136,8 @@ export type EditorState = {
   paste: () => void;
 
   addSection: (layoutMode?: SectionLayoutMode, atIndex?: number) => void;
+  /** Inserts a starter composition as ordinary blocks, in one undoable step. */
+  insertPattern: (patternId: string, copy: (key: string) => string) => void;
   renameSection: (sectionId: string, name: string) => void;
   setSectionBackground: (sectionId: string, color: string) => void;
   setSectionHidden: (sectionId: string, hidden: boolean) => void;
@@ -601,6 +604,24 @@ export const useEditorStore = create<EditorState>((set, get) => {
         return result.document;
       });
       if (created !== null) get().select({ kind: "section", sectionId: created });
+    },
+
+    insertPattern(patternId, copy) {
+      const pageId = selectCurrentPage(get())?.id;
+      const pattern = patternById(patternId);
+      if (pageId === undefined || pattern === undefined) return;
+
+      // One transaction: a pattern is a dozen blocks, and undoing it has to be one press rather
+      // than twelve.
+      const built = pattern.build({ copy, createId });
+
+      get().update((document) => ({
+        ...document,
+        pages: document.pages.map((page) =>
+          page.id === pageId ? { ...page, sections: [...page.sections, built] } : page,
+        ),
+      }));
+      get().select({ kind: "section", sectionId: built.id });
     },
 
     renameSection(sectionId, name) {

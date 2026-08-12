@@ -146,6 +146,9 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
         return (
           <ElementsPanel
             onAdd={(type) => store.insertElement(type)}
+            onInsertPattern={(patternId) =>
+              store.insertPattern(patternId, (key) => t(`builder:patterns.${key}` as "builder:patterns.hero.name"))
+            }
             destination={destinationLabel()}
             unavailable={unavailableReason}
           />

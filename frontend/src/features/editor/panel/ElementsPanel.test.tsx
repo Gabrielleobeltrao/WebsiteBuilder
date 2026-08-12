@@ -209,3 +209,47 @@ describe("a block that cannot be used here", () => {
     expect(within(panel()).getByRole("button", { name: "Text" })).toBeEnabled();
   });
 });
+
+describe("patterns", () => {
+  it("offers starter compositions beside the blocks", async () => {
+    const user = await openCatalog();
+
+    await user.click(within(panel()).getByRole("tab", { name: "Patterns" }));
+
+    for (const pattern of ["Hero", "Footer", "Pricing", "Questions", "Contact"]) {
+      expect(within(panel()).getByRole("button", { name: new RegExp(pattern) })).toBeInTheDocument();
+    }
+  });
+
+  it("inserts ordinary blocks, in one undoable step", async () => {
+    const user = await openCatalog();
+    const before = useEditorStore.getState().history.past.length;
+
+    await user.click(within(panel()).getByRole("tab", { name: "Patterns" }));
+    await user.click(within(panel()).getByRole("button", { name: /Hero/ }));
+
+    const page = useEditorStore.getState().history.present.pages[0]!;
+    const inserted = page.sections[page.sections.length - 1]!;
+
+    // Ordinary blocks: nothing in the document records that a pattern existed, so deleting the
+    // pattern catalog later could not break a page built with one.
+    expect(inserted.elements.map((element) => element.type)).toEqual(["text", "text", "button"]);
+    expect(useEditorStore.getState().history.past.length).toBe(before + 1);
+
+    act(() => useEditorStore.getState().undo());
+    expect(useEditorStore.getState().history.present.pages[0]!.sections).toHaveLength(page.sections.length - 1);
+  });
+
+  it("writes its copy in the language the person is working in", async () => {
+    const user = await openCatalog("pt-BR");
+
+    await user.click(within(panel()).getByRole("tab", { name: "Padrões" }));
+    await user.click(within(panel()).getAllByRole("button", { name: /^Destaque / })[0]!);
+
+    const page = useEditorStore.getState().history.present.pages[0]!;
+    const inserted = page.sections[page.sections.length - 1]!;
+    const first = inserted.elements[0];
+
+    expect(first?.type === "text" && first.content).toBe("Um título que diz o que você faz");
+  });
+});
