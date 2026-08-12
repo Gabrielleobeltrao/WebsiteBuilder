@@ -57,9 +57,11 @@ describe("the API is private", () => {
   });
 
   it("is reachable only on the private network the gateway shares", () => {
-    for (const name of ["frontend", "backend"]) {
-      expect(compose.services[name]?.networks).toEqual(["internal"]);
-    }
+    // The API is on one network and it is the private one. The gateway is on that network too, and
+    // additionally on the proxy's — it is public, and Traefik cannot reach a container it shares no
+    // network with.
+    expect(compose.services.backend?.networks).toEqual(["internal"]);
+    expect(compose.services.frontend?.networks).toEqual(["internal", "proxy"]);
     expect(compose.networks.internal).toBeDefined();
   });
 
@@ -80,12 +82,27 @@ describe("the API is private", () => {
     }
   });
 
-  it("adds routing labels to the renderer alone", () => {
+  it("declares a router for the renderer alone, and none for the gateway", () => {
     // The frontend and the renderer are both public, but only the renderer needs a rule a domain
     // field cannot express. The backend needs neither and gets neither.
-    expect(compose.services.frontend?.labels).toBeUndefined();
+    const frontend = (compose.services.frontend?.labels ?? []) as string[];
+    expect(frontend.some((label) => label.startsWith("traefik.http.routers."))).toBe(false);
     expect(compose.services.backend?.labels).toBeUndefined();
     expect(Array.isArray(compose.services.renderer?.labels)).toBe(true);
+  });
+
+  it("tells Traefik which network to dial for every public container", () => {
+    /*
+     * A container on more than one network leaves that choice to Traefik, and Docker returns them in
+     * a randomised order. The gateway sits on the resource network and on `internal`; the proxy is
+     * on the first and not the second, so roughly every other container recreation produced a
+     * gateway that dialled an address it could not reach and answered 504 after thirty seconds. It
+     * read as an application that had stopped working by itself.
+     */
+    for (const name of ["frontend", "renderer"]) {
+      const labels = (compose.services[name]?.labels ?? []) as string[];
+      expect(labels, name).toContain("traefik.docker.network=coolify");
+    }
   });
 });
 

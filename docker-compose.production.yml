@@ -33,9 +33,20 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
     restart: unless-stopped
-    # No routing labels and no SERVICE_FQDN: the application's domain is the one field configured by
-    # hand in Coolify, and Coolify generates its router. Declaring it twice would produce two routers
-    # for one hostname and leave which one wins to rule-length arithmetic.
+    # No *router* and no SERVICE_FQDN: the application's domain is the one field configured by hand
+    # in Coolify, and Coolify generates its router. Declaring it twice would produce two routers for
+    # one hostname and leave which one wins to rule-length arithmetic.
+    #
+    # The one label below is not a router. It names which of this container's networks Traefik
+    # should dial, and it is required for the same reason the renderer carries it: a container on
+    # more than one network leaves that choice to Traefik, and Docker returns those networks in a
+    # randomised order. This container sits on the resource network and on `internal`; the proxy is
+    # on the first and not the second, so roughly every other container recreation produced a
+    # gateway that dialled an address it could not reach and answered 504 after its 30-second
+    # timeout. It looked like an application that had stopped working on its own.
+    #
+    labels:
+      - traefik.docker.network=coolify
     #
     # Health-gated so the gateway is not published while its upstream is still starting. The
     # gateway's own health does not depend on the API, so a later backend restart does not take the
@@ -49,7 +60,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
-    networks: [internal]
+    # On the proxy network for the same reason the renderer is: Traefik cannot reach a container it
+    # shares no network with, and it must not be left to pick.
+    networks: [internal, proxy]
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }

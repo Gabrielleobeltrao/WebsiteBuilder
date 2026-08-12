@@ -142,6 +142,36 @@ from the cause.
 
 ---
 
+
+## A 504 on the application hostname
+
+Traefik answering `Gateway Timeout` after exactly thirty seconds means it matched a router and could
+not reach the container behind it. The container is usually fine; what is wrong is which address
+Traefik dialled.
+
+A container on more than one network leaves that choice to Traefik, and Docker returns a container's
+networks in a randomised order. The gateway sits on the resource network — which the proxy is on —
+and on `internal`, which it is not. Without `traefik.docker.network`, roughly every other container
+recreation picked the unreachable one, so the application "stopped working by itself" after a deploy
+that changed nothing about it.
+
+Both public services therefore carry `traefik.docker.network=coolify` and are attached to the proxy
+network. `backend/tests/deployment-config.test.ts` asserts both.
+
+To confirm it on a live host:
+
+```bash
+for c in frontend backend renderer; do
+  N=$(docker ps --format '{{.Names}}' | grep "^$c-" | head -1)
+  echo "$c: $(docker inspect "$N" --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}')"
+done
+docker inspect coolify-proxy --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'
+```
+
+Every publicly routed container must share a network with the proxy. The backend must not: it is
+reached only as `backend:3000` on the private network, which is what makes the single-origin design
+true rather than merely intended.
+
 ## 4.1 The certificate for published sites
 
 Every published site gets a hostname under the root domain, so the proxy needs a certificate that
