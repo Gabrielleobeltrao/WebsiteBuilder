@@ -4,6 +4,7 @@ import {
   formDefinitionUpdateSchema,
   resourceIdSchema,
   type BuilderProject,
+  type FormSummary,
   type FormUsage,
 } from "@websitebuilder/shared";
 import { Router } from "express";
@@ -15,7 +16,6 @@ import { streamSubmissionCsv } from "./export";
 import {
   FormRevisionConflictError,
   SUBMISSION_STATUSES,
-  type FormDefinition,
   type FormRepository,
   type SubmissionFilter,
   type SubmissionStatus,
@@ -50,14 +50,6 @@ function mapFormError(error: unknown): unknown {
   }
   return error;
 }
-
-/** A definition plus what the Forms overview needs beside it, so the list is one request. */
-export type FormSummary = FormDefinition & {
-  submissionCount: number;
-  unreadCount: number;
-  lastSubmissionAt: string | null;
-  usages: FormUsage[];
-};
 
 export function createFormsRouter(options: {
   repository: FormRepository;

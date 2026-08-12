@@ -279,6 +279,56 @@ export type LegacyFormCopy = z.infer<typeof legacyFormCopySchema>;
  * author — a translated label that changed under them when they switched languages would be a
  * label they never agreed to.
  */
+/**
+ * A stored definition, as every layer sees it.
+ *
+ * Declared here rather than in the database module because it is an API contract: the Forms Center
+ * reads exactly this, and two hand-kept copies of one shape is how a field ends up meaning
+ * different things on the two sides of a request.
+ */
+export type FormRecord = FormDefinitionInput & {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  status: FormStatus;
+  archived: boolean;
+  /** The content revision: what the form asks and says. Archiving does not move it. */
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export const SUBMISSION_STATUSES = ["new", "read", "archived", "spam"] as const;
+export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number];
+
+/** Where a submission came from, as the server worked it out. Never from the body. */
+export type SubmissionSource = { pageId?: string; path?: string; host?: string; utm?: Record<string, string> };
+
+export type FormSubmissionRecord = {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  formId: string;
+  /** The revision of the definition the visitor actually answered. */
+  formRevision: number;
+  /** The questions as they were asked, so the answers stay readable after the form moves on. */
+  fields: SubmissionFieldSnapshot[];
+  values: SubmissionValues;
+  source?: SubmissionSource;
+  status: SubmissionStatus;
+  createdAt: string;
+};
+
+export type SubmissionCounts = Record<SubmissionStatus, number> & { total: number };
+
+export type SubmissionPage = {
+  items: FormSubmissionRecord[];
+  total: number;
+  page: number;
+  perPage: number;
+  counts: SubmissionCounts;
+};
+
 export const FORM_TEMPLATE_IDS = ["blank", "contact", "lead", "newsletter"] as const;
 export type FormTemplateId = (typeof FORM_TEMPLATE_IDS)[number];
 

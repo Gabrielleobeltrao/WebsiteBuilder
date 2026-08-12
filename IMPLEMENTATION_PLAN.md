@@ -65,7 +65,7 @@ The current form implementation is incomplete and must not be treated as product
 - [x] **0.2 Write a form ownership and state contract.** Document definition vs placement vs published snapshot vs submission ownership, draft/published behavior, deletion/archive rules, and tenant boundaries.
   - Acceptance: one authoritative document is referenced by shared types and tests; no duplicate source of truth remains unexplained.
 
-- [ ] **0.3 Correct false-positive completion gaps from the previous plan.** At minimum verify and fix: rich-text editing is actually usable; pricing-table CTA/link/highlight rendering; announcement-bar link rendering; site-logo home link resolution; form route/rendering claims; published reference counts.
+- [x] **0.3 Correct false-positive completion gaps from the previous plan.** At minimum verify and fix: rich-text editing is actually usable; pricing-table CTA/link/highlight rendering; announcement-bar link rendering; site-logo home link resolution; form route/rendering claims; published reference counts.
   - Acceptance: each advertised control affects editor, preview, and public output where applicable; no dead dashboard link.
   - Verify: focused unit/integration tests and renderer parity tests.
 
@@ -93,20 +93,20 @@ The current form implementation is incomplete and must not be treated as product
 
 ### Phase 3 — Forms Center UX
 
-- [ ] **3.1 Add real routes under the existing authenticated site shell.** Implement:
+- [x] **3.1 Add real routes under the existing authenticated site shell.** Implement:
   - `/app/:workspaceId/sites/:projectId/forms`
   - `/app/:workspaceId/sites/:projectId/forms/new`
   - `/app/:workspaceId/sites/:projectId/forms/:formId/edit`
   - `/app/:workspaceId/sites/:projectId/forms/submissions`
   - Acceptance: direct navigation, refresh, breadcrumbs, permissions, loading, empty, error, and not-found states work.
 
-- [ ] **3.2 Build the Forms overview.** Show form name, active/archived state, usage pages, total/new submissions, last submission, last edit, and draft changes waiting for publication. Include search/filter and clear create/duplicate/archive actions.
+- [x] **3.2 Build the Forms overview.** Show form name, active/archived state, usage pages, total/new submissions, last submission, last edit, and draft changes waiting for publication. Include search/filter and clear create/duplicate/archive actions.
   - Acceptance: clicking usage opens the exact page/block; clicking counts opens the correctly filtered inbox.
 
-- [ ] **3.3 Build a focused form editor.** Support name, templates (`Blank`, `Contact`, `Lead`, `Newsletter`), add/reorder/duplicate/delete fields, field settings/options/validation, success message or safe redirect, retention, autosave state, and revision conflicts.
+- [x] **3.3 Build a focused form editor.** Support name, templates (`Blank`, `Contact`, `Lead`, `Newsletter`), add/reorder/duplicate/delete fields, field settings/options/validation, success message or safe redirect, retention, autosave state, and revision conflicts.
   - Acceptance: keyboard operation, validation, dirty/saving/saved/error states, and mobile data-page layout are usable; no canvas is needed here.
 
-- [ ] **3.4 Build the submissions inbox.** Add summary counts, filters, pagination, selectable rows, bulk status actions, CSV export, and an accessible detail drawer/page showing preserved historical labels and source context.
+- [x] **3.4 Build the submissions inbox.** Add summary counts, filters, pagination, selectable rows, bulk status actions, CSV export, and an accessible detail drawer/page showing preserved historical labels and source context.
   - Acceptance: unread badge updates consistently; actions are reversible where practical; destructive actions require explicit confirmation.
 
 ### Phase 4 — Builder binding and actual visual
@@ -218,6 +218,11 @@ YYYY-MM-DD HH:mm | Task X.Y | files/behavior changed | verification command + re
 2026-08-12 11:43 | Task 2.1 | shared: buildFormTemplate (blank/contact/lead/newsletter) and form-usage.ts (findFormUsages, countUnboundFormBlocks, groupUsagesByForm) which resolve shared sections so a form in a shared header is found; repository: duplicate(), countsByForm(), hasRecords(); routes: list returns summaries with counts and usages, POST duplicate, POST restore, DELETE refuses a referenced form with 409 RESOURCE_IN_USE naming the blocks; new shared error code RESOURCE_IN_USE with copy in both locales | vitest backend forms-api → 10 passed incl. shared-header usage, refused delete, duplicate at revision 1 | —
 2026-08-12 11:43 | Task 2.2 | repository: SubmissionFilter (form, status, date range, page), listSubmissions/submissionCounts/findSubmission/setSubmissionStatuses/deleteSubmissions/streamSubmissions, two new inbox indexes; submissions now store formRevision and the field snapshot they answered; export.ts streams a row at a time and keeps answers to retired questions in a final column; routes: GET/-/submissions, GET/-/submissions/:id, PATCH/-/submissions (bulk status or delete), GET/:formId/submissions.csv | vitest backend forms-api → 15 passed incl. filters, bulk actions, and a CSV cell that cannot execute in a spreadsheet | —
 2026-08-12 11:43 | Task 2.3 | server.ts collectModuleFacts now returns real form facts: hasRecords from definitions or submissions, blockingIssueCount = unbound blocks + placements pointing at a missing/archived/unfinished definition, warningCount = definitions no page shows; isVisibleInNavigation no longer hides an archived module, which was hiding the only route to records that outlived their last placement | vitest shared features (21) + frontend SiteDashboard + npm run test → 1,990 tests, exit 0 | —
+2026-08-12 12:26 | Task 3.1 | frontend/src/api/forms.ts (new); features/forms/{FormsRoute,FormsOverview,FormEditor,SubmissionsInbox}.tsx (new); four lazy routes registered under the authenticated shell (/forms, /forms/new, /forms/submissions, /forms/:formId/edit — submissions declared before :formId so the word is not read as an id); forms namespace added to i18n resources in both locales; shared now owns FormRecord/FormSummary/FormDetail/FormSubmissionRecord/SubmissionPage so frontend and backend read one contract | vitest frontend module-routes → 5 passed; the test reads routes.tsx and asserts every module a block can activate has a declared route, which is what was missing when /forms was a dead link | —
+2026-08-12 12:26 | Task 0.3 (closed) | the remaining criterion was "no dead dashboard link"; MODULE_ROUTES.forms now resolves to a real route and module-routes.test.tsx guards it. `search` has no route and no block declares feature "search", so it can never leave "unused" and its entry is never rendered — asserted explicitly rather than ignored | npm run typecheck exit 0; npm run test exit 0 with 2,008 tests | —
+2026-08-12 12:26 | Task 3.2 | FormsOverview: name, state badge, usage links into the builder on the exact page and block, total and unread answer counts linking into the correctly filtered inbox, last answer, last edit, search, and create/duplicate/archive-or-delete actions | vitest FormsCenter → every count asserted to be a destination; delete asks first and sends nothing before confirmation | —
+2026-08-12 12:26 | Task 3.3 | FormEditor: name, templates (blank/contact/lead/newsletter), add/reorder/remove questions with controls named after the question they act on, per-type settings, choices, help text, required, success message or an internal-page redirect chosen from this site's pages only, submit label, error message, notification recipients, retention; dirty/saving/saved state and a 409 that offers Reload instead of overwriting | vitest FormsCenter → real controls (no JSON field), conflict shows the other person's save, redirect offers only this site's pages | —
+2026-08-12 12:26 | Task 3.4 | SubmissionsInbox: status counts, filters for form/status/date held in the URL so a filtered view is linkable, pagination, row selection, bulk read/unread/archive/spam/delete, CSV export per form, and a detail dialog that labels answers from the snapshot the submission carries | vitest FormsCenter → a retired question is labelled rather than dropped; bulk delete confirms; mark-read is one request | —
 ```
 
 ## 7. Decision Log

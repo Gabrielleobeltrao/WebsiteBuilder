@@ -19,7 +19,7 @@ type LoadState = { status: "loading" } | { status: "error"; code: string } | { s
  * browsed the Elements library. That is what keeps a site with no blog from carrying a Blog entry
  * for its whole life.
  */
-const MODULE_ROUTES: Record<SiteFeatureKey, string> = {
+export const MODULE_ROUTES: Record<SiteFeatureKey, string> = {
   blog: "blog",
   forms: "forms",
   cms: "cms",

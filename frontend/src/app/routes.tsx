@@ -25,6 +25,9 @@ const AnalyticsRoute = lazy(async () => ({ default: (await import("@/features/an
 const BlogRoute = lazy(async () => ({ default: (await import("@/features/blog/BlogRoute")).BlogRoute }));
 const PostEditorRoute = lazy(async () => ({ default: (await import("@/features/blog/PostEditorRoute")).PostEditorRoute }));
 const EditorRoute = lazy(async () => ({ default: (await import("@/features/editor/EditorRoute")).EditorRoute }));
+const FormsRoute = lazy(async () => ({ default: (await import("@/features/forms/FormsRoute")).FormsRoute }));
+const FormEditorRoute = lazy(async () => ({ default: (await import("@/features/forms/FormsRoute")).FormEditorRoute }));
+const SubmissionsRoute = lazy(async () => ({ default: (await import("@/features/forms/FormsRoute")).SubmissionsRoute }));
 const MediaRoute = lazy(async () => ({ default: (await import("@/features/media/MediaRoute")).MediaRoute }));
 const CmsRoute = lazy(async () => ({ default: (await import("@/features/cms/CmsRoute")).CmsRoute }));
 const DomainsRoute = lazy(async () => ({ default: (await import("@/features/publishing/DomainsRoute")).DomainsRoute }));
@@ -105,6 +108,12 @@ export function AppRoutes({ authenticated = false }: { authenticated?: boolean }
           <Route path="sites/:projectId/analytics" element={<AnalyticsRoute />} />
           <Route path="sites/:projectId/publish" element={<PublishRoute />} />
           <Route path="sites/:projectId/settings/domains" element={<DomainsRoute />} />
+          {/* Submissions before :formId, so "/forms/submissions" is the inbox rather than a form
+              whose id happens to be that word. */}
+          <Route path="sites/:projectId/forms" element={<FormsRoute />} />
+          <Route path="sites/:projectId/forms/new" element={<FormEditorRoute />} />
+          <Route path="sites/:projectId/forms/submissions" element={<SubmissionsRoute />} />
+          <Route path="sites/:projectId/forms/:formId/edit" element={<FormEditorRoute />} />
           <Route path="sites/:projectId/blog" element={<BlogRoute />} />
           <Route path="sites/:projectId/blog/posts/new" element={<PostEditorRoute />} />
           <Route path="sites/:projectId/blog/posts/:postId/edit" element={<PostEditorRoute />} />

@@ -1,4 +1,5 @@
 import { walkElements } from "./elements";
+import type { FormRecord } from "./forms";
 import { pagePath, type BuilderProject } from "./project";
 import { resolvePageSections } from "./shared-sections";
 
@@ -22,6 +23,22 @@ export type FormUsage = {
   /** True when the block lives in a shared header or footer, and therefore on every page using it. */
   shared: boolean;
 };
+
+/**
+ * A definition plus what the Forms overview needs beside it, so the list is one request.
+ *
+ * Lives here rather than in `forms.ts` because usage is derived from the document, and `forms.ts`
+ * deliberately knows nothing about pages.
+ */
+export type FormSummary = FormRecord & {
+  submissionCount: number;
+  unreadCount: number;
+  lastSubmissionAt: string | null;
+  usages: FormUsage[];
+};
+
+/** One definition, with the placements the caller asked about. */
+export type FormDetail = FormRecord & { usages: FormUsage[] };
 
 /**
  * Every form placement in a document, one entry per block.

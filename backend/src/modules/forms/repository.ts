@@ -1,12 +1,15 @@
 import {
   resolveFormStatus,
   snapshotFields,
+  SUBMISSION_STATUSES,
   validateSubmission,
   type FormDefinitionInput,
   type FormField,
-  type FormStatus,
-  type SubmissionFieldSnapshot,
+  type FormRecord,
+  type FormSubmissionRecord,
   type SubmissionValues,
+  type SubmissionSource,
+  type SubmissionStatus,
 } from "@websitebuilder/shared";
 import { ObjectId, type Collection, type Db } from "mongodb";
 
@@ -22,23 +25,8 @@ import type { WorkspaceContext } from "../projects/repository";
  */
 export const FORM_COLLECTIONS = { definitions: "formDefinitions", submissions: "formSubmissions" } as const;
 
-export type FormDefinition = FormDefinitionInput & {
-  id: string;
-  workspaceId: string;
-  projectId: string;
-  status: FormStatus;
-  archived: boolean;
-  /**
-   * The content revision: what the form asks and what it says, and nothing else.
-   *
-   * It moves when a definition is edited and stays put when one is archived or restored, because a
-   * published page compares this number with the revision in its snapshot to answer "are there
-   * changes waiting to publish". Archiving is not a change to the questions.
-   */
-  revision: number;
-  createdAt: string;
-  updatedAt: string;
-};
+/** The stored definition. Declared once in the shared contract; this is the name this module uses. */
+export type FormDefinition = FormRecord;
 
 /**
  * Two tabs, one form.
@@ -53,31 +41,11 @@ export class FormRevisionConflictError extends Error {
   }
 }
 
-/**
- * Where a submission came from, as the server worked it out.
- *
- * Every field here is derived from the request the endpoint actually received — the resolved site,
- * the published route manifest, the referrer — and never from the body. A visitor choosing which
- * page their answer is attributed to is a visitor writing rows into someone else's records.
- */
-export type SubmissionSource = { pageId?: string; path?: string; host?: string; utm?: Record<string, string> };
-export const SUBMISSION_STATUSES = ["new", "read", "archived", "spam"] as const;
-export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number];
+/** Re-exported so a caller inside this module does not have to know where the contract lives. */
+export { SUBMISSION_STATUSES };
+export type { SubmissionSource, SubmissionStatus };
 
-export type FormSubmission = {
-  id: string;
-  workspaceId: string;
-  projectId: string;
-  formId: string;
-  /** The revision of the definition the visitor actually answered. */
-  formRevision: number;
-  /** The questions as they were asked, so the answers stay readable after the form moves on. */
-  fields: SubmissionFieldSnapshot[];
-  values: SubmissionValues;
-  source?: SubmissionSource;
-  status: SubmissionStatus;
-  createdAt: string;
-};
+export type FormSubmission = FormSubmissionRecord;
 
 type DefinitionDocument = Omit<FormDefinition, "id"> & { _id: ObjectId };
 type SubmissionDocument = Omit<FormSubmission, "id"> & { _id: ObjectId; fingerprint: string };
