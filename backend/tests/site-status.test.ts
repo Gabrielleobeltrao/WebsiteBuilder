@@ -111,6 +111,23 @@ describe("reconcileSiteStatus", () => {
     expect(state(status, "forms")?.publishedReferenceCount).toBe(0);
   });
 
+  it("counts published references from the snapshot that is actually serving visitors", () => {
+    // Not from the draft: "am I editing a form" and "can the public see a form" are two questions,
+    // and the projection answered the second with a hardcoded zero — so a module could never be
+    // reported as published however many times the site had gone live with it.
+    const status = reconcileSiteStatus({ project: withForm(), facts: {}, published: withForm() });
+
+    expect(state(status, "forms")?.publishedReferenceCount).toBe(1);
+    expect(state(status, "forms")?.lifecycle).toBe("published");
+  });
+
+  it("reports a module removed from the draft but still live as still live", () => {
+    const status = reconcileSiteStatus({ project: project(), facts: {}, published: withForm() });
+
+    expect(state(status, "forms")?.draftReferenceCount).toBe(0);
+    expect(state(status, "forms")?.publishedReferenceCount).toBe(1);
+  });
+
   it("counts warnings only for modules that are in use", () => {
     const status = reconcileSiteStatus({
       project: withForm(),

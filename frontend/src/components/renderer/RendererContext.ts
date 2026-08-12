@@ -10,6 +10,15 @@ import { createContext, useContext } from "react";
 export type RendererContextValue = {
   /** Path for an internal page link, or null when the target no longer exists. */
   resolvePagePath: (pageId: string) => string | null;
+  /**
+   * Where "home" is, for the one block that links there without naming a page.
+   *
+   * A site logo links to the front of the site, not to a page the author picked — so it has no page
+   * id to resolve. It used to ask `resolvePagePath("")`, which is not a page id and therefore always
+   * returned null: every linked logo on every published site rendered unlinked. Absent here means
+   * the host has no navigation of its own, which is the correct answer inside the builder canvas.
+   */
+  homePath?: string | null;
   /** URL for an uploaded media asset, or null when it is unavailable. */
   resolveMediaUrl: (mediaId: string) => string | null;
   /**

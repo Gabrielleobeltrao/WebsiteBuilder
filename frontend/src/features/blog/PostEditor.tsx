@@ -10,7 +10,7 @@ import { Link, useNavigate } from "react-router";
 
 import { blogApi } from "@/api/blog";
 import { ApiError } from "@/api/client";
-import { RichTextEditor } from "@/features/blog/RichTextEditor";
+import { RichTextEditor } from "@/components/common/RichTextEditor";
 
 /**
  * The post editor is a form, not a canvas.

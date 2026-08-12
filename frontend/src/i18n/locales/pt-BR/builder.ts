@@ -241,7 +241,8 @@ export default {
   },
 
   "fields": {
-    richTextHint: "Edite o texto direto na tela. A formatação vem da barra que aparece ali.",
+    richText: "Texto",
+    richTextHint: "A formatação se limita ao que uma página publicada carrega com segurança: títulos, listas, citações, negrito, itálico e links.",
     menuItems: "Itens do menu",
     orientation: "Direção",
     collapseBelow: "Recolher abaixo de (px)",

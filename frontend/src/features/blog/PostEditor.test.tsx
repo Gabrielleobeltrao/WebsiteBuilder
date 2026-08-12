@@ -59,7 +59,7 @@ describe("new post", () => {
 
     expect(screen.getByLabelText("Title")).toBeInTheDocument();
     expect(screen.getByLabelText("Excerpt")).toBeInTheDocument();
-    expect(screen.getByRole("toolbar", { name: "Content" })).toBeInTheDocument();
+    expect(screen.getByRole("toolbar", { name: "Formatting" })).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Page canvas" })).toBeNull();
   });
 

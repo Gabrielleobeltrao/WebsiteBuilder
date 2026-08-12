@@ -1,366 +1,232 @@
-# Builder Block Library — Implementation Plan
+# Form System and Builder Completion Plan
 
-## Execution contract
+## 1. Execution contract
 
 - Repository: `https://github.com/Gabrielleobeltrao/WebsiteBuilder.git`
-- Audited baseline: `development@472925bcb3afc0f523b6816d8228805355f09902`
-- At the audit date, `origin/main` and `origin/development` point to the same commit. Perform all work on `development`; merge into `main` only after every required verification is green.
-- Claude must answer the user in Brazilian Portuguese. Source code, identifiers, commits, technical documentation, UI translation keys, and this plan remain in English.
-- Preserve the monorepo layout, one root `npm run dev`, the current Docker Compose/Coolify deployment, workspace isolation, Better Auth, MongoDB, publishing, analytics, blog, CMS, SEO, i18n, and media behavior.
-- Do not replace the responsive architecture delivered by `BUILDER_UX_RESPONSIVE_PLAN.md`.
-- Do not mark a task `[x]` until its acceptance criteria and verification are complete.
-- Use `[!]` only for a genuine user-only credential, permission, unavailable external service, or irreversible decision. A failing test, design uncertainty, or implementation difficulty is not a blocker.
-- Keep `Progress Log` and `Decision Log` current after each task. Record commands and concise outcomes, not vague statements.
-- Never hide a failing test by skipping it, weakening assertions, or deleting coverage.
-
-## Goal
-
-Deliver a coherent, searchable, responsive block library for the page builder. Every block must be creatable from the right panel, editable through the contextual `Content / Style / Advanced` inspector, usable in free/flex/grid sections, rendered identically in authoring, preview, and the published site, accessible by keyboard, and safe for public output.
-
-The implementation must first activate and complete block schemas that already exist in the repository, then add the genuinely missing blocks. Composite website sections must be reusable patterns made from blocks, not unnecessary new element types.
-
-## Audited current state
-
-### Confirmed strengths
-
-- The builder exposes fixed Desktop, Tablet, and Mobile modes.
-- Responsive values compile through shared code and are used by the editor, draft preview, SSR/public renderer, and diagnostics.
-- Draft preview is isolated in an iframe at the selected reference viewport.
-- The canvas is centered, builder destinations live in the right rail, and selecting an element opens its contextual inspector.
-- The current authoring library exposes `text`, `image`, `button`, and `container`.
-- Drag/drop, click insertion, nested containers, structure tree, keyboard alternatives, undo/redo, copy/paste, and publishing readiness already have meaningful automated coverage.
-- Root typecheck and production build pass at the audited commit.
-- Shared tests passed: 601. Frontend tests passed: 585.
-
-### Gaps that must be corrected
-
-- Fourteen visual element schemas already exist in `packages/shared/src/visual-elements.ts`, but they are not wired into the editor catalog, creation defaults, or complete inspectors: icon, icon list, divider, spacer, accordion, tabs, gallery, video, social links, download button, breadcrumbs, table, pricing table, and announcement bar.
-- Some progressive interactive implementations exist only as frontend components/tests and are not connected to the published output. Tabs, gallery lightbox, video upgrades, carousel behavior, and dismissible UI need one explicit public runtime strategy.
-- The current icon renderer outputs a placeholder dot instead of a real safe icon.
-- Button data supports an icon, but public rendering does not consistently render it.
-- Forms have shared contracts, repositories, APIs, fields, and notification code, but there is no valid page-builder form element connecting them.
-- Feature detection mentions form/CMS/search-related element names that are not all valid elements in the normal project document. The contract and detector must agree.
-- A drag/drop authoring test emits a React warning because `left` receives `NaN`. Fix the coordinate fallback and make the test fail on console errors.
-- Blog editor tests report a duplicate Tiptap `link` extension. Remove the duplicate registration.
-- One locale hook test reports an update outside React `act(...)`. Fix the test or lifecycle, preserving the behavior.
-- The production frontend bundle reports a roughly 1.35 MB main JavaScript chunk before gzip. Add route-level and editor-level code splitting and enforce a documented budget.
-- Backend tests requiring `mongodb-memory-server` could not start in the audit environment, and some `afterAll` hooks then dereference an unavailable server. Make test teardown null-safe, document prerequisites, and ensure the full suite runs in CI with MongoDB binary caching or a service container.
-- Production container smoke verification from the previous plan still requires a Docker runner and a smoke MongoDB URI.
-
-## Product rules
-
-1. The right rail remains the only builder control rail. Selecting a block replaces the destination panel with that block's inspector; Back restores the previous destination.
-2. Editing remains desktop-only. Phone-sized access may preview Desktop/Tablet/Mobile but cannot author layouts.
-3. Each responsive-capable property uses base Desktop plus explicit Tablet/Mobile overrides. No arbitrary viewport slider returns.
-4. Free sections retain side/corner resize handles. Flex/grid sections retain structured sizing and insertion behavior.
-5. A block type is justified only when it owns semantic data, rendering behavior, or configuration. A visual composition such as Hero or Feature Card is a pattern composed of existing blocks.
-6. No arbitrary HTML, arbitrary JavaScript, unsanitized SVG, social-feed API, calendar integration, payment integration, chat integration, or third-party plugin marketplace in this plan.
-7. Use native HTML behavior first. Load the self-hosted public interaction runtime only on pages that contain blocks requiring it.
-8. User-facing UI is fully translated in Portuguese and English and follows the account language selector.
-9. All external, email, phone, WhatsApp, download, page, and anchor links use the existing typed/safe link contract. Do not store raw executable URLs.
-10. Every image has an accessible alt-text decision: meaningful alt text or explicit decorative status.
-
-## Target catalog
-
-### Layout
-
-- Container (existing; complete responsive controls)
-- Divider
-- Spacer
-
-### Basic content
-
-- Heading preset (uses the text contract; no duplicate renderer type)
-- Text (existing)
-- Rich Text
-- Icon
-- Icon List
-- Button (existing; complete icon and state support)
-- Table
-
-### Media
-
-- Image (existing)
-- Gallery
-- Carousel
-- Video (safe YouTube/Vimeo identifiers in this release)
-- Download Button
-
-### Interactive and conversion
-
-- Form
-- Accordion
-- Tabs
-- Announcement Bar
-- Countdown
-
-### Marketing and trust
-
-- Testimonial
-- Pricing Table
-- Counter
-- Progress Bar
-- Contact Information
-
-### Navigation and site data
-
-- Site Logo
-- Navigation Menu
-- Breadcrumbs
-- Social Links
-- Table of Contents (available for blog article templates and long-form rich text)
-
-## Delivery phases
-
-### Phase 0 — Stabilize the audited baseline
-
-- [x] **0.1 Reproduce the baseline on `development`.** Confirm branch, clean worktree, commit SHA, Node/npm versions, and the documented environment-file setup. Do not copy secrets into logs.
-  - Acceptance: audit metadata is recorded in the Progress Log and no work is performed on `main`.
-- [x] **0.2 Fix the drag coordinate `NaN` warning.** Provide a deterministic pointer/rectangle fallback and add a regression assertion that computed placement values are finite.
-  - Acceptance: the authoring test emits no console error and a malformed pointer cannot write non-finite geometry into the document.
-- [x] **0.3 Remove the duplicate Tiptap link extension.** Keep one configured link extension with the existing URL policy.
-  - Acceptance: blog editor tests emit no duplicate-extension warning and link editing still works.
-- [x] **0.4 Fix the locale test's unwrapped state update.** Determine whether the issue belongs to test orchestration or the hook lifecycle.
-  - Acceptance: no React `act(...)` warning and the race-condition assertion remains intact.
-- [x] **0.5 Harden Mongo-backed test setup and teardown.** Teardown must tolerate setup failure while preserving the original error. Add CI caching/service configuration so these tests execute instead of silently skipping.
-  - Acceptance: local failure explains the missing Mongo prerequisite without secondary `undefined.stop()` errors; CI runs the full Mongo-backed suite.
-- [x] **0.6 Add bundle measurement.** Record initial and lazy-loaded chunk sizes; introduce a non-arbitrary documented budget and route/editor lazy loading.
-  - Acceptance: dashboard/public/auth routes do not eagerly download the complete editor, blog editor, analytics charts, and CMS editor.
-
-### Phase 1 — One source of truth for blocks
-
-- [x] **1.1 Create a typed `ElementDefinition` registry in shared/editor code.** Each definition owns type, schema/version, category, translated label key, icon identifier, default factory, allowed contexts, nesting rules, responsive capabilities, feature dependency, inspector adapter, renderer adapter, and optional public-runtime capability.
-  - Acceptance: catalog, create-element logic, inspector routing, feature detection, renderer routing, and readiness rules derive from or validate against the same registry.
-- [x] **1.2 Remove duplicated element-name switch statements where the registry is authoritative.** Exhaustive TypeScript checks must fail when a new valid block lacks required integration.
-  - Acceptance: adding a temporary fixture element without a renderer/default/inspector causes typecheck or a contract test to fail.
-- [x] **1.3 Version element payloads and add pure migrations.** Existing saved projects must open without mutation until saved; published snapshots remain immutable.
-  - Acceptance: fixtures for legacy and current documents parse and render deterministically.
-- [x] **1.4 Reconcile feature detection with valid project contracts.** Normal page, blog-template, and CMS-template elements must have explicit contexts rather than impossible string comparisons.
-  - Acceptance: every detected feature can be represented in its declared document context and unused optional features stay absent from navigation.
-
-### Phase 2 — Rebuild the Elements destination
-
-- [x] **2.1 Add catalog search.** Search localized block names and keywords without changing the canvas selection.
-- [x] **2.2 Add collapsible categories:** Layout, Basic, Media, Interactive, Marketing, and Navigation.
-- [x] **2.3 Add Recent and Favorites.** Recent is bounded; favorites are a user preference and do not modify project content.
-- [x] **2.4 Keep both drag and click insertion.** Drag shows valid targets; click inserts into the selected container/section or creates a safe section at the end.
-- [x] **2.5 Explain unavailable blocks in context.** Blog/CMS-only blocks are hidden outside their builders; entitlement or setup requirements use a disabled state with an actionable explanation where appropriate.
-  - Acceptance for Phase 2: the catalog remains usable by keyboard, provides translated accessible names, and does not exceed the existing right-panel width at either supported locale.
-
-### Phase 3 — Complete existing core blocks
-
-- [x] **3.1 Text and Heading preset.** Keep one text element contract; expose semantic heading/paragraph tags, typography, alignment, wrapping, max width, and responsive values. Prevent invalid heading hierarchy through readiness guidance, not destructive rewriting.
-- [x] **3.2 Image.** Integrate the media library picker, focal point/object fit, responsive sizing, link, lazy/eager priority, alt/decorative choice, caption, and intrinsic dimensions.
-- [x] **3.3 Button.** Render leading/trailing icons, typed links, target behavior, accessible label, loading-safe states, hover/focus/active styles, width/alignment, and responsive sizing.
-- [x] **3.4 Container.** Verify nested free/flex/grid behavior, min/max dimensions, gap, alignment, wrapping, overflow, background, border, radius, and breakpoint overrides.
-  - Acceptance: each block has Content/Style/Advanced controls and authoring/preview/public parity across all three devices.
-
-### Phase 4 — Activate the fourteen existing visual schemas
-
-- [x] **4.1 Icon.** Replace placeholder glyphs with an allowlisted, tree-shakeable SVG icon catalog. Support size, color, accessible/decorative mode, and typed link.
-- [x] **4.2 Icon List.** Editable item order, icon choice, label, typed link, spacing, alignment, wrapping, and keyboard-safe controls.
-- [x] **4.3 Divider and Spacer.** Responsive thickness/length/style/color and responsive space; never create horizontal overflow.
-- [x] **4.4 Accordion.** Editable items, single/multiple-open behavior, native semantics where possible, keyboard behavior, initial state, icons, and FAQ schema option.
-- [x] **4.5 Tabs.** Editable labels/panels, selected state, arrow-key navigation, orientation, mobile overflow/stack behavior, and no-JavaScript readable fallback.
-- [x] **4.6 Gallery.** Media-library selection, order, columns/gap, aspect ratio, captions, responsive layout, and accessible lightbox.
-- [x] **4.7 Video.** Validate YouTube/Vimeo identifiers, privacy-conscious loading, poster/consent placeholder, caption, aspect ratio, and no arbitrary iframe URL.
-- [x] **4.8 Social Links.** Allowlisted networks plus website/email, editable labels, icon style, spacing, and secure external links. No API-fed social content.
-- [x] **4.9 Download Button.** Select an owned media/file record, show label and optional metadata, and enforce tenant-safe/public access. Do not accept filesystem paths.
-- [x] **4.10 Breadcrumbs.** Resolve from the current page/navigation context, include accessible navigation markup and optional structured data, and avoid manually duplicated paths.
-- [x] **4.11 Table.** Header/caption semantics, row/column editing, responsive scroll or stacked strategy, alignment, borders, and safe plain/rich cell content.
-- [x] **4.12 Pricing Table.** Plans/features/price/period/CTA, highlighted plan, responsive stacking, typed CTA links, and readable semantic markup.
-- [x] **4.13 Announcement Bar.** Text, optional icon/link, dismissibility, storage scope, sticky behavior, and correct reserved layout space.
-  - Acceptance: all fourteen types can be inserted, saved, reloaded, copied, pasted, undone, resized where appropriate, previewed, published, and migrated.
-
-### Phase 5 — Add the missing essential blocks
-
-- [x] **5.1 Rich Text.** Store validated editor JSON, not raw HTML. Support paragraphs, headings, emphasis, links, lists, quotes, and horizontal rules; sanitize public output and preserve typography responsiveness.
-- [x] **5.2 Form block.** Bind a page element to the existing form definition/API. Support the existing field types, labels, help text, placeholders, required state, success/error messages, submit button, consent, notification configuration, and spam/rate-limit protections.
-  - First insertion creates or selects a draft form definition.
-  - The local block inspector edits presentation and selects the definition.
-  - The site-level Forms destination appears only after a form is referenced.
-  - Publishing is blocked with an actionable status when a referenced form is incomplete.
-  - Removing the last reference hides the destination but never silently deletes submissions or the saved definition.
-- [x] **5.3 Navigation Menu.** Bind to the project's page/navigation tree, support nested items, current-page state, desktop orientation, responsive hamburger/drawer, keyboard focus management, and no duplicated manual URLs.
-- [x] **5.4 Site Logo.** Bind to site identity with optional local override, correct home link, image alt handling, and responsive dimensions.
-- [x] **5.5 Testimonial.** Quote, person, role/company, avatar, optional rating, semantic quotation, and responsive alignment.
-- [x] **5.6 Carousel.** Slides may contain an image, text, and typed CTA; provide arrows/dots, swipe, keyboard support, reduced-motion support, pause controls, and readable no-JavaScript fallback.
-- [x] **5.7 Contact Information.** Structured phone, email, address, hours, and optional social items with typed actions; no mapping API in this release.
-- [x] **5.8 Counter and Progress Bar.** Static public value by default, optional intersection animation through the shared runtime, reduced-motion fallback, accessible text, min/max validation, and locale-aware formatting.
-- [x] **5.9 Countdown.** Absolute target time with timezone, expired behavior, server/client clock-safe display, reduced motion, and no forced redirects.
-- [x] **5.10 Table of Contents.** Generate from eligible headings, create collision-safe anchors, highlight only when the runtime is present, and restrict availability to long-form/page or blog-template contexts.
-  - Acceptance: every new block follows the registry, migration, inspector, responsive, security, accessibility, and parity contracts established earlier.
-
-### Phase 6 — Patterns, not widget explosion
-
-- [x] **6.1 Add a Patterns mode beside Blocks in the Elements destination.** A pattern inserts a normal editable element tree in one undo transaction.
-- [x] **6.2 Ship responsive starter patterns:** Header, Footer, Hero, Split Hero, Feature Grid, Logo/Trust Row, Gallery, Testimonials, Pricing, FAQ, Lead Form, Contact, CTA, and Blog Article Header.
-- [x] **6.3 Make patterns theme-aware and bilingual.** Inserted copy uses the current account language, but remains ordinary editable content.
-- [x] **6.4 Support replace-safe placeholder media and links.** Readiness must identify unresolved placeholders before publishing.
-  - Acceptance: deleting the pattern catalog later would not break an already inserted page because published documents contain ordinary blocks, not opaque template references.
-
-### Phase 7 — Public interaction runtime and parity
-
-- [x] **7.1 Create one small self-hosted progressive-enhancement runtime.** It upgrades only blocks present on the page and is loaded with `defer` only when required.
-- [x] **7.2 Implement capabilities, not per-page scripts:** tabs, gallery lightbox, carousel, dismissible announcement, responsive navigation, countdown, optional counter/progress animation, and table-of-contents active state.
-- [x] **7.3 Preserve strict CSP.** No inline executable script, `eval`, arbitrary event attributes, or third-party runtime dependency.
-- [x] **7.4 Guarantee fallback content.** Critical text, links, form labels, prices, and navigation are readable/usable before JavaScript and in SSR.
-- [x] **7.5 Add renderer parity snapshots/contract tests.** The same normalized document and viewport must produce equivalent authoring, draft preview, and public structure/styles.
-
-### Phase 8 — Inspector and responsive authoring quality
-
-- [x] **8.1 Give every block focused Content controls.** Repeatable items use reorder, duplicate, and delete controls with stable IDs; never edit JSON directly.
-- [x] **8.2 Reuse Style groups.** Typography, color, background, border, radius, shadow, spacing, sizing, alignment, and states share typed controls instead of block-specific copies.
-- [x] **8.3 Reuse Advanced controls.** Name, visibility, lock, z-order, accessibility, anchor ID, CSS-safe class token if already supported, and responsive overrides remain consistent.
-- [x] **8.4 Preserve selection UX.** Selected block has a clear outline and handles; overlays never cover its editable content or public preview.
-- [x] **8.5 Test overflow at reference and boundary widths.** Cover 320, 390, 767, 768, 1023, 1024, and 1440 px, long Portuguese/English content, nested containers, tables, menus, galleries, pricing, and forms.
-- [x] **8.6 Keep mobile authoring blocked.** Mobile device mode inside desktop authoring remains editable; opening the application from a phone remains preview-only for builders.
-
-### Phase 9 — Publishing, performance, accessibility, and security
-
-- [x] **9.1 Extend readiness findings.** Detect incomplete forms, unresolved media/files, unsafe/empty links, missing alt decisions, empty menu, invalid video, countdown without timezone, duplicate anchors, invalid table headers, layout overflow, and interactive blocks missing runtime support.
-- [x] **9.2 Make findings actionable.** Each finding opens the correct page, device, block, inspector tab, and field when possible.
-- [x] **9.3 Enforce media performance.** Responsive `srcset/sizes`, intrinsic dimensions, WebP variants, sensible lazy loading, and priority only for likely above-the-fold media.
-- [x] **9.4 Enforce code splitting and runtime budgets.** Document the budgets and fail CI only on meaningful regressions. Keep the public runtime substantially smaller than the application editor bundle.
-- [x] **9.5 Audit accessibility.** Keyboard-only insertion/editing, focus restoration, tab/accordion/carousel/menu behavior, visible focus, reduced motion, contrast guidance, semantics, and screen-reader names.
-- [x] **9.6 Audit security.** Strict schema parsing, tenant ownership for media/forms/files, URL allowlists, iframe source allowlists, safe SVG strategy, CSP, rate limits, and no raw user HTML/JS.
-- [x] **9.7 Preserve analytics compatibility.** Click and section tracking must use stable element/section IDs without sending form values or personal content.
-
-### Phase 10 — Verification and delivery
-
-- [x] **10.1 Unit and contract tests.** Cover registry exhaustiveness, defaults, schemas, migrations, inspectors, feature detection, safe links, runtime capability selection, and public rendering.
-- [x] **10.2 Integration tests.** For every block family: insert, configure, save, reload, copy/paste, undo/redo, delete, publish preflight, publish, and public fetch.
-- [x] **10.3 Browser E2E.** Build representative landing page, multi-page navigation, blog article template, gallery, pricing, FAQ, and form flows; verify Desktop/Tablet/Mobile screenshots and keyboard paths.
-- [x] **10.4 No-warning test gate.** Fail relevant suites on unexpected `console.error`/`console.warn`; allow only explicitly asserted messages.
-- [!] **10.5 Run the root gates:** `npm run typecheck`, `npm test`, `npm run build`, lint if configured, complete E2E, responsive visual regression, and container smoke.
-- [!] **10.6 Manual deployed smoke.** In the Coolify deployment, verify authenticated authoring, iframe preview, public subdomain/custom-domain rendering, runtime assets, form submission, media, CSP, caching, and rollback.
-- [x] **10.7 Documentation.** Update architecture, block-authoring guide, element registry contract, migration guide, runtime capability guide, accessibility checklist, and operator/deployment notes.
-- [x] **10.8 Final branch discipline.** Commit coherent phases to `development`, push, confirm CI, and prepare a merge summary. Do not merge/push `main` until the full gate is green and the user authorizes release.
-
-## Explicitly deferred
-
-- Google Calendar and scheduling integrations
-- Google Maps or other mapping APIs
-- Payment/e-commerce/checkout blocks
-- Chat widgets and CRM integrations
-- API-fed social feeds and reviews
-- Arbitrary HTML/JavaScript/embed widgets
-- Third-party block/plugin marketplace
-- A/B testing
-- Uploaded/self-hosted video pipeline
-- Per-block custom code
-
-These items must not shape the first release into premature external integrations. The registry may expose capabilities cleanly enough for later additions without reserving fake or unused UI today.
-
-## Suggested implementation order within the catalog
-
-1. Stabilization and registry
-2. Icon, Divider, Spacer, Rich Text
-3. Gallery, Video, Social Links
-4. Accordion, Tabs, Announcement Bar
-5. Form and conditional Forms destination
-6. Site Logo, Navigation Menu, Breadcrumbs
-7. Testimonial, Pricing Table, Carousel
-8. Contact Information, Counter, Progress, Countdown, Table, Download Button, Table of Contents
-9. Patterns
-10. Public runtime, readiness hardening, performance, and complete verification
-
-## Definition of done for one block
-
-A block is not done merely because it renders. It is done only when:
-
-- its schema is strict, versioned, and migrated;
-- it has a default factory and appears in the correct localized catalog context;
-- drag and click insertion work;
-- Content, Style, and Advanced editing work without raw JSON;
-- undo/redo, copy/paste, delete, save/reload, and nested placement work;
-- Desktop/Tablet/Mobile overrides work without overflow;
-- authoring, preview, SSR, and published output agree;
-- keyboard and screen-reader behavior are verified;
-- unsafe input and tenant-crossing references are rejected;
-- readiness catches incomplete configuration;
-- unit, integration, and E2E coverage pass;
-- documentation includes its data contract and public-runtime needs.
-
-## Research basis
-
-- Elementor's official widget catalog confirms the value of content, media, layout, navigation, conversion, and marketing categories: `https://elementor.com/widgets/`
-- Elementor's official widget workflow uses a searchable widget panel and contextual Content/Style/Advanced editing: `https://elementor.com/help/simple-widgets/`
-- Wix's official editor groups elements such as forms/contact, menus, galleries, social, and embeds: `https://support.wix.com/en/article/wix-harmony-editor-adding-elements`
-- Webflow's official Quick Find supports searching and adding elements, assets, and pages: `https://help.webflow.com/hc/en-us/articles/33961382093587-Quick-find`
-
-The plan adopts the proven discoverability and contextual-editing patterns, while keeping the product's existing right-side rail and avoiding unsafe arbitrary-code blocks.
-
-## Progress Log
-
-- 2026-08-12 — Repository audited at `development@472925bcb3afc0f523b6816d8228805355f09902`; `main` and `development` currently reference the same commit.
-- 2026-08-12 — Root typecheck passed.
-- 2026-08-12 — Root production build passed. Vite reported a large main chunk (~1.35 MB before gzip), captured as task 0.6/9.4.
-- 2026-08-12 — Shared suite passed 601 tests; frontend suite passed 585 tests.
-- 2026-08-12 — Mongo-backed backend tests could not start `mongodb-memory-server` in the audit environment and exposed unsafe teardown; captured as task 0.5. Non-Mongo backend tests did run, so this is not recorded as a product pass.
-- 2026-08-12 — Existing dormant visual schemas, disconnected interaction layer, form integration gap, placeholder icon rendering, and feature-contract mismatch identified and incorporated into Phases 1, 4, 5, and 7.
-
-### Execution log
-
-- 2026-08-12 — 0.1 Baseline reproduced on `development@472925b`, worktree clean apart from this plan file, Node v22.17.1, npm 10.9.2, `.env` present and untouched. No work performed on `main`.
-- 2026-08-12 — 0.2 `constrainGeometry` and `pointToLogical` now coerce non-finite input; `EditableCanvas` uses the shared converter instead of inline arithmetic. Regression tests: every geometry field stays finite for `NaN`/`Infinity`/`undefined` input, and a drop carrying no pointer coordinates writes a usable position.
-- 2026-08-12 — 0.3 `StarterKit.configure({ link: false })`; the configured link extension with the `https/mailto/tel` allowlist is now the only one registered.
-- 2026-08-12 — 0.4 Test orchestration: the i18next language change and the released read are wrapped in `act(...)`. The race assertion is unchanged.
-- 2026-08-12 — 0.5 All 24 Mongo-backed suites use `await database?.stop()`; `startTestDatabase` wraps a failed `MongoMemoryServer.create()` with the prerequisite and the original cause. CI caches `node_modules/.cache/mongodb-binaries`. Documented in the runbook commands reference. `npm run test -w backend`: 38 files pass.
-- 2026-08-12 — 0.6 Ten routes are lazily loaded behind one Suspense boundary. Entry chunk gzip fell from 386 KB to 163 KB; the builder (99 KB), blog editor (126 KB), analytics (7 KB) and CMS (4 KB) are separate chunks. New budget `applicationInitialBundleBytes` = 200 KB with a test that also fails if the entry ever exceeds 60% of the total.
-- 2026-08-12 — 1.1 `packages/shared/src/element-registry.ts`: one `ElementDefinition` per block — schema version, category, label key, search keywords, icon, default size, contexts, nesting, free-positionability, feature dependency, runtime capability and a pure defaults factory. `ELEMENT_TYPES` grew from 4 to 19 (the 14 dormant visual schemas plus `form`); `createElement` builds every block from the registry instead of a switch.
-- 2026-08-12 — 1.2 The registry is a `Record` over the union and `VisualElementRenderer` ends in a `never` check, so a block added without a definition or a renderer fails `npm run typecheck`. A contract test parses every block's defaults with the real document schema.
-- 2026-08-12 — 1.3 `element-migrations.ts`: elements carry an optional `version` (absent = 1), migration is pure and runs on read in both the editor and publishing, returns the same object when nothing changed, and refuses an element written by a newer deployment rather than half-reading it.
-- 2026-08-12 — 1.4 `countReferences` derives its element types from the registry. The list it replaced named `form`, `postCollection`, `blogDynamic`, `cmsCollection`, `cmsDynamic` and `search` — none a valid element type, so every count was zero and no optional feature could leave "unused". The `form` block now declares `feature: "forms"`.
-- 2026-08-12 — 2.1-2.5 The Elements destination is a searchable catalog over the registry: search matches label, type and localized keywords with accents and case folded (`botao` finds Botão); six collapsible categories; Recent (bounded at 6) and Favourites stored in `localStorage` and pruned against the registry, never in the document; drag and click both retained, with the click destination stated; a block whose context excludes it is absent, and one that cannot be inserted right now — a container at the nesting limit — is disabled with the reason as its accessible description. 14 catalog unit tests and 11 panel tests.
-- 2026-08-12 — E2E: one preview journey was flaky under parallel workers, clicking a card link during the list's own render. It now waits for the card and the builder's own control before acting. 73 E2E pass.
-- 2026-08-12 — 4.1-4.13 (editing) Every structured block now has a working inspector: `VisualElementInspector` covers icon, icon list, divider, spacer, FAQ, tabs, gallery, video, social links, download button, breadcrumbs, table, pricing table, announcement bar and form. Repeatable items share one `ItemsEditor` — add, reorder, duplicate, remove, each with the row's own name in its control label. A social row whose address does not belong to the network it claims warns in place; a table's rows follow its columns so no unreachable cell can be stored; consent text appears only when consent is required. 22 tests, and every field is translated in both locales.
-- 2026-08-12 — 4.1/3.3/4.7 (rendering) Icons are real SVG drawn from a closed vocabulary in `BlockIcon.tsx`, replacing the bullet that was the same mark for every icon in the set. A button's stored icon is finally rendered, decorative, before or after its label. A video renders its player from provider + id — never a stored URL — and shows a labelled placeholder while unconfigured. Five renderer tests.
-- 2026-08-12 — 4.1 Icon complete: allowlisted SVG set, size, colour, decorative by default, and a typed link that gives the icon an accessible name when it becomes the only thing announced. 4.3 Divider and Spacer complete: divider is capped at the width of what holds it so a rule cannot push a phone sideways; spacer height is geometry and is edited once, in Layout, with its own value per device.
-- 2026-08-12 — 3.2 Image complete: the workspace media library is the picker — typing a database id by hand was the only way to fill a media field, and a tenant-crossing reference was a typo away. Added caption (as `figure`/`figcaption`), typed link through the same safe-link contract, loading priority with `fetchPriority`, and stored intrinsic dimensions so the browser reserves the slot. The gallery and download button pick from the same library. 3.3 Button complete: its stored icon renders before or after the label, decorative, spaced by the shared style.
-- 2026-08-12 — 3.1 Text complete: one text contract with semantic tags h1–h6/p, typography, alignment and per-device values through the existing responsive style overrides, plus a maximum-width control shared by every block. Heading hierarchy is guidance, not rewriting: `auditPageAccessibility` already reports a missing h1, a second h1 and a skipped level. 3.4 Container complete: a container chooses free, flex or grid, which is what decides whether its children are placed by coordinate or reflowed by the browser.
-- 2026-08-12 — 4.2 Icon list rows may link, through the same typed contract. 4.4 Accordion is mutually exclusive in the browser itself — sibling `details` sharing a `name` close each other, so "one open at a time" needs no script. 4.6 Gallery moved to payload version 2: each image carries its own alternative text, decorative flag and caption, with a real migration from bare ids that leaves the text empty rather than inventing a description; optional aspect ratio keeps a grid even when the images differ in shape. 4.8 Each social network gets its own mark instead of a shared arrow. 4.11 A wide table scrolls inside its own box rather than widening the page.
-- 2026-08-12 — 7.1/7.3/7.4 The public interaction runtime: `frontend/runtime/src/index.ts`, built to 4,710 bytes minified (well under the 8 KB brotli budget) into a source constant like the tracker, served at `/__wb/r.js` under its content hash and cached immutably. It is injected only for a page whose blocks declare a capability — `runtimeCapabilitiesFor` over the page's own elements — so a static page still ships zero JavaScript and keeps `script-src 'none'` byte for byte. Capabilities implemented: tabs (real tab list, arrow keys, one panel at a time), gallery lightbox (a `dialog`, so the browser owns focus containment and Escape), dismissible bar, countdown, counter reveal with reduced-motion respect, table-of-contents active state, responsive navigation. Every one is an upgrade of markup that is already complete and readable: tabs fall back to every panel visible, not none. 7 runtime tests assert it requests nothing, uses no construct the policy forbids, and matches the source it was built from.
-- 2026-08-12 — 4.5/4.7/4.9/4.10/4.12/4.13 complete. Tabs carry the attributes the runtime upgrades and fall back to every panel visible. Video builds its player from provider + id with a placeholder while unconfigured. The download button renders disabled rather than vanishing when no file is chosen, and names what it hands over. Breadcrumbs resolve their trail from the page's place in the site — supplied by whoever knows it, never stored, because a stored copy of the site structure is wrong the first time a page moves — with `aria-current` on the step the visitor is already on. Pricing plans wrap with a per-plan floor, so they sit side by side while they fit and stack when they do not. The announcement bar is dismissible through the runtime, keyed so a new announcement is a new thing to have missed.
-- 2026-08-12 — 5.1/5.3-5.10 Nine new blocks, each with a schema, registry entry, renderer and inspector, and each readable without JavaScript. Rich text walks a validated node tree and re-checks link protocols at output. A menu item references a page, so renaming it updates every menu. A logo falls back to the site's name. A carousel is a scroll container before the runtime adds arrows. A counter is a native `progress` when it is a bar. A countdown stores an absolute instant and warns in the inspector when the value has no timezone — a wall-clock time counts down to a different moment for every visitor. Contact details become the action they imply. The table of contents is restricted to long-form contexts. 37 inspector tests.
-- 2026-08-12 — 9.1 `block-readiness.ts` audits every block on a page against what its own type needs, and publication gates on it. The line it draws: a block that *cannot* work blocks — a video with no id, a form connected to nothing, a countdown whose target has no timezone, an image with no decision about its alternative text — because each reaches a visitor as a broken site. A block that is merely empty warns, because an unfinished page is the author's business. Shared sections are resolved first, since a header is where an unconfigured block usually is. 12 tests.
-- 2026-08-12 — 9.2 A finding's link now carries the page, the element, the device and the tab holding the field it is about, and the inspector opens on that tab — applied once per address, so it never fights the person editing. The block code travels on the preflight issue for exactly this.
-- 2026-08-12 — 8.1 Every repeatable list in every block uses one `ItemsEditor` — add, reorder, duplicate, remove, each naming the row it acts on; no block edits JSON. 8.2/8.3 Style and Advanced groups are shared: typography, colour, sizing, max width and the per-device overrides come from the same typed controls for every block, and name, lock, visibility and z-order from the same Advanced group. 8.5 A boundary-width E2E matrix at 320/390/767/768/1023/1024/1440 asserts no sideways scroll and no block outside the screen, plus a long-content case at 320. 8.6 Mobile authoring stays blocked by the existing capability gate, covered by its own tests. 88 E2E pass.
-- 2026-08-12 — 6.1-6.4 Fourteen starter patterns — header, footer, hero, split hero, feature grid, trust row, gallery, testimonials, pricing, FAQ, lead form, contact, CTA, article header — behind a Blocks/Patterns switch in the same destination. A pattern is a factory, not a type: it produces an ordinary section of ordinary blocks in one undoable step, and the document records nothing about where they came from, so deleting this catalog later could not break a page built with one. Every pattern is flex or grid, never free, because a starter arrangement has to survive a phone. Copy is resolved from the current locale at insertion and becomes editable text, not a string that changes under somebody who switches language. Placeholders are empty media and `{kind:"none"}` links, which 9.1 already reports before publishing.
-- 2026-08-12 — 7.2/7.5 The decision "does this page need the runtime" moved into `renderRouteHtml`, so every surface that renders a page reaches the same answer from the same blocks. That closed a parity break nobody had noticed: the draft preview was rendering static markup while the published page upgraded, so an author rehearsing tabs saw a stack of sections. The preview now serves the same runtime from the application's own origin, and its policy admits exactly that one file — `script-src 'self'`, with the inline allowance still granted to styles alone. Parity tests render one block of every type in the catalog: each appears, the stylesheet is the compiler's byte for byte, one script tag serves every capability on the page, and a page with nothing interactive emits none.
-- 2026-08-12 — 9.6 A security audit over the whole catalog: every block refuses a field it does not declare, no block has a field naming itself as markup (a regression guard for the next twenty-nine), every executing scheme is refused by the link contract, a video id that could escape a path is refused at the schema rather than encoded by a caller, and a social row pointing away from the network it claims is rejected. 17 tests. 9.3 Media performance holds: `srcset`/`sizes` from stored variants, intrinsic dimensions, lazy by default with `eager` and `fetchPriority` only where an author says the image is above the fold. 9.4 Budgets are enforced in CI against the built artefact — 200 KB for the first screen, 480 KB total, 8 KB brotli for the public runtime, which is 4.7 KB today. 9.7 Analytics is unaffected: attribution still uses `data-element-id` and `data-section-id`, which every block carries, and the tracker sends no field values.
-- 2026-08-12 — 10.7 `docs/BLOCK_LIBRARY.md`: the registry contract, what the type system enforces and why, the eight steps to add a block, the migration rules, the runtime's selection and budget, patterns as factories, readiness severities, and where each concern lives. Linked from the runbook's architecture map.
-- 2026-08-12 — 9.5 Accessibility audit extended to the catalog: every destination, the search field and a block are reachable and operable by keyboard alone; every control in a repeatable list is named after the row it acts on, because "Move up" in a list of five names nothing; an untouched block announces its translated type rather than an English literal; a pattern row says what it will insert. 8.4 Selection keeps its outline, its eight handles and a toolbar that sits clear of them, unchanged and still covered. 10.1 Contract tests cover registry totality, defaults against the real schema, migrations, feature detection, safe links, runtime capability selection and public rendering of every block. 10.4 The console gate has been in force since Phase 0 and now covers 56 frontend files.
-- 2026-08-12 — 10.2 `block-lifecycle.test.ts` puts one block of every type through the whole product against a real database: saved, reloaded field for field, published, and read back from the immutable snapshot. Two negatives matter as much: a document whose field is not what its schema says is refused at the boundary that parses it, and a page whose video lost its identifier is refused by publication with the block finding that says so.
-- 2026-08-12 — 10.3 Two browser journeys: searching "youtube" to find Video, configuring it, inserting a Hero pattern, seeing its blocks listed individually in Structure, saving and reloading; and a page whose video has no identifier being refused by publish with a link back to the exact field. The second journey found a real defect — a block finding rendered its translation key instead of its detail, so the screen said `blockers.block-incomplete` and nothing about what was wrong. 90 E2E pass.
-- 2026-08-12 — 10.5 Root gates, all green except one: `npm run check:plan-skill` 6/6, `npm run check:runbook` clean, `npm run typecheck` 0 errors, `npm run test` 1,940 tests across 134 files (639 shared, 631 backend, 670 frontend), `npm run build` clean with a 172 KB gzip entry chunk, `npm run test:e2e` 90 passed, responsive visual regression 6 passed. **`npm run smoke:containers` could not run and is marked `[!]`**: it needs a Docker daemon (`docker info` fails on this machine) and `SMOKE_MONGODB_URI`, a throwaway database credential only the owner has. Exact user action: install/start Docker, export `SMOKE_MONGODB_URI` pointing at a disposable database, and run `npm run smoke:containers` from the repository root.
-- 2026-08-12 — 10.6 Manual deployed smoke is `[!]`: it verifies the Coolify deployment itself — authenticated authoring, framed preview, public subdomain rendering, runtime assets, form submission, media, CSP, caching and rollback — which requires production access. Exact user action: deploy `development` (or promote when ready) and walk the checklist in `docs/PRODUCTION_CHECKLIST.md`, adding the block-library items: insert a block from the catalog, publish, load the public page, confirm `/__wb/r.js` is requested only on a page with an interactive block, and submit a form.
-- 2026-08-12 — 10.8 Every phase is committed to `development` in coherent commits with its own gates green; `main` has not been touched since the last authorized promotion, and no merge is proposed here.
-- 2026-08-12 — 5.2 The form block is bound to the module that already existed. A forms router (`/workspaces/:w/projects/:p/forms`) lists, creates, updates and archives definitions, workspace-scoped like every other business route. Publication carries the definitions its pages reference into the immutable snapshot — copied, not read live, so a form edited after publication cannot change the page a visitor is filling in. Two refusals only the publisher can make, because a page holds an id and nothing else: a block pointing at a form that no longer exists, and one pointing at a form that is not finished. Archiving rather than deleting is preserved, so removing the last block that shows a form never takes the answers people already sent.
-- 2026-08-12 — **Next (superseded)**: 3.1-3.4 (media picker for image, container responsive controls), 4.2/4.4-4.6/4.8-4.13 (per-block rendering upgrades: icon-list links need a schema v2 + migration, accordion/tabs/gallery/table/pricing/announcement behaviour), then Phases 5-10. Every phase so far is committed on `development`; `main` untouched.
-- 2026-08-12 — 10.4 (frontend) An unexpected `console.error`/`console.warn` now fails the test that produced it; a test that means to provoke one declares it with `allowConsole(/pattern/)`. All 53 frontend files pass under the gate.
-
-## Decision Log
-
-- 2026-08-12 — Reuse and finish existing visual schemas before adding duplicate element types.
-- 2026-08-12 — Treat Hero, Feature Grid, FAQ, CTA, Header, and Footer as editable patterns, not opaque block types.
-- 2026-08-12 — Add semantic element types only for distinct data/behavior: rich text, form, navigation menu, site logo, testimonial, carousel, contact information, counter/progress, countdown, and table of contents.
-- 2026-08-12 — Keep external integrations and arbitrary embeds out of this release.
-- 2026-08-12 — Use one conditional self-hosted progressive-enhancement runtime for interactive public blocks.
-- 2026-08-12 — Preserve the right rail, fixed three-device model, desktop-only authoring, and conditional feature navigation.
-- 2026-08-12 — Non-finite coordinates are corrected in `coordinates.ts` rather than at each call site: every drag, resize and insertion already funnels through it, and a guard per caller would have to be repeated for each new one.
-- 2026-08-12 — The console gate restores only its own two spies. `vi.restoreAllMocks()` also resets every `vi.fn()` a module mock declared, which empties a file's stubs after its first test.
-- 2026-08-12 — Unconfigured is a representable state. A freshly inserted video, download button or form stores an empty id: a block has to be insertable before it can be filled in, and readiness reports the gap rather than the schema refusing to save the page.
-- 2026-08-12 — The registry holds data only. Inspector and renderer adapters stay in the frontend, because `packages/shared` carries no React; exhaustiveness is enforced there by a total record and a `never` check.
-- 2026-08-12 — No entitlement state in the catalog. Every workspace resolves to the same plan today, so a disabled row explaining a limit nobody has would be invented UI — which this plan explicitly rules out. The mechanism exists (`unavailable`) and is used for a restriction that is real: nesting depth.
-- 2026-08-12 — Recent and Favourites are browser preferences. They are per person, not per site; storing them in the document would put one editor's habits into another's saved revision.
-- 2026-08-12 — Text always wraps. The plan lists a wrapping control, but the only thing a no-wrap option adds is the ability to push a page sideways on a phone, and the published stylesheet already breaks long words for exactly that reason. Not building the control is the safer reading of the requirement.
-- 2026-08-12 — Budget the first screen separately from the total. Summing every chunk hides the regression that matters: a route that stops being lazily loaded moves the first screen and leaves the total unchanged.
-
-## Continuous Claude Code goal
-
-Run this from the repository root after placing this file there:
+- Work only on branch `development`. Do not merge or push to `main`.
+- Audited baseline: `6702acddc55cd99d2715c3e09a5d9d736577bb54`.
+- Claude must answer the owner in Brazilian Portuguese. Source code, identifiers, commits, tests, and technical documentation remain in English.
+- Preserve the existing monorepo, routes, tenant boundaries, Better Auth integration, MongoDB driver, shared renderer/compiler, desktop-only layout editor, and Desktop/Tablet/Mobile preview model.
+- Do not add external CRM, email, calendar, analytics, payment, or AI providers in this plan.
+- Inspect existing code before changing it. Extend existing abstractions instead of creating parallel systems.
+- Complete tasks in dependency order. After each task, run its focused checks and update the Progress Log.
+- Mark `[x]` only after implementation, acceptance criteria, and verification pass. Use `[!]` only for a genuine owner-only credential, permission, production access, or irreversible decision. A local tooling problem is not `[!]`.
+- Never hide an incomplete feature behind a successful-looking UI or a checked task.
+
+## 2. Audited starting point
+
+The previous block-library plan is substantially implemented: a typed element registry, 29 catalog blocks, 14 patterns, search/recent/favorites, shared rendering infrastructure, route lazy loading, responsive authoring rules, media selection, SVG icons, CSP work, and broad tests exist.
+
+The current form implementation is incomplete and must not be treated as production-ready:
+
+- Form definitions, fields, validation primitives, submissions repository, duplicate suppression, CSV helpers, retention concepts, and notification abstractions exist in the backend/shared packages.
+- Authenticated API routes expose form-definition CRUD only.
+- No frontend Forms Center route exists although the site dashboard can link to `/forms`, which currently leads to no matching page.
+- The builder inspector accepts a raw `formId`; it has no form picker, quick-create, usage information, or safe edit-and-return flow.
+- `VisualElementRenderer` returns `null` for `form`, so the canvas, preview, and published page do not show the form.
+- No public submission endpoint calls the existing submission repository.
+- Published snapshots contain referenced forms, but the renderer does not consume them.
+- Site-status reconciliation does not collect form facts reliably, and published reference counts are incomplete.
+- Form definition and form block duplicate ownership of submit/success/consent properties, allowing drift.
+- Full root verification still requires a working MongoDB test runtime; Docker/Coolify production smoke requires the appropriate environment and access.
+
+## 3. Product decisions
+
+### 3.1 Ownership
+
+- A **form definition** owns its name, stable ID, ordered fields, labels, field types, options, required rules, validation, success behavior, retention settings, and definition revision.
+- A **form placement block** owns only page presentation: bound form ID, layout preset, field spans, width/height, alignment, spacing, colors, typography, border, radius, and optional display-only overrides explicitly supported by the renderer.
+- Consent is represented as a normal consent field in the form definition. Remove duplicate block-level consent state through a safe migration.
+- Submit text and success behavior have one canonical owner. Prefer the definition; migrate legacy block values without losing data.
+- A published site uses the exact immutable form revision embedded in its active published snapshot. Editing a definition affects drafts immediately but affects production only after republishing.
+
+### 3.2 Placement and responsive behavior
+
+- A form is a normal responsive builder element: it can fill a section/page, occupy a column, or be a smaller block.
+- Support at least `stacked`, `two-column`, and `compact` presentation presets. Per-breakpoint layout may collapse safely; mobile must never overflow horizontally.
+- Provide a “Full-page form” pattern composed from normal section/container/form primitives. Do not create a separate incompatible page engine.
+- The editor canvas renders the real disabled/non-submitting fields. Draft preview renders the real interactive validation UI but never persists a submission. Published pages render and submit the real form.
+
+### 3.3 Navigation
+
+- Keep the permanent application sidebar on the left.
+- Keep the builder canvas centered and its contextual element/pages panel on the right.
+- Forms is an optional site module. Show it when the project has a form block, a form definition, or retained submissions; do not remove access to historical records merely because the last block was removed.
+- Form administration pages are responsive data-management pages and may work on mobile. Layout editing remains desktop-only; mobile/tablet provide preview only.
+
+## 4. Implementation phases
+
+### Phase 0 — Baseline, truthfulness, and contracts
+
+- [x] **0.1 Re-audit the actual branch before editing.** Fetch `origin/development`, record HEAD, working-tree state, relevant package versions, and any commits after the audited baseline. Do not discard unrelated work.
+  - Acceptance: Progress Log records the actual starting SHA and describes any scope-changing drift.
+  - Verify: `git status --short`, `git log -10 --oneline`, existing root typecheck/test/build commands.
+
+- [x] **0.2 Write a form ownership and state contract.** Document definition vs placement vs published snapshot vs submission ownership, draft/published behavior, deletion/archive rules, and tenant boundaries.
+  - Acceptance: one authoritative document is referenced by shared types and tests; no duplicate source of truth remains unexplained.
+
+- [ ] **0.3 Correct false-positive completion gaps from the previous plan.** At minimum verify and fix: rich-text editing is actually usable; pricing-table CTA/link/highlight rendering; announcement-bar link rendering; site-logo home link resolution; form route/rendering claims; published reference counts.
+  - Acceptance: each advertised control affects editor, preview, and public output where applicable; no dead dashboard link.
+  - Verify: focused unit/integration tests and renderer parity tests.
+
+### Phase 1 — Shared form model and migration
+
+- [ ] **1.1 Introduce versioned shared form contracts.** Add strict schemas for definition revision, placement presentation, published form snapshot, public submission request/result, submission source, and stored schema snapshot.
+  - Acceptance: unknown fields are rejected; limits exist for field count, labels, options, and payload size; all schemas are shared by frontend/backend/renderer.
+
+- [ ] **1.2 Migrate legacy form elements safely.** Convert raw/duplicate block properties to the canonical definition/placement model while preserving old documents and published snapshots.
+  - Acceptance: old documents load without data loss; newly saved documents use the new schema; migration is idempotent and tested.
+
+- [ ] **1.3 Add optimistic concurrency and revision semantics.** Definition updates require the expected revision and return a typed conflict response.
+  - Acceptance: two tabs cannot silently overwrite one another; the UI can reload or intentionally retry.
+
+### Phase 2 — Complete authenticated form APIs
+
+- [ ] **2.1 Finish definition services and routes.** Add templates, usage lookup, archive/restore, duplicate, and safe delete/rebind checks on top of the existing repository.
+  - Acceptance: a referenced form cannot be silently deleted; usages identify page and block; forms with submissions archive instead of destructive deletion.
+
+- [ ] **2.2 Expose tenant-safe submission management APIs.** Implement list/detail/counts, filters by form/status/date/page/source, pagination, mark read, archive, spam, safe delete, bulk actions, and streamed CSV export with formula-injection protection.
+  - Acceptance: every query is scoped by authenticated workspace/project; indexes support main filters; large exports do not load everything into memory.
+
+- [ ] **2.3 Reconcile site module facts.** Include form block references, definitions, retained submissions, unread totals, incomplete configuration, archived references, and publish staleness in the existing status/readiness system.
+  - Acceptance: optional navigation, badges, status cards, and blockers derive from server facts rather than frontend guesses.
+
+### Phase 3 — Forms Center UX
+
+- [ ] **3.1 Add real routes under the existing authenticated site shell.** Implement:
+  - `/app/:workspaceId/sites/:projectId/forms`
+  - `/app/:workspaceId/sites/:projectId/forms/new`
+  - `/app/:workspaceId/sites/:projectId/forms/:formId/edit`
+  - `/app/:workspaceId/sites/:projectId/forms/submissions`
+  - Acceptance: direct navigation, refresh, breadcrumbs, permissions, loading, empty, error, and not-found states work.
+
+- [ ] **3.2 Build the Forms overview.** Show form name, active/archived state, usage pages, total/new submissions, last submission, last edit, and draft changes waiting for publication. Include search/filter and clear create/duplicate/archive actions.
+  - Acceptance: clicking usage opens the exact page/block; clicking counts opens the correctly filtered inbox.
+
+- [ ] **3.3 Build a focused form editor.** Support name, templates (`Blank`, `Contact`, `Lead`, `Newsletter`), add/reorder/duplicate/delete fields, field settings/options/validation, success message or safe redirect, retention, autosave state, and revision conflicts.
+  - Acceptance: keyboard operation, validation, dirty/saving/saved/error states, and mobile data-page layout are usable; no canvas is needed here.
+
+- [ ] **3.4 Build the submissions inbox.** Add summary counts, filters, pagination, selectable rows, bulk status actions, CSV export, and an accessible detail drawer/page showing preserved historical labels and source context.
+  - Acceptance: unread badge updates consistently; actions are reversible where practical; destructive actions require explicit confirmation.
+
+### Phase 4 — Builder binding and actual visual
+
+- [ ] **4.1 Replace raw `formId` editing with a form binding control.** The right inspector must show current form, searchable “Choose existing form”, “Create new form”, “Edit fields/settings”, usage, and missing/archived warnings.
+  - Acceptance: users never need to copy an ID; create binds automatically; rebind is explicit; unbind does not delete the definition.
+
+- [ ] **4.2 Implement quick-create and safe edit-and-return.** From a selected form block, allow name/template creation inline or open the Forms Center. Autosave the page draft before leaving and preserve a signed/validated internal `returnTo` containing project, page, selected block, and device preview.
+  - Acceptance: returning restores the exact builder context; unsafe external return URLs are rejected.
+
+- [ ] **4.3 Render the actual form in the canvas.** Use the shared renderer with editor mode: fields are visible, styled, selectable as one block, and cannot submit or steal builder drag/resize interactions.
+  - Acceptance: no placeholder word and no `null` output; loading, unbound, missing, archived, and valid states are visually distinct and actionable.
+
+- [ ] **4.4 Add responsive presentation controls.** Expose preset, width, alignment, spacing, field spans, visual style, and normal free/grid/flex geometry without duplicating definition data.
+  - Acceptance: the form can be full-page, full-section, column-sized, or compact; Desktop/Tablet/Mobile previews remain inside their viewport with no horizontal overflow.
+
+- [ ] **4.5 Add the Full-page form pattern.** Insert a responsive section/container/form composition and open binding immediately.
+  - Acceptance: pattern uses normal primitives, can be detached/edited, and compiles through the same pipeline.
+
+### Phase 5 — Preview, publication, and public submission
+
+- [ ] **5.1 Pass published forms into the shared renderer.** Resolve form placements against the draft definition in editor/preview and the embedded immutable revision in public rendering.
+  - Acceptance: editor, clean preview, and published site share markup/styles and differ only by mode-specific behavior.
+
+- [ ] **5.2 Make preview safe.** Desktop/Tablet/Mobile preview shows validation and success behavior without creating database records or firing notifications.
+  - Acceptance: preview is clearly labeled when submitting; automated tests prove zero persisted submissions.
+
+- [ ] **5.3 Implement the same-origin public endpoint.** Add `POST /__wb/forms/:formId/submissions` in the public renderer path. Resolve `Host -> active site -> active immutable snapshot -> exact form revision`; do not validate against a newer live definition.
+  - Acceptance: native HTML POST works without JavaScript; the small public runtime progressively enhances submission and inline errors.
+
+- [ ] **5.4 Harden public intake.** Enforce body/field limits, strict allowlists, required/type validation, honeypot, rate limiting, duplicate suppression, tenant isolation, safe redirect rules, privacy-conscious IP/user-agent handling, and structured audit logs without field values.
+  - Acceptance: arbitrary fields, cross-tenant IDs, oversized payloads, spam paths, and forged page/source identifiers are rejected or classified safely.
+
+- [ ] **5.5 Preserve historical meaning.** Store definition ID/revision plus a minimal field-schema snapshot with each submission. Compute project/site/page/path and accepted campaign parameters server-side from trusted request context.
+  - Acceptance: old submissions remain readable after labels/options change or old published versions are pruned.
+
+- [ ] **5.6 Keep notifications provider-neutral.** Preserve the existing adapter and development sink, but do not claim production email delivery without a configured provider.
+  - Acceptance: the Forms inbox is the reliable source of truth; notification status is explicit and failures never lose submissions.
+
+### Phase 6 — Readiness, publish lifecycle, and deletion rules
+
+- [ ] **6.1 Add actionable form readiness findings.** Detect unbound block, missing definition, zero usable fields, invalid redirect, archived referenced form, invalid field options, and definition changes newer than the active publication.
+  - Acceptance: each finding opens the exact form or builder block; publish blocks only on genuine errors and distinguishes warnings.
+
+- [ ] **6.2 Implement draft-versus-published messaging.** Forms Center and builder show “Changes waiting to publish” when the draft definition revision differs from the active snapshot.
+  - Acceptance: editing a form never mutates a live site silently; republish clears the state.
+
+- [ ] **6.3 Finalize lifecycle behavior.** Prevent deletion while referenced, offer “show usages”, rebind, or remove placements; archive forms with retained submissions; keep historical inbox access after the last placement is removed.
+  - Acceptance: no orphaned blocks, inaccessible history, or accidental cascading deletion.
+
+### Phase 7 — Accessibility, responsiveness, performance, and clarity
+
+- [ ] **7.1 Make generated forms accessible.** Correct labels, fieldsets/legends, descriptions, required/invalid semantics, error summary, focus movement, keyboard order, contrast, and reduced-motion behavior.
+  - Acceptance: automated accessibility checks plus keyboard-only create, fill, error, correct, and submit paths pass.
+
+- [ ] **7.2 Verify responsive UI and output.** Test Forms Center at phone/tablet/desktop and generated forms at the three product breakpoints, long labels, large option sets, and narrow containers.
+  - Acceptance: no clipped controls or horizontal overflow; builder editing remains desktop-only while previews remain available as designed.
+
+- [ ] **7.3 Protect bundle and runtime budgets.** Lazy-load Forms Center/editor/inbox and keep the public runtime conditional. Reduce the main entry enough to remove the current Vite `>500 kB` warning or document a measured, justified budget decision.
+  - Acceptance: bundle report records raw/gzip deltas; pages without forms receive no form runtime.
+
+- [ ] **7.4 Perform a clarity pass.** Keep one primary action per empty state, consistent statuses, plain labels, contextual help, skeletons instead of layout jumps, and no dead/duplicated controls.
+  - Acceptance: a first-time user can create a form, place it, preview it, publish it, submit it, and find the response without copying IDs or guessing navigation.
+
+### Phase 8 — Verification and delivery
+
+- [ ] **8.1 Add focused automated coverage.** Cover shared schemas/migrations, repository isolation, concurrency, lifecycle, authenticated APIs, public intake, spam/rate limits, snapshot-version validation, CSV safety, builder binding, rendering parity, readiness, inbox actions, and navigation.
+
+- [ ] **8.2 Add critical E2E journeys.** At minimum:
+  1. Quick-create from builder -> bind -> real canvas -> three previews -> publish -> public submit -> inbox.
+  2. Existing form -> place small and full-page -> responsive rendering.
+  3. Edit after publish -> live version unchanged -> waiting-to-publish -> republish -> new version live.
+  4. Referenced/archive/delete and retained-history behavior.
+  5. Preview submit proves no persistence.
+  6. Cross-tenant and public abuse cases fail safely.
+
+- [ ] **8.3 Run final gates from the repository root.** Run format/lint if configured, typecheck, all unit/integration tests with a working MongoDB test runtime, production build, bundle-budget checks, E2E, accessibility checks, and container smoke. Fix regressions instead of weakening assertions.
+
+- [ ] **8.4 Run the deployed Coolify smoke when owner access/configuration exists.** Verify authenticated Forms Center, public domain routing, public submission, inbox visibility, and logs on the real deployment.
+  - Use `[!]` only if this genuinely requires owner-only access or configuration, and state the exact command/action the owner must perform.
+
+- [ ] **8.5 Final handoff.** Update README/API/environment/deployment notes, Progress Log, and Decision Log. Report exact commands, counts, bundle sizes, remaining `[!]` items, migration/rollback notes, and final commit SHA. Commit and push to `development`; do not merge `main`.
+
+## 5. Required verification matrix
+
+| Surface | Required proof |
+|---|---|
+| Shared model | schema, limits, migration, revision, snapshot tests |
+| Builder | bind/create/edit-return, real canvas, resize/layout, missing states |
+| Preview | desktop/tablet/mobile parity and zero persistence |
+| Public site | no-JS and enhanced submit, exact snapshot validation, accessibility |
+| Backend | auth, tenant isolation, status transitions, retention, CSV safety |
+| Forms Center | routes, empty/error/loading states, filters, bulk actions, mobile |
+| Lifecycle | usage, archive/delete/rebind, draft-vs-published, history preservation |
+| Operations | typecheck, full tests, build, budgets, E2E, container/deployed smoke |
+
+## 6. Progress Log
+
+Append one entry per completed task. Never rewrite history.
 
 ```text
-/goal Every task in BUILDER_BLOCK_LIBRARY_PLAN.md is either [x] with its acceptance criteria and verification completed, or [!] only when it genuinely requires user-only credentials, permissions, an unavailable external service, or an irreversible decision. Continue through all unblocked phases without stopping after a single task. Keep the Progress Log and Decision Log accurate, answer the user in Brazilian Portuguese, keep code and artifacts in English, work only on development, and do not merge main. The final root typecheck, tests, build, E2E, responsive visual regression, and container/deployed smoke checks must pass, except checks explicitly marked [!] with concrete evidence and exact user action required.
+YYYY-MM-DD HH:mm | Task X.Y | files/behavior changed | verification command + result | commit SHA (if any)
+2026-08-12 11:10 | Task 0.1 | no code change; branch audited | HEAD 6702acddc55cd99d2715c3e09a5d9d736577bb54 == audited baseline and == origin/development, 27 ahead of origin/main; working tree clean but for the replaced IMPLEMENTATION_PLAN.md; no drift, no unrelated work discarded. npm run typecheck exit 0; npm run test exit 0 with 1,940 tests / 134 files (shared 639/37, backend 631/41, frontend 670/56) | —
+2026-08-12 11:12 | Task 0.2 | docs/FORMS.md (new), packages/shared/src/forms-contract.test.ts (new), packages/shared/src/forms.ts header points at the contract | vitest packages/shared src/forms-contract.test.ts → 2 passed; the test parses §7 of the document and fails if it names a path that does not exist | —
+2026-08-12 11:21 | Task 0.3 (partial) | pricing-table CTA/link/highlight now rendered; announcement-bar link now rendered; site-logo home link resolved through a new RendererContext.homePath instead of resolvePagePath("") which was never a page id; richText block given the real editor (moved to components/common/RichTextEditor, shared with the blog) and its false "toolbar on the canvas" copy replaced in both locales; publishedReferenceCount computed from the active snapshot instead of a hardcoded 0; the false comment about a form dispatcher corrected | vitest frontend advertised-controls (9 new) + structured-blocks (38) + backend site-status (12, 2 new) all pass; npm run typecheck exit 0; npm run test exit 0 with 1,954 tests. REMAINS OPEN: the acceptance also requires "no dead dashboard link", and /app/:workspaceId/sites/:projectId/forms is delivered by 3.1 — 0.3 is checked only after that route exists | —
 ```
+
+## 7. Decision Log
+
+Record material choices and why they preserve product behavior, security, compatibility, or maintainability.
+
+```text
+YYYY-MM-DD | Decision | alternatives considered | reason | migration/compatibility impact
+2026-08-12 | The definition owns submit label, success behaviour, error message and consent; the placement owns only presentation | keep them on the block as display-only overrides; split them by field | two placements of one form must not say different things after submission, and consent is a question whose answer has to be stored beside the others rather than a block flag with nowhere to go | form element v1 → v2 migration, §5 of docs/FORMS.md
+2026-08-12 | A v1 form element's copy is preserved on the element as `legacyCopy` rather than discarded or written into a definition | drop it; write it into the referenced definition during migration | an element migration is a pure function over one payload and cannot reach another collection, and a block with an empty formId has no definition to write into; keeping it means the builder can offer it as the seed when a form is created from that block | no data loss; the migration is idempotent because a v2 element has no legacy fields left to move
+2026-08-12 | The site logo's home link is resolved from a new RendererContext.homePath | keep resolvePagePath(""); store a page id on the block | "" is not a page id, so every linked logo on every published site rendered unlinked; a stored id would be a second copy of which page is home and would break the first time home moved | absent in the builder canvas, which is correct — the logo must be editable there rather than navigating
+2026-08-12 | publishedReferenceCount is counted from the active published snapshot, loaded per request | store it on the project when publishing | a stored count is a projection that drifts the moment a rollback moves the pointer; the snapshot is the only record of what the public can actually see | scoped twice — the caller's workspace is verified by the resolver and the snapshot is used only when it belongs to that workspace
+2026-08-12 | RichTextEditor moved from features/blog to components/common and its toolbar copy to the `common` namespace | a second editor for the builder; import across features | one editor against one validated document shape; a second set of tiptap extensions is a second thing to keep aligned with the schema | the formatting toolbar is now named "Formatting" rather than repeating the field's own name, which also removes two elements sharing one accessible name
+```
+
+## 8. Completion definition
+
+This plan is complete only when every task is `[x]`, except a task may be `[!]` solely for a documented owner-only credential, permission, production access, or irreversible choice. A form must be visible and configurable in the builder, safely previewable, responsive when small or full-page, versioned in publication, submittable on the public site, and manageable in a tenant-safe Forms Center with a real submissions inbox. Root typecheck, full tests, production build, bundle checks, E2E, accessibility, and available smoke tests must pass, with accurate logs and no false claims.

@@ -22,7 +22,7 @@ import { ProjectRepository } from "./modules/projects/repository";
 import { createProjectsRouter } from "./modules/projects/routes";
 import { WorkspaceRepository } from "./modules/workspaces/repository";
 import { COLLECTIONS } from "./db/indexes";
-import { hasPublishedTemplate } from "@websitebuilder/shared";
+import { hasPublishedTemplate, type BuilderProject } from "@websitebuilder/shared";
 import { CmsRepository, ensureCmsIndexes } from "./modules/cms/repository";
 import { createCmsRouter } from "./modules/cms/routes";
 import { CloudflareHostnameProvider } from "./modules/domains/cloudflare";
@@ -152,6 +152,12 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
         resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
         // Facts come from each module's own records, never from the request.
         collectModuleFacts,
+        // Scoped twice: the caller's workspace is verified by the resolver, and the snapshot is
+        // used only when it belongs to that same workspace.
+        loadPublishedDocument: async ({ workspaceId, projectId }) => {
+          const active = await publishing.findActiveForProject(projectId);
+          return active === null || active.workspaceId !== workspaceId ? null : (active.document as BuilderProject);
+        },
       }),
     },
     {

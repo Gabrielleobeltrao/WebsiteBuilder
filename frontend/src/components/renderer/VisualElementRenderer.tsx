@@ -29,8 +29,9 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
 
   switch (element.type) {
     case "form":
-      // Rendered by the form block, which needs the definition it references and therefore the
-      // module's own component. Reaching this case at all means the dispatcher above did not.
+      // A form needs the definition it references, which this renderer cannot resolve from the
+      // element alone. `ElementRenderer` dispatches the type to `FormRenderer` before reaching
+      // here; this case exists so the exhaustiveness check below stays honest.
       return null;
     case "divider":
       return (
@@ -206,20 +207,54 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
       // they do not, with no media query and no width the document had to guess.
       return (
         <ul style={{ display: "flex", gap: 16, listStyle: "none", padding: 0, flexWrap: "wrap" }}>
-          {element.plans.map((plan, index) => (
-            <li key={index} style={{ flex: "1 1 220px", minWidth: 0 }}>
-              <h3>{plan.name}</h3>
-              <p>
-                {plan.price}
-                <span> {plan.period}</span>
-              </p>
-              <ul>
-                {plan.features.map((feature, position) => (
-                  <li key={position}>{feature}</li>
-                ))}
-              </ul>
-            </li>
-          ))}
+          {element.plans.map((plan, index) => {
+            const cta = resolveSafeLinkHref(plan.link, {
+              resolvePagePath,
+              ...(allowHttp === undefined ? {} : { allowHttp }),
+            });
+
+            return (
+              <li
+                key={index}
+                style={{
+                  flex: "1 1 220px",
+                  minWidth: 0,
+                  // The highlighted plan is the one the author wants chosen. It is marked with a
+                  // border rather than a colour alone, so it still reads as different to someone
+                  // who cannot distinguish the colour.
+                  border: plan.highlighted ? "2px solid currentColor" : "1px solid rgba(0,0,0,0.12)",
+                  borderRadius: 8,
+                  padding: 16,
+                }}
+              >
+                <h3>{plan.name}</h3>
+                <p>
+                  {plan.price}
+                  <span> {plan.period}</span>
+                </p>
+                <ul>
+                  {plan.features.map((feature, position) => (
+                    <li key={position}>{feature}</li>
+                  ))}
+                </ul>
+                {/* A plan whose call to action has no label offers none: an empty button is a
+                    target that says nothing and does nothing. An unresolvable link renders the
+                    label as inert text rather than sending anybody somewhere unsafe. */}
+                {plan.ctaLabel.trim() !== "" &&
+                  (cta === null ? (
+                    <span>{plan.ctaLabel}</span>
+                  ) : (
+                    <a
+                      href={cta.href}
+                      {...(cta.target ? { target: cta.target } : {})}
+                      {...(cta.rel ? { rel: cta.rel } : {})}
+                    >
+                      {plan.ctaLabel}
+                    </a>
+                  ))}
+              </li>
+            );
+          })}
         </ul>
       );
 
@@ -292,7 +327,14 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
         </div>
       );
 
-    case "announcementBar":
+    case "announcementBar": {
+      // The whole bar is the target when it links somewhere. An announcement is one statement, and
+      // a link around part of the sentence is a smaller thing to hit for no gain.
+      const announcement = resolveSafeLinkHref(element.link, {
+        resolvePagePath,
+        ...(allowHttp === undefined ? {} : { allowHttp }),
+      });
+
       return (
         <div
           role="region"
@@ -302,9 +344,21 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
           {...(element.dismissible ? { "data-wb-dismiss": element.id } : {})}
           style={{ backgroundColor: element.backgroundColor, color: element.textColor, padding: "8px 12px" }}
         >
-          {element.text}
+          {announcement === null ? (
+            element.text
+          ) : (
+            <a
+              href={announcement.href}
+              {...(announcement.target ? { target: announcement.target } : {})}
+              {...(announcement.rel ? { rel: announcement.rel } : {})}
+              style={{ color: "inherit" }}
+            >
+              {element.text}
+            </a>
+          )}
         </div>
       );
+    }
   }
 
   // Unreachable while every member of the union is handled above. When a new block is added and

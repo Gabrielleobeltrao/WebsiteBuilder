@@ -21,4 +21,13 @@ export default {
     empty: "Nothing here yet",
     error: "Something went wrong",
   },
+  richText: {
+    formatting: "Formatting",
+    bold: "Bold",
+    italic: "Italic",
+    heading: "Heading",
+    bulletList: "Bulleted list",
+    orderedList: "Numbered list",
+    quote: "Quote",
+  },
 } as const;

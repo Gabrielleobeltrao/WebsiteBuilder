@@ -44,6 +44,14 @@ const NO_FACTS: ModuleFacts = {
 export function reconcileSiteStatus(input: {
   project: BuilderProject;
   facts: Partial<Record<SiteFeatureKey, ModuleFacts>>;
+  /**
+   * The document currently serving visitors, when the project has published one.
+   *
+   * Counted from the snapshot rather than from the draft, because those are two different
+   * questions: "is this module on a page I am editing" and "is this module on a page the public can
+   * see". Absent means nothing is live, which is exactly what an unpublished project should report.
+   */
+  published?: BuilderProject | null;
   now?: string;
 }): SiteStatus {
   const now = input.now ?? new Date().toISOString();
@@ -60,10 +68,8 @@ export function reconcileSiteStatus(input: {
       now,
       source: {
         draftReferenceCount,
-        // Published references are counted from the active snapshot in Phase 18; until a site has
-        // been published there are none, and claiming otherwise would let an unpublished module
-        // report itself as live.
-        publishedReferenceCount: 0,
+        publishedReferenceCount:
+          input.published == null ? 0 : countReferences(input.published.pages, feature),
         blockingIssueCount: facts.blockingIssueCount,
         warningCount: facts.warningCount,
         explicitlyActivated: facts.explicitlyActivated,

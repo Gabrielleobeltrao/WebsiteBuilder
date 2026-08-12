@@ -4,6 +4,7 @@ import {
   migrateDocumentElements,
   migrateDocumentResponsive,
   SCHEMA_VERSION,
+  type BuilderProject,
   type CompileInput,
   type CompileResult,
   type PublishableCmsItem,
@@ -239,7 +240,12 @@ export class PublishingService {
     // asset belonging to another tenant even if the document names its id.
     const ownedMedia = new Set(media.map((asset) => asset.id));
 
-    const status = reconcileSiteStatus({ project, facts });
+    const active = await this.deps.publishing.findActiveForProject(projectId);
+    const status = reconcileSiteStatus({
+      project,
+      facts,
+      published: active === null || active.workspaceId !== context.workspaceId ? null : (active.document as BuilderProject),
+    });
 
     // The same migration the builder applies when a draft is opened. Publishing must not depend on
     // somebody having opened the editor first: a site published straight from an old document would

@@ -98,6 +98,9 @@ export function renderRouteHtml(input: {
             {
               value: {
                 resolvePagePath: (pageId: string) => pathByPageId.get(pageId) ?? null,
+                // A site with no home page has no home to link to. Saying so is better than sending
+                // a visitor to a path this document never published.
+                homePath: document.pages.some((candidate) => candidate.isHome) ? href("/") : null,
                 resolveMediaUrl: (mediaId: string) => `${input.mediaBaseUrl}/${encodeURIComponent(mediaId)}`,
                 // Home, then this page. The site's own structure is one level deep today; when
                 // sections of a site exist, this is the one place that changes.

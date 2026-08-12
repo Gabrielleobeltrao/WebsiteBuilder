@@ -21,4 +21,13 @@ export default {
     empty: "Nada por aqui ainda",
     error: "Algo deu errado",
   },
+  richText: {
+    formatting: "Formatação",
+    bold: "Negrito",
+    italic: "Itálico",
+    heading: "Título",
+    bulletList: "Lista com marcadores",
+    orderedList: "Lista numerada",
+    quote: "Citação",
+  },
 } as const;

@@ -10,6 +10,8 @@ import {
 } from "@websitebuilder/shared";
 import { useTranslation } from "react-i18next";
 
+import { RichTextEditor } from "@/components/common/RichTextEditor";
+
 import { ColorField, InspectorGroup, NumberField, SelectField, TextField, ToggleField } from "./controls";
 import { ItemsEditor } from "./ItemsEditor";
 import { MediaPickerField } from "./MediaPickerField";
@@ -437,6 +439,14 @@ export function VisualElementInspector({
     case "richText":
       return (
         <InspectorGroup titleKey="content">
+          {/* The same editor the blog post body uses, against the same validated document shape.
+              This block previously offered a sentence pointing at a canvas toolbar that does not
+              exist, which left it as the one block in the catalog nobody could put words into. */}
+          <RichTextEditor
+            label={t("fields.richText")}
+            value={element.content}
+            onChange={(content) => set({ content })}
+          />
           <p className="text-[11px] text-ink-500">{t("fields.richTextHint")}</p>
         </InspectorGroup>
       );

@@ -90,7 +90,7 @@ describe("every structured block opens an inspector with its own fields", () => 
     ["pricingTable", "Plans"],
     ["announcementBar", "Text"],
     ["form", "Form"],
-    ["richText", "Edit the text directly"],
+    ["richText", "Bold"],
     ["navigationMenu", "Menu items"],
     ["siteLogo", "Text when there is no image"],
     ["testimonial", "Quote"],
@@ -170,6 +170,23 @@ describe("guards a person would not think to ask for", () => {
 
     await user.type(screen.getByLabelText("Video identifier"), "dQw4w9WgXcQ");
     expect(current(id)).toMatchObject({ videoId: "dQw4w9WgXcQ", provider: "youtube" });
+  });
+
+  it("gives the rich-text block somewhere to actually write", () => {
+    withBlock("richText");
+
+    // It used to offer a sentence pointing at a canvas toolbar that does not exist, which left it
+    // as the one block in the catalog whose content could not be changed by anybody.
+    //
+    // Asserted as a surface rather than by typing: ProseMirror measures its own document, which
+    // needs layout jsdom does not do. What can regress here — and did — is the editor not being
+    // mounted at all.
+    const toolbar = screen.getByRole("toolbar", { name: "Formatting" });
+    for (const control of ["Bold", "Italic", "Heading", "Quote"]) {
+      expect(within(toolbar).getByRole("button", { name: control })).toBeInTheDocument();
+    }
+
+    expect(screen.getByLabelText("Text").getAttribute("contenteditable")).toBe("true");
   });
 
   it("asks for consent text only when consent is required", async () => {

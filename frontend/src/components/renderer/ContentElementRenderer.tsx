@@ -19,7 +19,7 @@ import { useRendererContext } from "./RendererContext";
  * that is the line this file does not cross.
  */
 export function ContentElementRenderer({ element }: { element: ContentElement }) {
-  const { resolveMediaUrl, resolvePagePath, allowHttp } = useRendererContext();
+  const { resolveMediaUrl, resolvePagePath, homePath, allowHttp } = useRendererContext();
   const link = (value: unknown) =>
     resolveSafeLinkHref(value as Parameters<typeof resolveSafeLinkHref>[0], {
       resolvePagePath,
@@ -86,7 +86,7 @@ export function ContentElementRenderer({ element }: { element: ContentElement })
       // Falls back to the site's name rather than to nothing: a header with an empty box where the
       // logo should be looks broken, and a word does the job.
       const mark = src === null ? <span>{element.fallbackText}</span> : <img src={src} alt={element.alt} style={{ maxWidth: "100%", height: "auto" }} />;
-      const home = resolvePagePath("");
+      const home = homePath ?? null;
 
       return element.linksHome && home !== null ? <a href={home}>{mark}</a> : <>{mark}</>;
     }

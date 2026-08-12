@@ -241,7 +241,8 @@ export default {
   },
 
   "fields": {
-    richTextHint: "Edit the text directly on the canvas. Formatting comes from the toolbar that appears there.",
+    richText: "Text",
+    richTextHint: "Formatting is limited to what a published page can carry safely: headings, lists, quotes, bold, italic and links.",
     menuItems: "Menu items",
     orientation: "Direction",
     collapseBelow: "Collapse below (px)",

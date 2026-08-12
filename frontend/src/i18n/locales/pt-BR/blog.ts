@@ -55,14 +55,6 @@ export default {
     back: "Voltar para posts",
     newPost: "Novo post",
     required: "Dê um título ao post antes de salvar.",
-    toolbar: {
-      bold: "Negrito",
-      italic: "Itálico",
-      heading: "Título",
-      bulletList: "Lista com marcadores",
-      orderedList: "Lista numerada",
-      quote: "Citação",
-    },
   },
 
   "preview": {

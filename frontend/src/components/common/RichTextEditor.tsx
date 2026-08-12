@@ -5,7 +5,11 @@ import StarterKit from "@tiptap/starter-kit";
 import { useTranslation } from "react-i18next";
 
 /**
- * Rich text editing for post bodies.
+ * Rich text editing, wherever structured text is authored.
+ *
+ * Shared by the blog post editor and the builder's rich-text block: both store the same validated
+ * document shape, and a second editor for the second caller would be a second set of extensions to
+ * keep aligned with one schema.
  *
  * The editor is configured to produce only the node and mark types the shared schema allows, and
  * every change is validated against that schema before it reaches the caller. An editor extension
@@ -21,7 +25,7 @@ export function RichTextEditor({
   onChange: (value: RichTextDocument) => void;
   label: string;
 }) {
-  const { t } = useTranslation("blog");
+  const { t } = useTranslation("common");
 
   const editor = useEditor({
     extensions: [
@@ -74,7 +78,7 @@ export function RichTextEditor({
 
   return (
     <div>
-      <div role="toolbar" aria-label={label} className="flex flex-wrap gap-1 rounded-t-md border border-ink-200 p-1">
+      <div role="toolbar" aria-label={t("richText.formatting")} className="flex flex-wrap gap-1 rounded-t-md border border-ink-200 p-1">
         {actions.map((action) => (
           <button
             key={action.key}
@@ -86,7 +90,7 @@ export function RichTextEditor({
               action.active ? "bg-ink-900 text-white" : "text-ink-600 hover:bg-ink-50",
             ].join(" ")}
           >
-            {t(`editor.toolbar.${action.key}`)}
+            {t(`richText.${action.key}`)}
           </button>
         ))}
       </div>

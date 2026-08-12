@@ -55,14 +55,6 @@ export default {
     back: "Back to posts",
     newPost: "New post",
     required: "Give the post a title before saving.",
-    toolbar: {
-      bold: "Bold",
-      italic: "Italic",
-      heading: "Heading",
-      bulletList: "Bulleted list",
-      orderedList: "Numbered list",
-      quote: "Quote",
-    },
   },
 
   "preview": {

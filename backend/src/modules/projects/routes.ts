@@ -13,7 +13,7 @@ import type { Permission } from "../workspaces/permissions";
 import type { WorkspaceContext } from "./repository";
 import { ProjectRepository, RevisionConflictError, SlugTakenError } from "./repository";
 import { reconcileSiteStatus, type ModuleFacts } from "./status";
-import type { SiteFeatureKey } from "@websitebuilder/shared";
+import type { BuilderProject, SiteFeatureKey } from "@websitebuilder/shared";
 
 /**
  * Resolves the verified tenant context for a request. Phase 7 replaces the seeded implementation
@@ -48,8 +48,10 @@ export function createProjectsRouter(options: {
     workspaceId: string;
     projectId: string;
   }) => Promise<Partial<Record<SiteFeatureKey, ModuleFacts>>>;
+  /** The document currently serving visitors, so the projection can say what is actually live. */
+  loadPublishedDocument?: (input: { workspaceId: string; projectId: string }) => Promise<BuilderProject | null>;
 }): Router {
-  const { repository, resolveWorkspace, collectModuleFacts } = options;
+  const { repository, resolveWorkspace, collectModuleFacts, loadPublishedDocument } = options;
   // mergeParams: the router is mounted under /workspaces/:workspaceId.
   const router = Router({ mergeParams: true });
 
@@ -94,8 +96,11 @@ export function createProjectsRouter(options: {
       const project = await repository.findById(context, projectId);
       if (project === null) throw new ApiProblem("NOT_FOUND", "Project not found");
 
-      const facts = (await collectModuleFacts?.({ workspaceId: context.workspaceId, projectId })) ?? {};
-      res.json({ data: reconcileSiteStatus({ project, facts }) });
+      const [facts, published] = await Promise.all([
+        collectModuleFacts?.({ workspaceId: context.workspaceId, projectId }) ?? Promise.resolve({}),
+        loadPublishedDocument?.({ workspaceId: context.workspaceId, projectId }) ?? Promise.resolve(null),
+      ]);
+      res.json({ data: reconcileSiteStatus({ project, facts, published }) });
     } catch (error) {
       next(error);
     }

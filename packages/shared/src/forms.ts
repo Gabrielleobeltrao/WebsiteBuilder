@@ -3,6 +3,11 @@ import { z } from "zod";
 /**
  * Native forms.
  *
+ * `docs/FORMS.md` is the contract these types implement: it states which record owns which part of
+ * a form, which definition each surface renders, and what happens on edit, publish, archive and
+ * delete. Read it before changing anything here — a change that moves ownership is a change to that
+ * document first.
+ *
  * Submissions are keyed by stable field IDs, never by label, so renaming "Your name" to "Full name"
  * keeps every past submission readable. Validation is derived from the same definition on the
  * client and the server — the client for feedback, the server as the actual boundary.
