@@ -157,9 +157,9 @@ The implementation must first activate and complete block schemas that already e
 
 ### Phase 4 — Activate the fourteen existing visual schemas
 
-- [ ] **4.1 Icon.** Replace placeholder glyphs with an allowlisted, tree-shakeable SVG icon catalog. Support size, color, accessible/decorative mode, and typed link.
+- [x] **4.1 Icon.** Replace placeholder glyphs with an allowlisted, tree-shakeable SVG icon catalog. Support size, color, accessible/decorative mode, and typed link.
 - [ ] **4.2 Icon List.** Editable item order, icon choice, label, typed link, spacing, alignment, wrapping, and keyboard-safe controls.
-- [ ] **4.3 Divider and Spacer.** Responsive thickness/length/style/color and responsive space; never create horizontal overflow.
+- [x] **4.3 Divider and Spacer.** Responsive thickness/length/style/color and responsive space; never create horizontal overflow.
 - [ ] **4.4 Accordion.** Editable items, single/multiple-open behavior, native semantics where possible, keyboard behavior, initial state, icons, and FAQ schema option.
 - [ ] **4.5 Tabs.** Editable labels/panels, selected state, arrow-key navigation, orientation, mobile overflow/stack behavior, and no-JavaScript readable fallback.
 - [ ] **4.6 Gallery.** Media-library selection, order, columns/gap, aspect ratio, captions, responsive layout, and accessible lightbox.
@@ -316,6 +316,8 @@ The plan adopts the proven discoverability and contextual-editing patterns, whil
 - 2026-08-12 — E2E: one preview journey was flaky under parallel workers, clicking a card link during the list's own render. It now waits for the card and the builder's own control before acting. 73 E2E pass.
 - 2026-08-12 — 4.1-4.13 (editing) Every structured block now has a working inspector: `VisualElementInspector` covers icon, icon list, divider, spacer, FAQ, tabs, gallery, video, social links, download button, breadcrumbs, table, pricing table, announcement bar and form. Repeatable items share one `ItemsEditor` — add, reorder, duplicate, remove, each with the row's own name in its control label. A social row whose address does not belong to the network it claims warns in place; a table's rows follow its columns so no unreachable cell can be stored; consent text appears only when consent is required. 22 tests, and every field is translated in both locales.
 - 2026-08-12 — 4.1/3.3/4.7 (rendering) Icons are real SVG drawn from a closed vocabulary in `BlockIcon.tsx`, replacing the bullet that was the same mark for every icon in the set. A button's stored icon is finally rendered, decorative, before or after its label. A video renders its player from provider + id — never a stored URL — and shows a labelled placeholder while unconfigured. Five renderer tests.
+- 2026-08-12 — 4.1 Icon complete: allowlisted SVG set, size, colour, decorative by default, and a typed link that gives the icon an accessible name when it becomes the only thing announced. 4.3 Divider and Spacer complete: divider is capped at the width of what holds it so a rule cannot push a phone sideways; spacer height is geometry and is edited once, in Layout, with its own value per device.
+- 2026-08-12 — **Next**: 3.1-3.4 (media picker for image, container responsive controls), 4.2/4.4-4.6/4.8-4.13 (per-block rendering upgrades: icon-list links need a schema v2 + migration, accordion/tabs/gallery/table/pricing/announcement behaviour), then Phases 5-10. Every phase so far is committed on `development`; `main` untouched.
 - 2026-08-12 — 10.4 (frontend) An unexpected `console.error`/`console.warn` now fails the test that produced it; a test that means to provoke one declares it with `allowConsole(/pattern/)`. All 53 frontend files pass under the gate.
 
 ## Decision Log

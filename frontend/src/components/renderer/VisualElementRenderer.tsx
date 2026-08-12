@@ -1,4 +1,5 @@
 import {
+  resolveSafeLinkHref,
   serializeFocalPoint,
   videoEmbedUrl,
   VIDEO_IFRAME_ALLOW,
@@ -17,7 +18,14 @@ import { useRendererContext } from "./RendererContext";
  * browser upgrades them in place.
  */
 export function VisualElementRenderer({ element }: { element: VisualElement }) {
-  const { resolveMediaUrl } = useRendererContext();
+  const { resolveMediaUrl, resolvePagePath, allowHttp } = useRendererContext();
+
+  // Resolved before the switch, because hooks and helpers cannot be called inside one branch only.
+  const iconHref =
+    element.type === "icon"
+      ? resolveSafeLinkHref(element.link, { resolvePagePath, ...(allowHttp === undefined ? {} : { allowHttp }) })
+      : null;
+  const iconLabel = element.type === "icon" && iconHref !== null ? element.name || element.icon : undefined;
 
   switch (element.type) {
     case "form":
@@ -31,6 +39,10 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
             border: 0,
             borderTop: `${element.thickness}px ${element.style} ${element.color}`,
             margin: 0,
+            // Never wider than what holds it. A rule is decoration, and decoration that pushes the
+            // page sideways on a phone is worse than no rule.
+            width: "100%",
+            maxWidth: "100%",
           }}
         />
       );
@@ -40,8 +52,16 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
       // announced as an empty region.
       return <div aria-hidden style={{ width: "100%", height: "100%" }} />;
 
-    case "icon":
-      return <BlockIcon name={element.icon} size={element.size} color={element.color} />;
+    case "icon": {
+      const drawn = <BlockIcon name={element.icon} size={element.size} color={element.color} label={iconLabel} />;
+      // An icon that links needs a name: on its own it is the only thing announced, and "graphic"
+      // tells nobody where it goes.
+      return iconHref === null ? drawn : (
+        <a href={iconHref.href} {...(iconHref.target ? { target: iconHref.target } : {})} {...(iconHref.rel ? { rel: iconHref.rel } : {})}>
+          {drawn}
+        </a>
+      );
+    }
 
     case "iconList":
       return (
