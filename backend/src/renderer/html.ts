@@ -41,12 +41,19 @@ export function renderRouteHtml(input: {
   canonicalUrl: string;
   mediaBaseUrl: string;
   analytics?: AnalyticsScript;
+  /**
+   * Rewrites internal page links, for a caller that serves this document from somewhere other than
+   * the site's own root — the draft preview, which lives on an authenticated API path. Without it a
+   * link inside a preview would leave the preview.
+   */
+  pageHref?: (path: string) => string;
 }): string {
   const { route, document } = input;
   const page = document.pages.find((candidate) => candidate.id === route.resourceId) ?? null;
 
+  const href = input.pageHref ?? ((path: string) => path);
   const pathByPageId = new Map(
-    document.pages.map((candidate) => [candidate.id, candidate.isHome ? "/" : `/${candidate.slug}`]),
+    document.pages.map((candidate) => [candidate.id, href(candidate.isHome ? "/" : `/${candidate.slug}`)]),
   );
 
   const body =

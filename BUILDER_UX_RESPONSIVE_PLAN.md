@@ -626,23 +626,23 @@ Opening a finding sets the current page, device, selection, and inspector contex
 
 ### Phase 6 — Clean isolated preview
 
-- [ ] **6.1 Create authorized draft-preview document route.**
+- [x] **6.1 Create authorized draft-preview document route.**
   - Acceptance: same responsive compiler, saved draft, no analytics, no mutations, tenant authorization.
   - Verify: API authorization, tenant isolation, CSP, and read-only tests.
 
-- [ ] **6.2 Replace PreviewRoute content with the clean shell.**
+- [x] **6.2 Replace PreviewRoute content with the clean shell.**
   - Acceptance: only Back, Desktop, Tablet, Mobile, and iframe preview are present.
   - Verify: UI test rejects diagnostics, sliders, numeric widths, save, and editor chrome.
 
-- [ ] **6.3 Implement exact iframe viewport and scale-to-fit.**
+- [x] **6.3 Implement exact iframe viewport and scale-to-fit.**
   - Acceptance: internal width stays 1440/768/390 while visual frame fits host width.
   - Verify: Playwright inspects iframe `innerWidth` and bounding-box scale on desktop and phone hosts.
 
-- [ ] **6.4 Keep preview navigation inside preview.**
+- [x] **6.4 Keep preview navigation inside preview.**
   - Acceptance: page links change the iframe route and Back returns to the builder/site dashboard.
   - Verify: multi-page E2E test.
 
-- [ ] **6.5 Keep mobile access preview-only.**
+- [x] **6.5 Keep mobile access preview-only.**
   - Acceptance: narrow devices cannot mount editor mutation paths but can use all three preview modes.
   - Verify: mobile viewport E2E and network assertion for no write request.
 
@@ -774,6 +774,7 @@ Add entries in chronological order. Do not replace previous entries.
 
 | Date | Task | Commit | Verification | Result |
 | --- | --- | --- | --- | --- |
+| 2026-08-11 | 6.1-6.5 clean isolated preview | n/a | `npm run typecheck && npm run test && npm run build && npm run test:e2e` | 1,777 unit tests and 49 E2E pass. The draft is served as a document by an authenticated same-origin route and framed at exactly 1440/768/390; the shell is Back and three devices |
 | 2026-08-11 | 5.1-5.5 drag/drop authoring | n/a | `npm run typecheck && npm run test && npm run build` | 1,748 tests pass, zero failures. Native drag and drop with markers only while dragging; click insertion states its destination; Free/Flex/Grid section rows between every section; Structure reorders by drag and by button; canvas toolbar is Duplicate and Delete only |
 | 2026-08-11 | 4.1-4.5 builder shell and right sidebar | n/a | `npm run typecheck && npm run test && npm run build` | 1,717 tests pass, zero failures. Top bar is the Section 4.2 inventory plus manual Save; five destinations on an icon rail; inspector is Content/Style/Advanced; Page SEO is a subsection of Page settings; feature links appear only once a feature is used |
 | 2026-08-11 | 3.1-3.5 device-aware editing | n/a | `npm run typecheck && npm run test` | 1,708 tests pass, zero failures. Every Phase 0 capture is green |
@@ -793,6 +794,8 @@ Add material implementation decisions here before or while making them.
 
 | ID | Decision | Reason | Consequences |
 | --- | --- | --- | --- |
+| D-018 | Preview frames a server-rendered draft instead of rendering in-app | A div sized to 390 px inside the application's document resolves media queries against the *window*, so the preview showed desktop rules at phone width — the exact failure this plan exists to remove. A frame has its own layout viewport | One authenticated API route serves unpublished content as HTML; its policy differs from a published page by one directive, `frame-ancestors 'self'` |
+| D-017 | The preview route lives under publishing, not projects | It is the same document the publisher would produce, from the same manifest builder, and reusing that path is what keeps preview and publication from drifting | `buildCompileInput` is shared by `compile` and `previewRoute`; preview deliberately skips preflight, so a draft that cannot be published can still be looked at |
 | D-016 | Choosing a destination keeps the canvas selection | The panel used to clear the selection to make the rail usable, which made "add to the selected container" unreachable — opening the library discarded the target it needed | `panelIntent` records what the user asked for last; the inspector returns as soon as anything is selected |
 | D-015 | Native drag and drop, no drag library | The browser already owns the drag image, pointer capture and cancel-on-Escape; a library would reimplement all three, and the payload restriction it works around is one MIME type per drag kind | Validity is decided from `dataTransfer.types`, which is why there are three MIME types rather than one with a discriminator inside |
 | D-014 | Manual Save stays in the top bar | Autosave can fail, and someone about to close the tab is entitled to force the write rather than trust a timer they cannot see | Section 4.2's conditional allowance is exercised; the action inventory test states the reason so it is not re-litigated |

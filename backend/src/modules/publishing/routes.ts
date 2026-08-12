@@ -1,8 +1,9 @@
-import { resourceIdSchema } from "@websitebuilder/shared";
+import { API_BASE_PATH, resourceIdSchema } from "@websitebuilder/shared";
 import { Router } from "express";
 import { ObjectId } from "mongodb";
 
 import { ApiProblem } from "../../middleware/errors";
+import { DRAFT_PREVIEW_CSP } from "../../renderer/app";
 import type { WorkspaceResolver } from "../projects/routes";
 import type { DomainService } from "../domains/service";
 import { PublishError, type PublishingRepository } from "./repository";
@@ -32,8 +33,11 @@ export function createPublishingRouter(options: {
   resolveWorkspace: WorkspaceResolver;
   platformRootDomain: string;
   reservedSubdomains: readonly string[];
+  /** Origin the preview reports as canonical. Never used to fetch anything. */
+  publicOrigin: string;
 }): Router {
-  const { service, repository, domains, resolveWorkspace, platformRootDomain, reservedSubdomains } = options;
+  const { service, repository, domains, resolveWorkspace, platformRootDomain, reservedSubdomains, publicOrigin } =
+    options;
   const router = Router({ mergeParams: true });
 
   router.get("/preflight", async (req, res, next) => {
@@ -45,6 +49,48 @@ export function createPublishingRouter(options: {
       if (result === null) throw new ApiProblem("NOT_FOUND", "Project not found");
 
       res.json({ data: { report: result.report, contentHash: result.snapshot?.contentHash ?? null } });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * The draft, as HTML, for the builder's preview frame.
+   *
+   * Same-origin with the application so the session cookie authorises it, and behind the same
+   * workspace resolution as every other business route — a draft is not public, and this is the one
+   * place its unpublished content leaves the database.
+   */
+  router.get("/preview", async (req, res, next) => {
+    try {
+      const context = await resolveWorkspace(req);
+      const projectId = parseId(param(req, "projectId"), "Project not found");
+      const workspaceId = param(req, "workspaceId");
+
+      const requested = typeof req.query.path === "string" ? req.query.path : "/";
+      // Only a path, never an origin: a caller cannot turn this into an open redirect or make the
+      // renderer resolve links against somewhere else.
+      const path = requested.startsWith("/") && !requested.startsWith("//") ? requested : "/";
+
+      const base = `${API_BASE_PATH}/workspaces/${encodeURIComponent(workspaceId)}/projects/${encodeURIComponent(projectId)}/publishing/preview`;
+
+      const result = await service.previewRoute(context, projectId, {
+        path,
+        pageHref: (target) => `${base}?path=${encodeURIComponent(target)}`,
+        mediaBaseUrl: `${API_BASE_PATH}/workspaces/${encodeURIComponent(workspaceId)}/media`,
+        canonicalOrigin: publicOrigin,
+      });
+      if (result === null) throw new ApiProblem("NOT_FOUND", "Project not found");
+
+      res
+        .status(result.status)
+        .set("content-type", "text/html; charset=utf-8")
+        .set("content-security-policy", DRAFT_PREVIEW_CSP)
+        // A draft is nobody's search result, and it must not sit in a shared cache.
+        .set("x-robots-tag", "noindex, nofollow")
+        .set("cache-control", "private, no-store")
+        .set("referrer-policy", "no-referrer")
+        .send(result.html);
     } catch (error) {
       next(error);
     }

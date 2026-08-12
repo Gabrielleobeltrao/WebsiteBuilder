@@ -192,16 +192,9 @@ export default {
     "displayName": "Display name"
   },
   "preview": {
-      "width": "Preview width",
-      "exactWidth": "Exact width in pixels",
-      "presets": {
-        "phone-small": "320",
-        "phone": "390",
-        "tablet": "768",
-        "laptop": "1280",
-        "desktop": "1440",
-        "wide": "1920"
-      },
+      "title": "Preview",
+      "back": "Back to the builder",
+      "frame": "Site preview",
       "diagnostics": {
         "title": "{{count}} thing to check",
         "title_other": "{{count}} things to check",

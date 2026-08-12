@@ -1,7 +1,9 @@
 import {
+  buildRouteManifest,
   compileSite,
   migrateDocumentResponsive,
   SCHEMA_VERSION,
+  type CompileInput,
   type CompileResult,
   type PublishableCmsItem,
   type PublishableCollection,
@@ -9,11 +11,17 @@ import {
   type Redirect,
 } from "@websitebuilder/shared";
 
+import { renderRouteHtml } from "../../renderer/html";
 import type { BlogRepository } from "../blog/repository";
 import type { MediaRepository } from "../media/repository";
 import type { ProjectRepository, WorkspaceContext } from "../projects/repository";
 import { reconcileSiteStatus, type ModuleFacts } from "../projects/status";
 import { PublishError, type PublishingRepository } from "./repository";
+
+/** What a draft preview answers with for a path the site does not serve. */
+const NOT_FOUND_HTML =
+  '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Not found</title></head>' +
+  "<body><p>This page is not part of the site.</p></body></html>";
 
 /** A published document larger than this is a symptom, not a site. Overridable per environment. */
 export const MAX_PUBLISHED_DOCUMENT_BYTES = 4_000_000;
@@ -160,7 +168,47 @@ export class PublishingService {
       .catch(() => null);
   }
 
+  /**
+   * One page of the current draft, as the HTML a visitor would receive.
+   *
+   * The same document, the same route manifest and the same renderer publication uses — which is
+   * what makes preview a rehearsal rather than a second implementation with its own bugs. It reads
+   * the draft, so it shows unsaved-to-the-public work, and it writes nothing.
+   *
+   * Deliberately independent of whether the site *can* be published: a draft with a blocking issue
+   * is exactly the draft somebody needs to look at.
+   */
+  async previewRoute(
+    context: WorkspaceContext,
+    projectId: string,
+    input: { path: string; pageHref: (path: string) => string; mediaBaseUrl: string; canonicalOrigin: string },
+  ): Promise<{ html: string; status: 200 | 404 } | null> {
+    const compileInput = await this.buildCompileInput(context, projectId);
+    if (compileInput === null) return null;
+
+    const routes = buildRouteManifest(compileInput);
+    const route = routes.find((candidate) => candidate.path === input.path && candidate.statusCode === 200);
+    if (route === undefined) return { html: NOT_FOUND_HTML, status: 404 };
+
+    return {
+      status: 200,
+      html: renderRouteHtml({
+        route,
+        document: compileInput.project,
+        canonicalUrl: `${input.canonicalOrigin}${input.path}`,
+        mediaBaseUrl: input.mediaBaseUrl,
+        pageHref: input.pageHref,
+      }),
+    };
+  }
+
   private async compile(context: WorkspaceContext, projectId: string): Promise<CompileResult | null> {
+    const input = await this.buildCompileInput(context, projectId);
+    return input === null ? null : compileSite(input);
+  }
+
+  /** Everything the compiler needs, gathered once and scoped to the workspace throughout. */
+  private async buildCompileInput(context: WorkspaceContext, projectId: string): Promise<CompileInput | null> {
     const project = await this.deps.projects.findById(context, projectId);
     if (project === null) return null;
 
@@ -185,7 +233,7 @@ export class PublishingService {
     // otherwise go live with the layout this whole model exists to prevent.
     const { document: migrated } = migrateDocumentResponsive(project);
 
-    return compileSite({
+    return {
       project: migrated,
       blog: {
         settings,
@@ -206,6 +254,6 @@ export class PublishingService {
       supportedSchemaVersion: SCHEMA_VERSION,
       moduleBlockers: status.blockingIssueCount,
       maxDocumentBytes: this.deps.maxDocumentBytes ?? MAX_PUBLISHED_DOCUMENT_BYTES,
-    });
+    };
   }
 }

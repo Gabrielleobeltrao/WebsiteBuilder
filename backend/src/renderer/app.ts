@@ -28,7 +28,7 @@ import { normalizePath, resolveRoute, SiteResolver } from "./resolver";
  *
  * Frames are limited to the two video providers whose embed URLs this code builds from an id.
  */
-const publishedSiteCsp = (scriptDirectives: string[]) =>
+const publishedSiteCsp = (scriptDirectives: string[], frameAncestors = "'none'") =>
   [
     "default-src 'none'",
     ...scriptDirectives,
@@ -38,7 +38,7 @@ const publishedSiteCsp = (scriptDirectives: string[]) =>
     "frame-src https://www.youtube-nocookie.com https://player.vimeo.com",
     "form-action 'self'",
     "base-uri 'none'",
-    "frame-ancestors 'none'",
+    `frame-ancestors ${frameAncestors}`,
   ].join("; ");
 
 export const PUBLISHED_SITE_CSP = publishedSiteCsp(["script-src 'none'"]);
@@ -63,6 +63,15 @@ export const PUBLISHED_SITE_CSP = publishedSiteCsp(["script-src 'none'"]);
  * the same component that produced the page, so nothing here needs to be framable.
  */
 export const PUBLISHED_SITE_CSP_WITH_ANALYTICS = publishedSiteCsp(["script-src 'self'", "connect-src 'self'"]);
+
+/**
+ * The policy for an authenticated draft preview.
+ *
+ * The same page under the same restrictions, with one difference: the builder frames it on its own
+ * origin, so `'self'` replaces `'none'` for frame ancestors and nothing else moves. No script
+ * source is granted — a preview carries no analytics and needs no JavaScript to lay itself out.
+ */
+export const DRAFT_PREVIEW_CSP = publishedSiteCsp(["script-src 'none'"], "'self'");
 
 /**
  * The public multi-tenant renderer. One stateless process serves every published site: it resolves

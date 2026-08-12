@@ -192,16 +192,9 @@ export default {
     "displayName": "Nome de exibição"
   },
   "preview": {
-      "width": "Largura da previsão",
-      "exactWidth": "Largura exata em pixels",
-      "presets": {
-        "phone-small": "320",
-        "phone": "390",
-        "tablet": "768",
-        "laptop": "1280",
-        "desktop": "1440",
-        "wide": "1920"
-      },
+      "title": "Pré-visualização",
+      "back": "Voltar ao construtor",
+      "frame": "Pré-visualização do site",
       "diagnostics": {
         "title": "{{count}} ponto para conferir",
         "title_other": "{{count}} pontos para conferir",

@@ -225,6 +225,7 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
         resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
         platformRootDomain: env.PLATFORM_ROOT_DOMAIN,
         reservedSubdomains: env.reservedSubdomains,
+        publicOrigin: env.PLATFORM_PUBLIC_ORIGIN,
       }),
     },
   );

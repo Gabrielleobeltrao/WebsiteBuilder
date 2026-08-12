@@ -144,13 +144,65 @@ test.describe("preview", () => {
     await page.getByRole("link", { name: "Open" }).first().click();
     await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
 
-    // The desktop preview link in the editor.
-    await page.getByRole("link", { name: "Preview" }).first().click();
+    // The preview link in the editor. There is one, not one per device.
+    await expect(page.getByRole("link", { name: /preview/i })).toHaveCount(1);
+    await page.getByRole("link", { name: "Preview" }).click();
 
     await expect(page).toHaveURL(/\/preview\//, { timeout: 20_000 });
     // The workspace must be in the address, because the API refuses a request without one.
     expect(new URL(page.url()).pathname.split("/").filter(Boolean)).toHaveLength(3);
     await expect(page.getByRole("alert")).toHaveCount(0);
+  });
+
+  test("previews each device at its exact viewport, scaled to fit the screen", async ({ page }) => {
+    await signUp(page);
+    await createSite(page, "Viewport Test");
+
+    await page.getByRole("link", { name: "Open" }).first().click();
+    await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
+    await page.getByRole("link", { name: "Preview" }).click();
+    await expect(page).toHaveURL(/\/preview\//, { timeout: 20_000 });
+
+    const frame = page.locator('iframe[title="Site preview"]');
+    await expect(frame).toBeVisible({ timeout: 20_000 });
+
+    for (const [device, width] of [
+      ["Desktop", 1440],
+      ["Tablet", 768],
+      ["Mobile", 390],
+    ] as const) {
+      await page.getByRole("button", { name: device, exact: true }).click();
+
+      // The frame's own layout viewport, measured inside it. This is the whole point of the frame:
+      // media queries have to resolve against a real device width, not a scaled box.
+      await expect
+        .poll(async () => page.frameLocator('iframe[title="Site preview"]').locator("body").evaluate(() => window.innerWidth))
+        .toBe(width);
+
+      // ...while what the person sees fits the screen they are on.
+      const box = await frame.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    }
+  });
+
+  test("keeps navigation between pages inside the preview", async ({ page }) => {
+    await signUp(page);
+    await createSite(page, "Navigation Test");
+
+    await page.getByRole("link", { name: "Open" }).first().click();
+    await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
+
+    await page.getByRole("link", { name: "Preview" }).click();
+    await expect(page).toHaveURL(/\/preview\//, { timeout: 20_000 });
+
+    // The framed document is served by the authenticated draft route, so its address stays on the
+    // API path — a link that navigated the application instead would leave preview entirely.
+    const source = await page.locator('iframe[title="Site preview"]').getAttribute("src");
+    expect(source).toContain("/publishing/preview");
+
+    await page.getByRole("link", { name: "Back to the builder" }).click();
+    await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
   });
 });
 

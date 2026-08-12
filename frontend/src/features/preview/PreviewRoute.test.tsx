@@ -1,4 +1,3 @@
-import { createPage, createProjectDocument, type BuilderProject } from "@websitebuilder/shared";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,121 +6,43 @@ import { Route, Routes } from "react-router";
 import { PreviewRoute } from "@/features/preview/PreviewRoute";
 import { renderWithProviders } from "@/test/render";
 
-function project(): BuilderProject {
-  const document = createProjectDocument({ name: "Acme", slug: "acme" });
-  const about = createPage({ name: "About", slug: "about", order: 1 });
-
-  const home = document.pages[0];
-  const homeSection = home?.sections[0];
-  const aboutSection = about.sections[0];
-  if (!home || !homeSection || !aboutSection) throw new Error("fixture is missing a section");
-
-  const geometry = { x: 0, y: 0, width: 320, height: 64, rotation: 0 };
-  const responsiveLayout = {
-    width: { value: 320, unit: "px" as const },
-    height: { value: 64, unit: "px" as const },
-    horizontalConstraint: "left" as const,
-    verticalConstraint: "top" as const,
-    visible: true,
-  };
-  const textStyle = {
-    fontFamily: "Inter",
-    fontSize: { value: 24, unit: "px" as const },
-    fontWeight: 700,
-    fontStyle: "normal" as const,
-    textAlign: "left" as const,
-    color: "#111111",
-    lineHeight: 1.2,
-  };
-
-  homeSection.elements.push(
-    {
-      id: "11111111-1111-4111-8111-111111111111",
-      type: "text",
-      name: "Title",
-      tag: "h1",
-      content: "Home page",
-      geometry,
-      responsiveLayout,
-      zIndex: 1,
-      locked: false,
-      hidden: false,
-      style: textStyle,
-    },
-    {
-      id: "22222222-2222-4222-8222-222222222222",
-      type: "button",
-      name: "CTA",
-      text: "Go to About",
-      link: { kind: "internal", pageId: about.id },
-      geometry: { ...geometry, y: 100 },
-      responsiveLayout,
-      zIndex: 2,
-      locked: false,
-      hidden: false,
-      style: {
-        fontSize: { value: 16, unit: "px" },
-        fontWeight: 600,
-        textColor: "#ffffff",
-        backgroundColor: "#12806f",
-        borderRadius: 6,
-        horizontalAlign: "center",
-      },
-    },
-    {
-      id: "33333333-3333-4333-8333-333333333333",
-      type: "text",
-      name: "Hidden",
-      tag: "p",
-      content: "Hidden from visitors",
-      geometry: { ...geometry, y: 200 },
-      responsiveLayout,
-      zIndex: 3,
-      locked: false,
-      hidden: true,
-      style: textStyle,
-    },
-  );
-
-  aboutSection.elements.push({
-    id: "44444444-4444-4444-8444-444444444444",
-    type: "text",
-    name: "About title",
-    tag: "h1",
-    content: "About page",
-    geometry,
-    responsiveLayout,
-    zIndex: 1,
-    locked: false,
-    hidden: false,
-    style: textStyle,
-  });
-
-  document.pages.push(about);
-
-  return {
-    id: "aaaaaaaaaaaaaaaaaaaaaaaa",
-    workspaceId: "w1",
-    createdByUserId: "u1",
-    revision: 2,
-    createdAt: "2026-08-01T00:00:00.000Z",
-    updatedAt: "2026-08-01T00:00:00.000Z",
-    ...document,
-  };
-}
+/**
+ * The preview shell.
+ *
+ * The page itself is a document served by the API and framed here, so nothing in this file asserts
+ * what the site looks like — that is the renderer's parity suite, and the pixels are the viewport
+ * matrix in Playwright. What is asserted here is the contract of the shell: which controls exist,
+ * which do not, what the frame is pointed at, and that none of it can write.
+ */
 
 let requests: string[] = [];
 
+/** Desktop-class by default; the mobile cases override it. */
+function setViewport(width: number, pointer: "fine" | "coarse" = "fine") {
+  vi.stubGlobal("innerWidth", width);
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn((query: string) => ({
+      matches: query.includes("pointer: fine") ? pointer === "fine" : false,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+      onchange: null,
+    })),
+  );
+}
+
 beforeEach(() => {
   requests = [];
+  setViewport(1440);
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       requests.push(`${init?.method ?? "GET"} ${String(input)}`);
-      return new Response(JSON.stringify({ data: project() }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
+      return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
     }),
   );
 });
@@ -137,91 +58,122 @@ const renderPreview = (route: string) =>
     { route },
   );
 
-describe("preview routing", () => {
-  it("renders the homepage at the project root", async () => {
-    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
-    expect(await screen.findByRole("heading", { level: 1, name: "Home page" })).toBeInTheDocument();
+const frame = () => screen.getByTitle("Site preview") as HTMLIFrameElement;
+
+describe("what the preview shell contains", () => {
+  it("has Back, three devices, and the site — and nothing else", () => {
+    renderPreview("/preview/w1/p1");
+
+    expect(screen.getByRole("link", { name: "Back to the builder" })).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button").map((button) => button.textContent),
+    ).toEqual(["Desktop", "Tablet", "Mobile"]);
+    expect(frame()).toBeInTheDocument();
   });
 
-  it("resolves a trailing slug to its page", async () => {
-    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa/about");
-    expect(await screen.findByRole("heading", { level: 1, name: "About page" })).toBeInTheDocument();
+  it("carries no width tool, diagnostics, save control, or editor panel", () => {
+    renderPreview("/preview/w1/p1");
+
+    expect(screen.queryByRole("slider")).toBeNull();
+    expect(screen.queryByLabelText(/width/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /save/i })).toBeNull();
+    expect(screen.queryByRole("complementary")).toBeNull();
+    expect(screen.queryByRole("region", { name: /check/i })).toBeNull();
   });
 
-  it("shows a project-scoped not-found view for an unknown slug", async () => {
-    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa/missing");
-    expect(await screen.findByRole("heading", { level: 1, name: "Page not found" })).toBeInTheDocument();
-  });
+  it("frames the draft of this project, on this workspace", () => {
+    renderPreview("/preview/w1/p1");
 
-  it("shows a localized error when the project cannot be loaded", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(
-        async () =>
-          new Response(JSON.stringify({ error: { code: "NOT_FOUND", message: "gone" } }), {
-            status: 404,
-            headers: { "content-type": "application/json" },
-          }),
-      ),
+    expect(frame().getAttribute("src")).toBe(
+      "/api/v1/workspaces/w1/projects/p1/publishing/preview?path=%2F",
     );
-    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
-    expect(await screen.findByRole("alert")).toHaveTextContent("could not find");
+  });
+
+  it("frames the page named by the address", () => {
+    renderPreview("/preview/w1/p1/about");
+    expect(frame().getAttribute("src")).toContain("path=%2Fabout");
+  });
+
+  it("returns to the builder for this project", () => {
+    renderPreview("/preview/w1/p1");
+    expect(screen.getByRole("link", { name: "Back to the builder" })).toHaveAttribute(
+      "href",
+      "/app/w1/sites/p1/builder",
+    );
   });
 });
 
-describe("preview isolation", () => {
-  it("contains no editor chrome", async () => {
-    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
-    await screen.findByRole("heading", { level: 1, name: "Home page" });
-
-    expect(screen.queryByRole("complementary", { name: "Builder controls" })).toBeNull();
-    expect(screen.queryByRole("group", { name: "Page canvas" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
-  });
-
-  it("excludes hidden elements from what a visitor sees", async () => {
-    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
-    await screen.findByRole("heading", { level: 1, name: "Home page" });
-    expect(screen.queryByText("Hidden from visitors")).toBeNull();
-  });
-
-  it("keeps internal navigation inside the preview route", async () => {
-    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
-    const link = await screen.findByRole("link", { name: "Go to About" });
-    expect(link).toHaveAttribute("href", "/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa/about");
-  });
-
-  it("never issues a write request", async () => {
+describe("device viewports", () => {
+  it("gives the frame the device's exact width, never the host's", async () => {
     const user = userEvent.setup();
-    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
-    await screen.findByRole("heading", { level: 1, name: "Home page" });
+    renderPreview("/preview/w1/p1");
+
+    expect(frame().style.width).toBe("1440px");
+
+    await user.click(screen.getByRole("button", { name: "Tablet" }));
+    expect(frame().style.width).toBe("768px");
 
     await user.click(screen.getByRole("button", { name: "Mobile" }));
-    expect(requests.every((request) => request.startsWith("GET"))).toBe(true);
+    expect(frame().style.width).toBe("390px");
+  });
+
+  it("marks the active device", async () => {
+    const user = userEvent.setup();
+    renderPreview("/preview/w1/p1");
+
+    expect(screen.getByRole("button", { name: "Desktop" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "Mobile" }));
+    expect(screen.getByRole("button", { name: "Mobile" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Desktop" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("takes the device from the address, so a rendering can be shared", () => {
+    renderPreview("/preview/w1/p1?device=tablet");
+
+    expect(screen.getByRole("button", { name: "Tablet" })).toHaveAttribute("aria-pressed", "true");
+    expect(frame().style.width).toBe("768px");
+  });
+
+  it("changing device does not reload a different document", async () => {
+    const user = userEvent.setup();
+    renderPreview("/preview/w1/p1");
+    const before = frame().getAttribute("src");
+
+    await user.click(screen.getByRole("button", { name: "Mobile" }));
+    // The frame keeps its source: the device changes the viewport, never the stored page.
+    expect(frame().getAttribute("src")).toBe(before);
+  });
+
+  it("opens on the phone layout when the host is a phone", () => {
+    setViewport(390, "coarse");
+    renderPreview("/preview/w1/p1");
+
+    expect(screen.getByRole("button", { name: "Mobile" })).toHaveAttribute("aria-pressed", "true");
+    expect(frame().style.width).toBe("390px");
+  });
+
+  it("offers all three devices on a phone", () => {
+    setViewport(390, "coarse");
+    renderPreview("/preview/w1/p1");
+
+    expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual([
+      "Desktop",
+      "Tablet",
+      "Mobile",
+    ]);
   });
 });
 
-describe("desktop and mobile preview", () => {
-  it("offers both viewports and marks the active one", async () => {
+describe("preview writes nothing", () => {
+  it("issues no request of its own at all", async () => {
     const user = userEvent.setup();
-    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
-    await screen.findByRole("heading", { level: 1, name: "Home page" });
+    renderPreview("/preview/w1/p1");
 
-    const desktop = screen.getByRole("button", { name: "Desktop" });
-    const mobile = screen.getByRole("button", { name: "Mobile" });
-    expect(mobile).toHaveAttribute("aria-pressed", "true");
-
-    await user.click(desktop);
-    expect(desktop).toHaveAttribute("aria-pressed", "true");
-    expect(mobile).toHaveAttribute("aria-pressed", "false");
-  });
-
-  it("renders the same document under both viewports", async () => {
-    const user = userEvent.setup();
-    renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
-    await screen.findByRole("heading", { level: 1, name: "Home page" });
-
+    await user.click(screen.getByRole("button", { name: "Mobile" }));
     await user.click(screen.getByRole("button", { name: "Desktop" }));
-    expect(screen.getByRole("heading", { level: 1, name: "Home page" })).toBeInTheDocument();
+
+    // The document arrives through the frame, under the browser's own credentials. Every mutation
+    // path in this product goes through fetch, so an empty list is the assertion that matters.
+    expect(requests).toEqual([]);
   });
 });
