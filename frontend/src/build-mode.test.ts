@@ -31,8 +31,10 @@ describe("built bundle", () => {
 
     // Vite inlines `import.meta.env` at build time. A surviving reference means the bundle was
     // built in a mode where the flags are read at runtime, which is the development client.
+    //
+    // `__vite__mapDeps` is deliberately not checked: it is the preload helper a *production*
+    // code-split build emits, so its absence would mean the routes stopped being split.
     expect(source).not.toContain("import.meta.env");
-    expect(source).not.toContain("__vite__");
   });
 
   it.skipIf(files.length === 0)("ships no development-only warnings", () => {

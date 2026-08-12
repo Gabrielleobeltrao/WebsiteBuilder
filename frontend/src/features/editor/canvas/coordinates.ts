@@ -12,6 +12,18 @@ export const MIN_ZOOM = 0.1;
 export const MAX_ZOOM = 4;
 export const MIN_ELEMENT_SIZE = 8;
 
+/**
+ * A number, or a stated fallback.
+ *
+ * Pointer coordinates arrive from the DOM, and a synthetic or malformed event carries `undefined`
+ * where a number belongs. Arithmetic on it produces `NaN`, which reaches the document as a geometry
+ * the schema then refuses to save — the failure surfaces far from its cause, as a rejected save or
+ * a React warning about `left="NaN"`. Every conversion in this file funnels through here instead.
+ */
+function finite(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
 export function clampZoom(zoom: number): number {
   if (!Number.isFinite(zoom)) return 1;
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
@@ -38,8 +50,8 @@ export type Point = { x: number; y: number };
 export function pointToLogical(point: Point, canvasOrigin: Point, zoom: number): Point {
   const scale = clampZoom(zoom);
   return {
-    x: (point.x - canvasOrigin.x) / scale,
-    y: (point.y - canvasOrigin.y) / scale,
+    x: (finite(point.x, 0) - finite(canvasOrigin.x, 0)) / scale,
+    y: (finite(point.y, 0) - finite(canvasOrigin.y, 0)) / scale,
   };
 }
 
@@ -63,19 +75,19 @@ export function constrainGeometry(
   geometry: Geometry,
   bounds: { width: number; height: number } = { width: DESIGN_WIDTH, height: Number.POSITIVE_INFINITY },
 ): Geometry {
-  const width = Math.max(MIN_ELEMENT_SIZE, geometry.width);
-  const height = Math.max(MIN_ELEMENT_SIZE, geometry.height);
+  const width = Math.max(MIN_ELEMENT_SIZE, finite(geometry.width, MIN_ELEMENT_SIZE));
+  const height = Math.max(MIN_ELEMENT_SIZE, finite(geometry.height, MIN_ELEMENT_SIZE));
 
   // At least a sliver must remain reachable, otherwise an element becomes unrecoverable on canvas.
   const maxX = bounds.width - MIN_ELEMENT_SIZE;
   const maxY = Number.isFinite(bounds.height) ? bounds.height - MIN_ELEMENT_SIZE : Number.POSITIVE_INFINITY;
 
   return roundGeometry({
-    x: Math.min(Math.max(geometry.x, MIN_ELEMENT_SIZE - width), maxX),
-    y: Math.min(Math.max(geometry.y, 0), maxY),
+    x: Math.min(Math.max(finite(geometry.x, 0), MIN_ELEMENT_SIZE - width), maxX),
+    y: Math.min(Math.max(finite(geometry.y, 0), 0), maxY),
     width,
     height,
-    rotation: geometry.rotation,
+    rotation: finite(geometry.rotation, 0),
   });
 }
 

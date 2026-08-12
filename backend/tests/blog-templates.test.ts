@@ -33,7 +33,7 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  await database.stop();
+  await database?.stop();
 });
 
 beforeEach(async () => {

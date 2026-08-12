@@ -33,13 +33,23 @@ export const PERFORMANCE_BUDGETS = {
    */
   publishedSiteTrackerBytes: 15_000,
   /**
-   * Compressed JavaScript for the authenticated application — dashboard and editor. It is allowed
-   * to be far heavier: it is loaded by someone who chose to open a design tool, once, behind a
-   * login, and it carries the canvas, the rich-text editor and the drag layer. Measured at ~386 KB
-   * with the whole application in one chunk; the headroom here is not permission to grow into it,
-   * and code-splitting the editor away from the dashboard is the way back down.
+   * Compressed JavaScript for the authenticated application, summed across every chunk. It is
+   * allowed to be heavy: it is loaded by someone who chose to open a design tool, behind a login,
+   * and it carries the canvas, the rich-text editor, the drag layer and the charts. Measured at
+   * ~418 KB across all chunks.
    */
-  applicationBundleBytes: 450_000,
+  applicationBundleBytes: 480_000,
+  /**
+   * Compressed JavaScript the *first* screen downloads: the entry chunk and anything the browser is
+   * told to preload with it.
+   *
+   * This is the number a person actually waits for. It was ~386 KB when the whole application was
+   * one chunk, which charged every landing page, login and dashboard for a builder most of those
+   * visits never open; it is ~163 KB now that the builder, the blog editor, the analytics charts
+   * and the CMS editor are fetched at the click that needs them. The budget is the one that
+   * regresses first, and the one worth defending.
+   */
+  applicationInitialBundleBytes: 200_000,
   /** Total image bytes a single route may request at the largest variant. */
   routeImageBytes: 1_500_000,
   /** A single image. Beyond this, a variant is missing or the source was never resized. */
@@ -163,12 +173,14 @@ export function auditRoutePerformance(route: RouteAssets): PerformanceFinding[] 
  */
 export function auditBundle(
   bytes: number,
-  target: "application" | "published-site" = "application",
+  target: "application" | "application-initial" | "published-site" = "application",
 ): PerformanceFinding[] {
   const budget =
     target === "application"
       ? PERFORMANCE_BUDGETS.applicationBundleBytes
-      : PERFORMANCE_BUDGETS.publishedSiteJavaScriptBytes;
+      : target === "application-initial"
+        ? PERFORMANCE_BUDGETS.applicationInitialBundleBytes
+        : PERFORMANCE_BUDGETS.publishedSiteJavaScriptBytes;
 
   if (bytes <= budget) return [];
 
@@ -178,7 +190,9 @@ export function auditBundle(
       severity: "warning",
       path: "/",
       detail:
-        target === "application"
+        target === "application-initial"
+          ? "The first screen is downloading more JavaScript than the budget allows. A route that stopped being lazily loaded is the usual cause."
+          : target === "application"
           ? "The application bundle is over budget. Loading the editor separately from the dashboard is the usual fix."
           : "A published site is downloading JavaScript it did not before. Public routes are served as HTML; anything added here reaches every visitor of every site.",
       measured: bytes,

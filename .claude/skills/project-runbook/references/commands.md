@@ -20,6 +20,12 @@ npm run smoke:containers # builds the production images and exercises the runnin
 `smoke:containers` needs Docker and a throwaway database in `SMOKE_MONGODB_URI`. It uses its own
 Compose project and database name, so it cannot touch production data.
 
+`npm run test` starts an in-memory MongoDB per backend test file. The binary is downloaded on first
+run and cached in `node_modules/.cache/mongodb-binaries`, so the machine needs network access once —
+or `MONGOMS_SYSTEM_BINARY` pointing at an installed `mongod`. Without either, backend suites fail at
+setup with a message saying exactly that; teardown tolerates the failed setup rather than burying it
+under a second error about an undefined server. CI caches that directory across runs.
+
 Scope to one workspace with `-w`:
 
 ```bash

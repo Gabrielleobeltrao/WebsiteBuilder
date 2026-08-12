@@ -15,7 +15,7 @@ import Moveable from "react-moveable";
 
 import { ElementRenderer } from "@/components/renderer/ElementRenderer";
 import { containerStyle, sectionStyle } from "@/components/renderer/styles";
-import { constrainGeometry, RESIZE_HANDLES } from "@/features/editor/canvas/coordinates";
+import { constrainGeometry, pointToLogical, RESIZE_HANDLES } from "@/features/editor/canvas/coordinates";
 import { dragKindOf, readDragPayload, MOVE_MIME, type DragKind } from "@/features/editor/canvas/dnd";
 import { canAcceptChild, type InsertionTarget } from "@/features/editor/store/elements";
 import { useEditorStore } from "@/features/editor/store/editorStore";
@@ -272,10 +272,15 @@ function EditableSection({
 
   if (section.hidden) return null;
 
-  /** A free section takes a coordinate: where the pointer is, is where the element goes. */
+  /**
+   * A free section takes a coordinate: where the pointer is, is where the element goes.
+   *
+   * Through the shared converter rather than inline arithmetic, because that is where a missing
+   * pointer coordinate is turned into a number instead of a `NaN` the document would carry.
+   */
   const coordinateOf = (event: DragEvent<HTMLElement>): { x: number; y: number } => {
     const rect = event.currentTarget.getBoundingClientRect();
-    return { x: (event.clientX - rect.left) / zoom, y: (event.clientY - rect.top) / zoom };
+    return pointToLogical({ x: event.clientX, y: event.clientY }, { x: rect.left, y: rect.top }, zoom);
   };
 
   return (

@@ -1,4 +1,4 @@
-import { DESIGN_WIDTH } from "@websitebuilder/shared";
+import { DESIGN_WIDTH, type Geometry } from "@websitebuilder/shared";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -108,5 +108,45 @@ describe("resize handles", () => {
     expect(handleAxes("s")).toEqual({ horizontal: false, vertical: true });
     expect(handleAxes("e")).toEqual({ horizontal: true, vertical: false });
     expect(handleAxes("w")).toEqual({ horizontal: true, vertical: false });
+  });
+});
+
+describe("a malformed pointer cannot reach the document", () => {
+  const geometry = (overrides: Partial<Geometry>): Geometry => ({
+    x: 10,
+    y: 10,
+    width: 100,
+    height: 50,
+    rotation: 0,
+    ...overrides,
+  });
+
+  it("converts a point with missing coordinates into numbers", () => {
+    // A synthetic drag event carries no clientX/clientY. Arithmetic on `undefined` yields NaN, and
+    // NaN geometry is rejected by the document schema — the save fails far from the cause.
+    const point = pointToLogical(
+      { x: undefined as unknown as number, y: Number.NaN },
+      { x: 0, y: 0 },
+      1,
+    );
+
+    expect(Number.isFinite(point.x)).toBe(true);
+    expect(Number.isFinite(point.y)).toBe(true);
+  });
+
+  it("refuses to produce non-finite geometry from non-finite input", () => {
+    for (const key of ["x", "y", "width", "height", "rotation"] as const) {
+      for (const bad of [Number.NaN, Number.POSITIVE_INFINITY, undefined as unknown as number]) {
+        const result = constrainGeometry(geometry({ [key]: bad }));
+
+        for (const [axis, value] of Object.entries(result)) {
+          expect(Number.isFinite(value), `${key}=${String(bad)} produced ${axis}=${String(value)}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("keeps a valid geometry untouched", () => {
+    expect(constrainGeometry(geometry({}))).toEqual(geometry({}));
   });
 });

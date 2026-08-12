@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createI18n } from "@/i18n";
@@ -63,10 +63,17 @@ describe("account locale", () => {
     const instance = createI18n("en-US");
     renderHook(() => useAccountLocale(true), { wrapper: harness(instance) });
 
-    await instance.changeLanguage("pt-BR");
-    pending.release(jsonResponse({ locale: "en-US" }));
+    // Both of these re-render the subscribed component — the language change through i18next, and
+    // the resolved read through the hook. Outside `act`, React reports the update and the assertion
+    // below can run before the effect it is about.
+    await act(async () => {
+      await instance.changeLanguage("pt-BR");
+    });
+    await act(async () => {
+      pending.release(jsonResponse({ locale: "en-US" }));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
 
-    await new Promise((resolve) => setTimeout(resolve, 20));
     expect(instance.language).toBe("pt-BR");
   });
 
@@ -76,7 +83,10 @@ describe("account locale", () => {
     const instance = createI18n("pt-BR");
     renderHook(() => useAccountLocale(true), { wrapper: harness(instance) });
 
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
     expect(instance.language).toBe("pt-BR");
   });
 });

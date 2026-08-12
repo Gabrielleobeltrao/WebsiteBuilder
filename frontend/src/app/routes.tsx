@@ -1,26 +1,36 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useLocation, useParams, useSearchParams } from "react-router";
 
 import { AuthenticatedAppShell } from "@/app/shells/AuthenticatedAppShell";
 import { PublicShell } from "@/app/shells/PublicShell";
-import { AnalyticsRoute } from "@/features/analytics/AnalyticsRoute";
 import { AuthPage } from "@/features/auth/AuthPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { SettingsPage } from "@/features/auth/SettingsPage";
-import { BlogRoute } from "@/features/blog/BlogRoute";
-import { PostEditorRoute } from "@/features/blog/PostEditorRoute";
-import { EditorRoute } from "@/features/editor/EditorRoute";
-import { MediaRoute } from "@/features/media/MediaRoute";
-import { CmsRoute } from "@/features/cms/CmsRoute";
-import { DomainsRoute } from "@/features/publishing/DomainsRoute";
-import { PublishRoute } from "@/features/publishing/PublishRoute";
-import { SiteDashboardRoute } from "@/features/sites/SiteDashboardRoute";
 import { WorkspaceEntryRoute } from "@/features/workspaces/WorkspaceEntryRoute";
-import { PreviewRoute } from "@/features/preview/PreviewRoute";
 import { SitesPage } from "@/features/projects/SitesPage";
 import { LandingPage } from "@/features/public/LandingPage";
 import { NotFoundPage } from "@/features/public/NotFoundPage";
 import { RoadmapPage } from "@/features/public/RoadmapPage";
 import { safeReturnPath } from "@/lib/return-path";
+
+/**
+ * Everything behind a deliberate click is fetched at that click.
+ *
+ * The builder carries the canvas, the drag layer, the rich-text editor and the chart library, and
+ * none of it is needed to render a dashboard, a login form or the landing page. Loading it eagerly
+ * charged every first visit for a screen most visits never open. Each of these is its own chunk,
+ * requested when its route matches.
+ */
+const AnalyticsRoute = lazy(async () => ({ default: (await import("@/features/analytics/AnalyticsRoute")).AnalyticsRoute }));
+const BlogRoute = lazy(async () => ({ default: (await import("@/features/blog/BlogRoute")).BlogRoute }));
+const PostEditorRoute = lazy(async () => ({ default: (await import("@/features/blog/PostEditorRoute")).PostEditorRoute }));
+const EditorRoute = lazy(async () => ({ default: (await import("@/features/editor/EditorRoute")).EditorRoute }));
+const MediaRoute = lazy(async () => ({ default: (await import("@/features/media/MediaRoute")).MediaRoute }));
+const CmsRoute = lazy(async () => ({ default: (await import("@/features/cms/CmsRoute")).CmsRoute }));
+const DomainsRoute = lazy(async () => ({ default: (await import("@/features/publishing/DomainsRoute")).DomainsRoute }));
+const PublishRoute = lazy(async () => ({ default: (await import("@/features/publishing/PublishRoute")).PublishRoute }));
+const SiteDashboardRoute = lazy(async () => ({ default: (await import("@/features/sites/SiteDashboardRoute")).SiteDashboardRoute }));
+const PreviewRoute = lazy(async () => ({ default: (await import("@/features/preview/PreviewRoute")).PreviewRoute }));
 
 /**
  * Route families are `/`, `/roadmap`, `/login`, `/signup`, `/app/*` and `/api/*` on one origin.
@@ -54,8 +64,19 @@ function OverviewRoute() {
 
 
 
+/**
+ * What is shown while a route's code is on its way.
+ *
+ * A status role rather than a spinner alone: a screen reader announces it, and a person on a slow
+ * connection is told the page is loading rather than left with a blank frame.
+ */
+function RouteFallback() {
+  return <p role="status" className="p-10 text-center text-sm text-ink-500" />;
+}
+
 export function AppRoutes({ authenticated = false }: { authenticated?: boolean } = {}) {
   return (
+    <Suspense fallback={<RouteFallback />}>
     <Routes>
       {/* The builder owns the full viewport, so it is declared before the shell's nested routes. */}
       {authenticated && (
@@ -126,5 +147,6 @@ export function AppRoutes({ authenticated = false }: { authenticated?: boolean }
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
+    </Suspense>
   );
 }

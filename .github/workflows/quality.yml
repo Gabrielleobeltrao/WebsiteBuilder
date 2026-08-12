@@ -44,6 +44,13 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Cache MongoDB binaries
+        uses: actions/cache@v4
+        with:
+          path: node_modules/.cache/mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: mongodb-binaries-${{ runner.os }}-
+
       - name: Test
         run: npm run test
 

@@ -88,6 +88,22 @@ const openElements = (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByRole("tab", { name: "Add elements" }));
 
 describe("dragging a block from the library", () => {
+  it("writes a usable position when the drag carries no coordinates", () => {
+    useEditorStore.getState().loadFromProject(project());
+    render();
+
+    // A synthetic drag has no clientX/clientY, and neither does a pointer event from an assistive
+    // device driving the drop. What must never happen is NaN reaching the document: the schema
+    // rejects it, so the next save fails with an error about a field nobody touched.
+    dragTo(screen.getByRole("region", { name: "Section" }), transfer(CREATE_MIME, "text"));
+
+    const created = firstSection().elements[0];
+    expect(created).toBeDefined();
+    for (const [axis, value] of Object.entries(created!.geometry)) {
+      expect(Number.isFinite(value), `${axis} is ${String(value)}`).toBe(true);
+    }
+  });
+
   it("drops into a free section at the pointer and selects what it created", () => {
     useEditorStore.getState().loadFromProject(project());
     render();

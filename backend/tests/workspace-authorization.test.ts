@@ -36,7 +36,7 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  await database.stop();
+  await database?.stop();
 });
 
 async function addMember(workspaceId: string, userId: string, role: string) {

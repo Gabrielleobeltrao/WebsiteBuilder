@@ -29,6 +29,10 @@ export function RichTextEditor({
         // Not in the allowlist: emitting them would produce documents the server refuses.
         horizontalRule: false,
         codeBlock: false,
+        // StarterKit ships its own link extension. Registering a second one under the same name
+        // leaves which configuration wins to registration order, and the protocol allowlist below
+        // is the whole point of configuring it — so the bundled one is switched off explicitly.
+        link: false,
       }),
       Link.configure({ openOnClick: false, protocols: ["https", "mailto", "tel"] }),
     ],
