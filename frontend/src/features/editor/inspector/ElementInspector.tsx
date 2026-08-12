@@ -11,6 +11,7 @@ import { selectEditingDevice, useEditorStore } from "@/features/editor/store/edi
 import { DeviceValue } from "./DeviceValue";
 import { ColorField, InspectorGroup, LengthField, NumberField, SelectField, TextField, ToggleField } from "./controls";
 import { LinkEditor } from "./LinkEditor";
+import { VisualElementInspector } from "./VisualElementInspector";
 
 /**
  * One inspector for every element type, always in the same five groups. Only the controls that can
@@ -51,8 +52,15 @@ export function ElementInspector({ element, pages }: { element: BuilderElement; 
       };
     });
 
+  const structured = !["text", "image", "button", "container"].includes(element.type);
+
   return (
     <>
+      {structured && (
+        <VisualElementInspector element={element} pages={pages} patch={patch} transactionKey={key} />
+      )}
+
+      {!structured && (
       <InspectorGroup titleKey="content">
         {element.type === "text" && (
           <>
@@ -144,7 +152,9 @@ export function ElementInspector({ element, pages }: { element: BuilderElement; 
           </>
         )}
       </InspectorGroup>
+      )}
 
+      {!structured && (
       <InspectorGroup titleKey="style">
         {element.type === "text" && (
           <>
@@ -297,6 +307,7 @@ export function ElementInspector({ element, pages }: { element: BuilderElement; 
           </>
         )}
       </InspectorGroup>
+      )}
 
       <InspectorGroup titleKey="layout">
         {/*
