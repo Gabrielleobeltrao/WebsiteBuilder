@@ -3,6 +3,8 @@ import {
   PUBLISHED_BASE_CSS,
   renderablePage,
   resolveSafeLinkHref,
+  runtimeCapabilitiesFor,
+  walkElements,
   type BuilderProject,
   type RouteManifestEntry,
   type SiteSeoSettings,
@@ -36,6 +38,23 @@ export type AnalyticsScript = {
   categories: readonly string[];
 };
 
+/**
+ * The capabilities one page needs from the runtime.
+ *
+ * Exported because the policy header has to agree with the markup: a page that references the file
+ * needs `script-src 'self'`, and a page that does not must keep `'none'`. Two independent answers
+ * to that question is how a page ends up either blocked by its own policy or relaxed for nothing.
+ */
+export function pageRuntimeCapabilities(
+  document: BuilderProject,
+  page: BuilderProject["pages"][number] | null,
+): string[] {
+  if (page === null) return [];
+  return runtimeCapabilitiesFor(
+    renderablePage(document, page).sections.flatMap((section) => [...walkElements(section.elements)]),
+  );
+}
+
 export function renderRouteHtml(input: {
   route: RouteManifestEntry;
   document: BuilderProject;
@@ -43,12 +62,14 @@ export function renderRouteHtml(input: {
   mediaBaseUrl: string;
   analytics?: AnalyticsScript;
   /**
-   * The interaction runtime, when this page contains a block that needs one.
+   * Where the interaction runtime is served.
    *
-   * A file rather than a snippet, deferred, and absent entirely for a page that is static — which
-   * is most pages. The capabilities travel as an attribute so the file can be one build for every
-   * site while a page still declares what it asked for.
+   * Given rather than decided here, but *whether* to reference it is decided here, from the blocks
+   * the page actually contains — so every caller that renders a page gets the same answer. A page
+   * with nothing to upgrade emits no script tag at all, which is most pages.
    */
+  runtimeSrc?: string;
+  /** The runtime file and what this page asked of it. Absent for a page that needs nothing. */
   runtime?: { src: string; capabilities: readonly string[] };
   /**
    * Rewrites internal page links, for a caller that serves this document from somewhere other than
@@ -109,7 +130,9 @@ export function renderRouteHtml(input: {
     {
       lang: document.seo.locale,
       head: headTags({
-        ...(input.runtime === undefined ? {} : { runtime: input.runtime }),
+        ...(input.runtimeSrc === undefined
+          ? {}
+          : { runtime: { src: input.runtimeSrc, capabilities: pageRuntimeCapabilities(document, page) } }),
         route,
         site: document.seo,
         canonicalUrl: input.canonicalUrl,
@@ -174,13 +197,7 @@ function headTags(input: {
   site: SiteSeoSettings;
   canonicalUrl: string;
   analytics?: AnalyticsScript;
-  /**
-   * The interaction runtime, when this page contains a block that needs one.
-   *
-   * A file rather than a snippet, deferred, and absent entirely for a page that is static — which
-   * is most pages. The capabilities travel as an attribute so the file can be one build for every
-   * site while a page still declares what it asked for.
-   */
+  /** The runtime file and what this page asked of it. Absent for a page that needs nothing. */
   runtime?: { src: string; capabilities: readonly string[] };
 }): string {
   const seo = input.route.seo as { title?: string; description?: string; robots?: { index: boolean; follow: boolean } };
@@ -227,7 +244,7 @@ function headTags(input: {
   }
 
   const runtime = input.runtime;
-  if (runtime !== undefined) {
+  if (runtime !== undefined && runtime.capabilities.length > 0) {
     // Deferred, like the tracker, and carrying what the page asked for as data rather than as a
     // generated snippet — the policy this page is served under forbids inline script, and that is
     // worth keeping for a file whose whole job is to touch the DOM.

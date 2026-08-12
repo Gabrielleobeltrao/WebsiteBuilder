@@ -1,4 +1,3 @@
-import { renderablePage, runtimeCapabilitiesFor, walkElements } from "@websitebuilder/shared";
 import express, { type Express, type Request } from "express";
 import { pinoHttp } from "pino-http";
 import type { Logger } from "pino";
@@ -6,7 +5,7 @@ import type { Logger } from "pino";
 import type { Env } from "../config/env";
 import { isLikelyBot } from "../modules/analytics/repository";
 import { ANALYTICS_EVENTS_PATH, type AnalyticsRuntime } from "./analytics";
-import { renderRouteHtml, type AnalyticsScript } from "./html";
+import { pageRuntimeCapabilities, renderRouteHtml, type AnalyticsScript } from "./html";
 import { RUNTIME_SOURCE, RUNTIME_VERSION } from "./runtime.generated";
 import { normalizePath, resolveRoute, SiteResolver } from "./resolver";
 
@@ -72,11 +71,12 @@ export const PUBLISHED_SITE_CSP_WITH_ANALYTICS = publishedSiteCsp(["script-src '
 /**
  * The policy for an authenticated draft preview.
  *
- * The same page under the same restrictions, with one difference: the builder frames it on its own
- * origin, so `'self'` replaces `'none'` for frame ancestors and nothing else moves. No script
- * source is granted — a preview carries no analytics and needs no JavaScript to lay itself out.
+ * The same page under the same restrictions, with two differences: the builder frames it on its own
+ * origin, so `'self'` replaces `'none'` for frame ancestors; and the interaction runtime is served
+ * from that same origin, so `script-src 'self'` admits exactly that one file. No inline allowance,
+ * no analytics, and nothing that would let a document supply a script of its own.
  */
-export const DRAFT_PREVIEW_CSP = publishedSiteCsp(["script-src 'none'"], "'self'");
+export const DRAFT_PREVIEW_CSP = publishedSiteCsp(["script-src 'self'"], "'self'");
 
 /**
  * The public multi-tenant renderer. One stateless process serves every published site: it resolves
@@ -210,18 +210,15 @@ export function createRendererApp(options: {
 
       // Only for a page that contains a block needing it. A static page loads no script at all,
       // which is what keeps the published output the thing this product promises.
-      const capabilities = runtimeCapabilitiesFor(
-        renderablePage(site.document, site.document.pages.find((page) => page.id === route.resourceId) ?? { sections: [] } as never).sections.flatMap(
-          (section) => [...walkElements(section.elements)],
-        ),
+      const capabilities = pageRuntimeCapabilities(
+        site.document,
+        site.document.pages.find((page) => page.id === route.resourceId) ?? null,
       );
 
       const html = renderRouteHtml({
         route,
         document: site.document,
-        ...(capabilities.length === 0
-          ? {}
-          : { runtime: { src: `${RUNTIME_SCRIPT_PATH}?v=${RUNTIME_VERSION}`, capabilities } }),
+        runtimeSrc: `${RUNTIME_SCRIPT_PATH}?v=${RUNTIME_VERSION}`,
         canonicalUrl: `https://${site.domain.hostname}${normalizePath(req.path)}`,
         // Same origin as the application: the API has no public hostname of its own, and a
         // published page must not reference one that does not exist.

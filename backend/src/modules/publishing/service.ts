@@ -182,7 +182,13 @@ export class PublishingService {
   async previewRoute(
     context: WorkspaceContext,
     projectId: string,
-    input: { path: string; pageHref: (path: string) => string; mediaBaseUrl: string; canonicalOrigin: string },
+    input: {
+      path: string;
+      pageHref: (path: string) => string;
+      mediaBaseUrl: string;
+      canonicalOrigin: string;
+      runtimeSrc?: string;
+    },
   ): Promise<{ html: string; status: 200 | 404 } | null> {
     const compileInput = await this.buildCompileInput(context, projectId);
     if (compileInput === null) return null;
@@ -199,6 +205,9 @@ export class PublishingService {
         canonicalUrl: `${input.canonicalOrigin}${input.path}`,
         mediaBaseUrl: input.mediaBaseUrl,
         pageHref: input.pageHref,
+        // The same runtime the published page gets, so a preview rehearses the behaviour rather
+        // than a static approximation of it.
+        ...(input.runtimeSrc === undefined ? {} : { runtimeSrc: input.runtimeSrc }),
       }),
     };
   }

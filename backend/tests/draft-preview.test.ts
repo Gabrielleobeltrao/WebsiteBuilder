@@ -179,12 +179,19 @@ describe("GET publishing/preview", () => {
     expect(response.status).toBe(200);
   });
 
-  it("carries a policy that forbids script and allows only its own framing", async () => {
+  it("admits one script from its own origin and nothing else", async () => {
     const { projectId } = await seedProject();
     const response = await request(app).get(previewPath(WORKSPACE, projectId));
     const csp = response.headers["content-security-policy"] ?? "";
 
-    expect(csp).toContain("script-src 'none'");
+    // The interaction runtime, served from this origin, so a preview rehearses the behaviour a
+    // visitor gets rather than a static approximation. No inline allowance, no third party.
+    expect(csp).toContain("script-src 'self'");
+    // `unsafe-inline` is granted to styles and nothing else: the responsive stylesheet is inlined
+    // into the document, and that is the whole reason the allowance exists.
+    expect(csp).toContain("style-src 'self' 'unsafe-inline'");
+    expect(csp).not.toMatch(/script-src[^;]*unsafe-inline/);
+    expect(csp).not.toContain("unsafe-eval");
     expect(csp).toContain("frame-ancestors 'self'");
     expect(csp).toContain("default-src 'none'");
     expect(csp).not.toContain("unsafe-inline'; script");

@@ -4,6 +4,7 @@ import { ObjectId } from "mongodb";
 
 import { ApiProblem } from "../../middleware/errors";
 import { DRAFT_PREVIEW_CSP } from "../../renderer/app";
+import { RUNTIME_SOURCE, RUNTIME_VERSION } from "../../renderer/runtime.generated";
 import type { WorkspaceResolver } from "../projects/routes";
 import type { DomainService } from "../domains/service";
 import { PublishError, type PublishingRepository } from "./repository";
@@ -61,6 +62,16 @@ export function createPublishingRouter(options: {
    * workspace resolution as every other business route — a draft is not public, and this is the one
    * place its unpublished content leaves the database.
    */
+  /** The runtime file, on this origin, so a framed preview can load it under the same policy. */
+  router.get("/runtime.js", (_req, res) => {
+    res
+      .status(200)
+      .type("application/javascript; charset=utf-8")
+      .set("cache-control", "public, max-age=31536000, immutable")
+      .set("x-content-type-options", "nosniff")
+      .send(RUNTIME_SOURCE);
+  });
+
   router.get("/preview", async (req, res, next) => {
     try {
       const context = await resolveWorkspace(req);
@@ -76,6 +87,9 @@ export function createPublishingRouter(options: {
 
       const result = await service.previewRoute(context, projectId, {
         path,
+        // Same file, same decision rule as the published page: a preview that omitted it would
+        // rehearse static markup rather than the behaviour a visitor gets.
+        runtimeSrc: `${API_BASE_PATH}/workspaces/${encodeURIComponent(workspaceId)}/projects/${encodeURIComponent(projectId)}/publishing/runtime.js?v=${RUNTIME_VERSION}`,
         pageHref: (target) => `${base}?path=${encodeURIComponent(target)}`,
         mediaBaseUrl: `${API_BASE_PATH}/workspaces/${encodeURIComponent(workspaceId)}/media`,
         canonicalOrigin: publicOrigin,
