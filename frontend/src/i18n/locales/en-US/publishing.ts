@@ -27,6 +27,7 @@ export default {
     checking: "Checking this site…",
   },
   blockers: {
+    "block-incomplete": "A block on this page is not finished.",
     openInBuilder: "Open in builder",
     atWidths: "at {{widths}}",
     "responsive-layout": "A layout problem on this page.",

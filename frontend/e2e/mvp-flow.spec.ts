@@ -210,6 +210,70 @@ test.describe("preview", () => {
   });
 });
 
+test.describe("building a page from the catalog", () => {
+  test("finds a block by search, inserts it, and inserts a pattern", async ({ page }) => {
+    await signUp(page);
+    await createSite(page, "Catalog Site");
+
+    await page.getByRole("link", { name: "Open" }).first().click();
+    await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
+    await page.getByRole("tab", { name: "Add elements" }).click();
+
+    // Searching by a word that is not the block's name is the thing the catalog exists for.
+    await page.getByRole("searchbox", { name: "Search blocks" }).fill("youtube");
+    await page.getByRole("button", { name: "Video", exact: true }).click();
+
+    // The block opens its own inspector, with its own fields.
+    await expect(page.getByLabel("Video identifier")).toBeVisible();
+    await page.getByLabel("Video identifier").fill("dQw4w9WgXcQ");
+
+    // A pattern inserts ordinary blocks, which the structure tree then lists individually.
+    await page.getByRole("tab", { name: "Add elements" }).click();
+    await page.getByRole("tab", { name: "Patterns" }).click();
+    await page.getByRole("button", { name: /^Hero / }).click();
+
+    await page.getByRole("tab", { name: "Structure" }).click();
+    const tree = page.getByRole("navigation", { name: "Page structure" });
+    await expect(tree.getByRole("button", { name: "Button" })).toBeVisible();
+
+    await page.keyboard.press("Control+s");
+    await expect(page.getByText(/All changes saved|Saved/)).toBeVisible({ timeout: 20_000 });
+
+    // Reload: what was inserted survives the round trip through the API.
+    await page.reload();
+    await expect(page.getByRole("tab", { name: "Add elements" })).toBeVisible({ timeout: 20_000 });
+    await page.getByRole("tab", { name: "Structure" }).click();
+    await expect(page.getByRole("navigation", { name: "Page structure" }).getByRole("button", { name: "Video" })).toBeVisible();
+  });
+
+  test("refuses to publish a page whose block cannot work, and says which", async ({ page }) => {
+    await signUp(page);
+    await createSite(page, "Readiness Site");
+
+    await page.getByRole("link", { name: "Open" }).first().click();
+    await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
+
+    // A video with no identifier renders an empty frame, which reaches a visitor as a broken site.
+    await page.getByRole("tab", { name: "Add elements" }).click();
+    await page.getByRole("searchbox", { name: "Search blocks" }).fill("video");
+    await page.getByRole("button", { name: "Video", exact: true }).click();
+    await page.keyboard.press("Control+s");
+    await expect(page.getByText(/All changes saved|Saved/)).toBeVisible({ timeout: 20_000 });
+
+    const workspacePath = new URL(page.url()).pathname.split("/").slice(0, 3).join("/");
+    const projectId = new URL(page.url()).pathname.split("/")[4];
+    await page.goto(`${workspacePath}/sites/${projectId}/publish`);
+
+    await expect(page.getByText(/no identifier/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /publish/i })).toBeDisabled();
+
+    // And the finding is a way back to the field, not just a complaint.
+    await page.getByRole("link", { name: "Open in builder" }).first().click();
+    await expect(page).toHaveURL(/\/builder\//, { timeout: 20_000 });
+    await expect(page.getByLabel("Video identifier")).toBeVisible();
+  });
+});
+
 test.describe("previewing from a phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 

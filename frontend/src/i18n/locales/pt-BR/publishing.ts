@@ -20,6 +20,7 @@ export default {
     checking: "Verificando este site…",
   },
   blockers: {
+    "block-incomplete": "Um bloco desta página não está pronto.",
     openInBuilder: "Abrir no construtor",
     atWidths: "em {{widths}}",
     "responsive-layout": "Um problema de layout nesta página.",

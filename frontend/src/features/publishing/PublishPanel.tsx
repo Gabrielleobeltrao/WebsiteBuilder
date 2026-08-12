@@ -360,7 +360,7 @@ function IssueList({
           <li key={`${issue.code}-${issue.elementId ?? issue.path ?? index}`}>
             <span>{t(`blockers.${issue.code}` as "blockers.no-pages")}</span>
             {issue.path !== undefined && <span className="ml-1 font-mono text-xs">{issue.path}</span>}
-            {issue.code === "responsive-layout" && (
+            {(issue.code === "responsive-layout" || issue.code === "block-incomplete") && (
               <>
                 <span className="ml-1 text-xs">{issue.detail}</span>
                 {issue.ranges !== undefined && issue.ranges.length > 0 && (
