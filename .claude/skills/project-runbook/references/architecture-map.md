@@ -50,3 +50,12 @@ The public renderer is code inside `backend/`, not a third workspace.
 - Document writes carry the last known `revision`; a stale write is `409 REVISION_CONFLICT`.
 - API contracts expose Mongo `_id` as `id: string`. Element and page IDs are application UUIDs.
 - Frontend never talks to Mongo; backend never imports React.
+
+## Block library
+
+Twenty-nine block types, described once in `packages/shared/src/element-registry.ts`. A block
+without a definition or a renderer does not compile; defaults that drift from the schema fail a
+contract test. Payloads are versioned and migrated on read, never on write.
+
+`docs/BLOCK_LIBRARY.md` is the guide: how to add one, what the type system enforces, how the public
+interaction runtime is selected per page, and what readiness refuses to publish.
