@@ -14,7 +14,7 @@ import {
 } from "./publishing";
 import { flattenChains, type Redirect } from "./redirects";
 import { buildSearchIndex, type SearchDocument, type SearchSource } from "./search";
-import { renderablePage } from "./shared-sections";
+import { renderablePage, resolvePageSections } from "./shared-sections";
 import { resolvePageMetadata } from "./seo";
 import { SYSTEM_PAGE_CONTRACTS, SYSTEM_PAGE_KINDS } from "./system-pages";
 
@@ -119,32 +119,89 @@ export type CompileResult =
  * Checked here rather than in block readiness because only the publisher knows which definitions
  * exist: a page's own document holds an id and nothing else. A form that was deleted, archived, or
  * never finished would otherwise publish as a set of inputs that accept an answer and lose it.
+ *
+ * Shared sections are resolved first. A form in a shared header is on every page of the site, and
+ * walking the stored sections would report it as absent while every visitor saw it.
  */
 function auditFormReferences(input: CompileInput): BlockFinding[] {
   const byId = new Map((input.forms ?? []).map((form) => [form.id, form]));
   const findings: BlockFinding[] = [];
+  const reported = new Set<string>();
+
+  const pageIds = new Set(input.project.pages.map((page) => page.id));
 
   for (const page of input.project.pages) {
-    for (const section of page.sections) {
+    for (const section of resolvePageSections(input.project, page)) {
+      if (section.hidden) continue;
+
       for (const element of walkElements(section.elements)) {
         if (element.type !== "form" || element.hidden || element.formId === "") continue;
+        // One block, one finding, whatever number of pages a shared section puts it on.
+        if (reported.has(element.id)) continue;
+        reported.add(element.id);
 
         const form = byId.get(element.formId);
-        const detail =
-          form === undefined
-            ? "This block points at a form that no longer exists."
-            : form.status === "ready"
-              ? null
-              : "The form this block shows is not finished, so a visitor's answer would go nowhere.";
+        const at = {
+          path: pagePath(page),
+          elementId: element.id,
+          pageId: page.id,
+          formId: element.formId,
+          severity: "error" as const,
+        };
 
-        if (detail !== null) {
+        if (form === undefined) {
+          findings.push({ ...at, code: "form-missing", detail: "This block points at a form that no longer exists." });
+          continue;
+        }
+
+        if (form.status === "archived") {
           findings.push({
-            code: form === undefined ? "form-missing" : "form-incomplete",
-            severity: "error",
-            path: pagePath(page),
-            detail,
-            elementId: element.id,
-            pageId: page.id,
+            ...at,
+            code: "form-archived",
+            detail: "The form this block shows is archived, so it would not accept an answer.",
+          });
+          continue;
+        }
+
+        if (form.fields.filter((field) => field.type !== "hidden").length === 0) {
+          findings.push({
+            ...at,
+            code: "form-without-fields",
+            detail: "The form this block shows asks nothing, so nobody could complete it.",
+          });
+          continue;
+        }
+
+        // A choice with no options is a control a visitor cannot answer, and a required one is a
+        // form nobody can submit at all.
+        const emptyChoice = form.fields.find(
+          (field) => (field.type === "select" || field.type === "radio") && (field.options ?? []).length === 0,
+        );
+        if (emptyChoice !== undefined) {
+          findings.push({
+            ...at,
+            code: "form-choice-without-options",
+            detail: `"${emptyChoice.label}" offers no choices, so a visitor has nothing to pick.`,
+          });
+          continue;
+        }
+
+        // Sending somebody to a page this site does not have is a dead end at the exact moment they
+        // have finished doing what was asked of them.
+        if (form.successBehavior.type === "internalRedirect" && !pageIds.has(form.successBehavior.pageId)) {
+          findings.push({
+            ...at,
+            code: "form-redirect-missing",
+            detail: "This form sends people to a page that no longer exists after they submit it.",
+          });
+          continue;
+        }
+
+        if (form.status !== "ready") {
+          findings.push({
+            ...at,
+            code: "form-incomplete",
+            detail: "The form this block shows is not finished, so a visitor's answer would go nowhere.",
           });
         }
       }

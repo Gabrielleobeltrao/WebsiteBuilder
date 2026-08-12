@@ -137,6 +137,14 @@ export type PreflightIssue = {
   ranges?: WidthRange[];
   /** For a block finding, the specific check that produced it, so the UI can open the right field. */
   blockCode?: string;
+  /**
+   * The form a finding is about, when the fix is in the form rather than on the page.
+   *
+   * "This form asks nothing" is not fixed by opening the block that shows it; it is fixed by
+   * opening the form's questions. A finding that sends somebody to the wrong screen is a finding
+   * they have to translate before they can act on it.
+   */
+  formId?: string;
 };
 
 /**
@@ -260,6 +268,7 @@ export function preflight(input: {
       path: finding.path,
       pageId: finding.pageId,
       ...(finding.elementId === "" ? {} : { elementId: finding.elementId }),
+      ...(finding.formId === undefined ? {} : { formId: finding.formId }),
     });
   }
 

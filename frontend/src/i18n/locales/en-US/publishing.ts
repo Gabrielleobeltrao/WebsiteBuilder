@@ -28,6 +28,7 @@ export default {
   },
   blockers: {
     "block-incomplete": "A block on this page is not finished.",
+    openForm: "Open this form",
     openInBuilder: "Open in builder",
     atWidths: "at {{widths}}",
     "responsive-layout": "A layout problem on this page.",

@@ -35,7 +35,19 @@ export type FormSummary = FormRecord & {
   unreadCount: number;
   lastSubmissionAt: string | null;
   usages: FormUsage[];
+  /**
+   * The revision the live site is serving, or null when this form is on no published page.
+   *
+   * Compared with `revision` to answer "are there changes waiting to publish" — the one question a
+   * person editing a form that is already collecting answers actually has.
+   */
+  publishedRevision?: number | null;
 };
+
+/** True when the draft asks something different from what the live site is showing. */
+export function hasChangesWaitingToPublish(form: Pick<FormSummary, "revision" | "publishedRevision">): boolean {
+  return form.publishedRevision != null && form.publishedRevision !== form.revision;
+}
 
 /** One definition, with the placements the caller asked about. */
 export type FormDetail = FormRecord & { usages: FormUsage[] };

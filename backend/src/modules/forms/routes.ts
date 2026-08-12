@@ -66,8 +66,19 @@ export function createFormsRouter(options: {
     userId: string;
     projectId: string;
   }) => Promise<BuilderProject | null>;
+  /**
+   * The form revisions the live site is currently serving.
+   *
+   * Editing a definition changes the builder immediately and changes nothing a visitor sees until
+   * the next publish. Saying so is the difference between a product that quietly diverges from
+   * production and one that tells you which of your edits are live.
+   */
+  loadPublishedRevisions?: (input: {
+    workspaceId: string;
+    projectId: string;
+  }) => Promise<ReadonlyMap<string, number>>;
 }): Router {
-  const { repository, resolveWorkspace, loadProject } = options;
+  const { repository, resolveWorkspace, loadProject, loadPublishedRevisions } = options;
   const router = Router({ mergeParams: true });
 
   const usagesFor = async (
@@ -91,20 +102,24 @@ export function createFormsRouter(options: {
       const context = await resolveWorkspace(req);
       const projectId = parseId(param(req, "projectId"), "Project not found");
 
-      const [definitions, counts, usages] = await Promise.all([
+      const [definitions, counts, usages, published] = await Promise.all([
         repository.list(context, projectId),
         repository.countsByForm(context, projectId),
         usagesFor(context, projectId),
+        loadPublishedRevisions?.({ workspaceId: context.workspaceId, projectId }) ??
+          Promise.resolve(new Map<string, number>()),
       ]);
 
       const data: FormSummary[] = definitions.map((definition) => {
         const count = counts.get(definition.id);
+        const live = published.get(definition.id);
         return {
           ...definition,
           submissionCount: count?.total ?? 0,
           unreadCount: count?.unread ?? 0,
           lastSubmissionAt: count?.lastAt ?? null,
           usages: usages.get(definition.id) ?? [],
+          publishedRevision: live ?? null,
         };
       });
 

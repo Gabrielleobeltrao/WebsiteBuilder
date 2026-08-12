@@ -32,6 +32,9 @@ let app: Express;
  */
 let placements: Array<{ pageId: string; elementId: string; formId: string; shared: boolean }> = [];
 
+/** The form revisions a live site would be serving, as the publishing module would report them. */
+let live = new Map<string, number>();
+
 const definition = (overrides: Partial<FormDefinitionInput> = {}): FormDefinitionInput => ({
   name: "Contact",
   fields: [{ id: "name", type: "shortText", label: "Your name", required: true }],
@@ -53,6 +56,7 @@ beforeAll(async () => {
           repository: new FormRepository(database.db),
           resolveWorkspace: createSeededWorkspaceResolver({ workspaceId: WORKSPACE, userId: "user-a" }),
           loadProject: async () => projectWithPlacements(),
+          loadPublishedRevisions: async () => live,
         }),
       },
     ],
@@ -67,6 +71,7 @@ beforeEach(async () => {
   await database.clear();
   await ensureFormIndexes(database.db);
   placements = [];
+  live = new Map();
 });
 
 /** A saved document holding exactly the placements a test declared. */
@@ -304,5 +309,79 @@ describe("the submissions inbox", () => {
     expect(response.headers["x-content-type-options"]).toBe("nosniff");
     // Prefixed rather than stripped: the value stays readable and stops being a formula.
     expect(response.text).toContain(`"'=cmd|'/c calc'!A1"`);
+  });
+});
+
+describe("readiness and lifecycle", () => {
+  it("reports a form with no questions as a reason the site cannot publish", async () => {
+    const empty = await createForm({ fields: [] });
+    placements = [{ pageId: "home", elementId: "block-1", formId: empty.id, shared: false }];
+
+    const { compileSite } = await import("@websitebuilder/shared");
+    const result = compileSite({
+      project: projectWithPlacements(),
+      blog: { settings: { enabled: false } as never, posts: [] },
+      cms: { collections: [], items: [] },
+      redirects: [],
+      forms: [
+        {
+          id: empty.id,
+          name: "Contact",
+          revision: 1,
+          fields: [],
+          submitLabel: "Send",
+          successBehavior: { type: "message", message: "Thanks" },
+          status: "needs_setup",
+        },
+      ],
+      mediaExists: () => true,
+      supportedSchemaVersion: 1,
+      moduleBlockers: 0,
+      maxDocumentBytes: 4_000_000,
+    });
+
+    const issue = result.report.issues.find((candidate) => candidate.blockCode === "form-without-fields");
+    // Named the form rather than only the block: the fix is inside the definition, and a finding
+    // that sends somebody to the block sends them to the one screen it cannot be corrected on.
+    expect(issue).toBeDefined();
+    expect(issue?.formId).toBe(empty.id);
+  });
+
+  it("says which revision the live site is serving, so a draft edit is visibly waiting", async () => {
+    const form = await createForm();
+    live = new Map([[form.id, 1]]);
+
+    const before = await request(app).get(base);
+    expect(before.body.data[0]).toMatchObject({ revision: 1, publishedRevision: 1 });
+
+    await request(app).put(`${base}/${form.id}`).send({ ...definition({ name: "Edited" }), expectedRevision: 1 });
+
+    const after = await request(app).get(base);
+    expect(after.body.data[0]).toMatchObject({ revision: 2, publishedRevision: 1 });
+  });
+
+  it("archives a form that holds answers rather than destroying them", async () => {
+    const form = await createForm();
+    await new FormRepository(database.db).submit({
+      projectId: PROJECT,
+      formId: form.id,
+      values: { name: "Ana" },
+    });
+
+    const response = await request(app).delete(`${base}/${form.id}`);
+    expect(response.body.data.outcome).toBe("archived");
+
+    // The inbox still reaches them, which is the whole reason archiving exists.
+    const inbox = await request(app).get(`${base}/-/submissions`);
+    expect(inbox.body.data.total).toBe(1);
+  });
+
+  it("restores an archived form without moving its revision", async () => {
+    const form = await createForm();
+    await new FormRepository(database.db).submit({ projectId: PROJECT, formId: form.id, values: { name: "Ana" } });
+    await request(app).delete(`${base}/${form.id}`);
+
+    const restored = await request(app).post(`${base}/${form.id}/restore`);
+    expect(restored.body.data).toMatchObject({ archived: false, revision: 1 });
   });
 });

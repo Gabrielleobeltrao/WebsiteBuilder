@@ -21,6 +21,7 @@ export default {
   },
   blockers: {
     "block-incomplete": "Um bloco desta página não está pronto.",
+    openForm: "Abrir este formulário",
     openInBuilder: "Abrir no construtor",
     atWidths: "em {{widths}}",
     "responsive-layout": "Um problema de layout nesta página.",

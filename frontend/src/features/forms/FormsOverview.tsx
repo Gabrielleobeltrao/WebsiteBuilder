@@ -1,4 +1,4 @@
-import type { FormSummary, FormUsage } from "@websitebuilder/shared";
+import { hasChangesWaitingToPublish, type FormSummary, type FormUsage } from "@websitebuilder/shared";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
@@ -219,6 +219,12 @@ export function FormsOverview({
                     </td>
                     <td className="py-3 pr-4">
                       <StateBadge form={form} />
+                      {/* Editing a form changes the builder now and changes the live site only at
+                          the next publish. Saying which of your edits are live is the one question
+                          somebody editing a form that is already collecting answers actually has. */}
+                      {hasChangesWaitingToPublish(form) && (
+                        <p className="mt-1 text-[11px] text-amber-700">{t("forms:overview.waitingToPublish")}</p>
+                      )}
                     </td>
                     <td className="py-3 pr-4">
                       <Usages usages={form.usages} basePath={basePath} />

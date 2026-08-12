@@ -148,13 +148,13 @@ The current form implementation is incomplete and must not be treated as product
 
 ### Phase 6 — Readiness, publish lifecycle, and deletion rules
 
-- [ ] **6.1 Add actionable form readiness findings.** Detect unbound block, missing definition, zero usable fields, invalid redirect, archived referenced form, invalid field options, and definition changes newer than the active publication.
+- [x] **6.1 Add actionable form readiness findings.** Detect unbound block, missing definition, zero usable fields, invalid redirect, archived referenced form, invalid field options, and definition changes newer than the active publication.
   - Acceptance: each finding opens the exact form or builder block; publish blocks only on genuine errors and distinguishes warnings.
 
-- [ ] **6.2 Implement draft-versus-published messaging.** Forms Center and builder show “Changes waiting to publish” when the draft definition revision differs from the active snapshot.
+- [x] **6.2 Implement draft-versus-published messaging.** Forms Center and builder show “Changes waiting to publish” when the draft definition revision differs from the active snapshot.
   - Acceptance: editing a form never mutates a live site silently; republish clears the state.
 
-- [ ] **6.3 Finalize lifecycle behavior.** Prevent deletion while referenced, offer “show usages”, rebind, or remove placements; archive forms with retained submissions; keep historical inbox access after the last placement is removed.
+- [x] **6.3 Finalize lifecycle behavior.** Prevent deletion while referenced, offer “show usages”, rebind, or remove placements; archive forms with retained submissions; keep historical inbox access after the last placement is removed.
   - Acceptance: no orphaned blocks, inaccessible history, or accidental cascading deletion.
 
 ### Phase 7 — Accessibility, responsiveness, performance, and clarity
@@ -234,6 +234,9 @@ YYYY-MM-DD HH:mm | Task X.Y | files/behavior changed | verification command + re
 2026-08-12 17:57 | Task 5.4 | identity comes from the resolved hostname and the published route manifest only; the form comes from the snapshot; values are keyed by the snapshot's field list so extra keys are never stored; honeypot and bot user-agents are answered "ok" and stored nowhere; per-address and per-project fixed-window limits (5/60 per minute) share one FixedWindowCounter extracted from the analytics endpoint; responses carry no detail and no body, field name or address is ever logged | vitest form-submission → cross-tenant form 404s, spoofed workspaceId/projectId ignored, unpublished path not attributed, third submission 429s | —
 2026-08-12 17:57 | Task 5.5 | every submission stores formRevision and the field snapshot it answered, plus a server-derived source (pageId, path, host, and campaign parameters read from a same-origin referrer) | vitest form-submission → after the live definition is rewritten, a visitor is still validated against revision 1 and their answer is stored against it | —
 2026-08-12 17:57 | Task 5.6 | the adapter and development sink are untouched; nothing is wired into the renderer process, because an empty delivery path that looks like a delivery path is worse than none. The Forms Center says delivery depends on a configured provider and that the inbox always has the answer | no code change; the claim is the absence of one | —
+2026-08-12 18:03 | Task 6.1 | auditFormReferences now resolves shared sections (a form in a shared header was reported as absent while it rendered on every page), reports one finding per block rather than per page, and distinguishes form-missing, form-archived, form-without-fields, form-choice-without-options, form-redirect-missing and form-incomplete; a finding carries the formId, and the publish screen sends those five to the form's own editor rather than to the block, where they cannot be fixed | vitest backend forms-api → the finding for a form with no questions names the form; frontend typecheck covers the new link | —
+2026-08-12 18:03 | Task 6.2 | the forms list reports publishedRevision from the active snapshot beside the draft revision; hasChangesWaitingToPublish compares them and the overview shows "Changes waiting to publish" | vitest forms-api → editing a form moves revision to 2 while publishedRevision stays 1; republishing changes the content hash (5.1) so the state clears | —
+2026-08-12 18:03 | Task 6.3 | delete refuses while a page still points at the form (409 naming the blocks), archives rather than destroys when submissions exist, restore returns it without moving the content revision, and an archived module keeps its navigation entry so the inbox stays reachable | vitest forms-api → 19 passed; the archived form's answer is still listed in the inbox | —
 ```
 
 ## 7. Decision Log

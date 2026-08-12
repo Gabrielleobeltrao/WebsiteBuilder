@@ -17,7 +17,12 @@ import { renderablePage } from "./shared-sections";
  * blocks publication; a warning is reported and left to the person who designed the page.
  */
 
-export type BlockFinding = Finding & { elementId: string; pageId: string };
+export type BlockFinding = Finding & {
+  elementId: string;
+  pageId: string;
+  /** Set when the fix is inside a form definition rather than on the page. */
+  formId?: string;
+};
 
 function find(
   input: { pageId: string; path: string; element: BuilderElement },

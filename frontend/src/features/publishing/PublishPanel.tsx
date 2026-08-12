@@ -311,10 +311,30 @@ const FINDING_TAB: Record<string, "content" | "style" | "advanced"> = {
   "table-without-headers": "content",
   "responsive-layout": "style",
   "duplicate-anchor": "advanced",
+  "form-missing": "content",
 };
+
+/**
+ * Findings whose fix is inside the form rather than on the page.
+ *
+ * "This form asks nothing" is not fixed by selecting the block that shows it. Sending somebody to
+ * the block would be sending them to the one screen where the problem cannot be corrected.
+ */
+const FORM_FINDINGS = new Set([
+  "form-without-fields",
+  "form-choice-without-options",
+  "form-redirect-missing",
+  "form-incomplete",
+  "form-archived",
+]);
 
 function openInBuilder(input: { workspaceId: string; projectId: string; issue: PreflightIssue }): string {
   const { workspaceId, projectId, issue } = input;
+
+  if (issue.formId !== undefined && FORM_FINDINGS.has(issue.blockCode ?? "")) {
+    return `/app/${workspaceId}/sites/${projectId}/forms/${issue.formId}/edit`;
+  }
+
   const params = new URLSearchParams();
   if (issue.elementId !== undefined) params.set("element", issue.elementId);
 
@@ -375,7 +395,9 @@ function IssueList({
                 to={openInBuilder({ workspaceId, projectId, issue })}
                 className="ml-2 text-xs font-medium underline underline-offset-2"
               >
-                {t("blockers.openInBuilder")}
+                {issue.formId !== undefined && FORM_FINDINGS.has(issue.blockCode ?? "")
+                  ? t("blockers.openForm")
+                  : t("blockers.openInBuilder")}
               </Link>
             )}
           </li>

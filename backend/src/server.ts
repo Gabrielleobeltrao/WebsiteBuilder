@@ -224,6 +224,11 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
         // Placement is a fact about the saved document, and the document is scoped by the same
         // verified workspace the resolver produced.
         loadProject: ({ workspaceId, userId, projectId }) => projects.findById({ workspaceId, userId }, projectId),
+        loadPublishedRevisions: async ({ workspaceId, projectId }) => {
+          const active = await publishing.findActiveForProject(projectId);
+          if (active === null || active.workspaceId !== workspaceId) return new Map();
+          return new Map((active.forms ?? []).map((form) => [form.id, form.revision]));
+        },
       }),
     },
     {
