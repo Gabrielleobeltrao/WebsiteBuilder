@@ -237,6 +237,17 @@ export class PublishingRepository {
       return toDomain(existing);
     }
 
+    // Primary only when the project has none yet.
+    //
+    // A project can end up with more than one platform hostname — the root domain changes, or a
+    // customer connects their own domain and makes it canonical. Marking every new one primary
+    // would leave two rows claiming it, and the address the dashboard shows would then depend on
+    // which one the query happened to return first.
+    const hasPrimary = await this.domains.countDocuments(
+      { workspaceId: context.workspaceId, projectId, isPrimary: true },
+      { limit: 1 },
+    );
+
     const now = new Date().toISOString();
     const document: Omit<DomainDocument, "_id"> = {
       workspaceId: context.workspaceId,
@@ -244,7 +255,7 @@ export class PublishingRepository {
       hostname,
       kind: "platform",
       status: "active",
-      isPrimary: true,
+      isPrimary: hasPrimary === 0,
       provider: "platform_wildcard",
       sslStatus: "active",
       createdAt: now,

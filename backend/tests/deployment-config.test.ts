@@ -127,7 +127,6 @@ describe("required configuration stops a deployment rather than defaulting", () 
       "MONGODB_DB_NAME",
       "BETTER_AUTH_SECRET",
       "PLATFORM_ROOT_DOMAIN",
-      "PLATFORM_ROOT_DOMAIN_REGEX",
     ]) {
       expect(raw).toMatch(new RegExp(`\\$\\{${variable}:\\?`));
     }
@@ -245,13 +244,26 @@ describe("renderer routing", () => {
     expect(labels.some((entry) => entry.includes("wb-renderer-origin"))).toBe(false);
   });
 
-  it("matches project subdomains but never the application's own apex", () => {
+  it("matches project subdomains but never a bare root domain", () => {
     const rule = label("traefik.http.routers.wb-renderer-projects.rule") ?? "";
 
-    // A label is required before the root domain. Without that, the pattern would match the apex
-    // and the dashboard would be served by the renderer.
+    // A label is required before the root domain, and the pattern is anchored at both ends, so a
+    // longer hostname cannot match by accident.
     expect(rule).toContain("^[a-z0-9][a-z0-9-]*\\.");
-    expect(rule).toContain("$$");
+    // Go's end-of-text anchor rather than `$`: a `$` in a compose file has to be escaped as `$$`,
+    // and the escape survives into the label on a deploy path that does not interpolate.
+    expect(rule).toContain("\\z");
+  });
+
+  it("interpolates nothing inside a Traefik label", () => {
+    // A deployed container was found carrying `HostRegexp(...${PLATFORM_ROOT_DOMAIN_REGEX}$$)` as
+    // literal text, matching no hostname, and a `traefik.docker.network` of
+    // `${COOLIFY_PROXY_NETWORK:-coolify}` — a network that does not exist. The deploy applies these
+    // labels without expanding them, so a variable here is not a configuration point, it is a
+    // hostname nobody can reach. A default value does not help: nothing expands that either.
+    for (const entry of labels) {
+      expect(entry, entry).not.toContain("${");
+    }
   });
 
   it("ranks the wildcard below every exact-host router on the machine", () => {
@@ -277,21 +289,12 @@ describe("renderer routing", () => {
     expect(label("traefik.http.middlewares.wb-https-redirect.redirectscheme.scheme")).toBe("https");
   });
 
-  it("asks for one wildcard certificate rather than one per subdomain", () => {
-    // Every published site gets its own hostname, so a per-hostname certificate means a new ACME
-    // order per publish — rate-limited, slow, and impossible for a challenge that has to answer on
-    // a hostname whose certificate does not exist yet. One wildcard covers all of them.
-    expect(label("traefik.http.routers.wb-renderer-projects.tls.domains[0].sans")).toBe(
-      "*.${PLATFORM_ROOT_DOMAIN}",
-    );
-    expect(label("traefik.http.routers.wb-renderer-projects.tls.domains[0].main")).toBe(
-      "${PLATFORM_ROOT_DOMAIN}",
-    );
-    // The resolver is a variable because a wildcard requires DNS-01, and the proxy's default
-    // resolver on a Coolify host answers the HTTP challenge instead.
-    expect(label("traefik.http.routers.wb-renderer-projects.tls.certresolver")).toContain(
-      "WILDCARD_CERT_RESOLVER",
-    );
+  it("asks for no certificate it cannot be issued", () => {
+    // A resolver here would mean one ACME order per published hostname, each answering a challenge
+    // on a hostname whose certificate does not exist yet: a queue of failures ending in a rate
+    // limit. The certificate for these hostnames is Cloudflare's, terminated at their edge.
+    expect(label("traefik.http.routers.wb-renderer-projects.tls")).toBe("true");
+    expect(label("traefik.http.routers.wb-renderer-projects.tls.certresolver")).toBeUndefined();
   });
 
   it("adds no catch-all that would claim hostnames this platform knows nothing about", () => {

@@ -89,7 +89,6 @@ Set these on the resource. Compose passes each one only to the service that need
 ```
 PLATFORM_PUBLIC_ORIGIN=https://websitebuilder.oneplataforma.com
 PLATFORM_ROOT_DOMAIN=websitebuilder.oneplataforma.com
-PLATFORM_ROOT_DOMAIN_REGEX=websitebuilder\.oneplataforma\.com
 PUBLIC_RENDERER_HOST=origin.websitebuilder.oneplataforma.com
 
 MONGODB_URI=<Atlas connection string>
@@ -98,11 +97,13 @@ MONGODB_DB_NAME=websitebuilder
 BETTER_AUTH_SECRET=<openssl rand -base64 48>
 ```
 
-Three of those need a word.
+Two of those need a word.
 
-`PLATFORM_ROOT_DOMAIN_REGEX` is the same domain with its dots escaped. It goes into a Traefik
-pattern, where an unescaped `.` matches any character — so `websitebuilderXoneplataforma.com` would
-match a rule written without the backslashes. Copy it exactly as shown.
+The root domain is **not** a variable in the routing rules. Coolify applies the Traefik labels to the
+container without interpolating them — a deployed container was found carrying
+`HostRegexp(...${PLATFORM_ROOT_DOMAIN_REGEX}$$)` as literal text, which matches no hostname at all
+and answers every published site with the proxy's own 404. The rules in `docker-compose.production.yml`
+therefore spell the domain out, and changing it means editing those two lines.
 
 `PUBLIC_RENDERER_HOST` is a hostname, with no `https://`. It is used as a DNS name in a routing rule
 and as the Cloudflare fallback origin, and neither accepts a scheme.
@@ -141,44 +142,42 @@ from the cause.
 
 ---
 
-## 4.1 The wildcard certificate
+## 4.1 The certificate for published sites
 
-Every published site gets its own hostname under the root domain, so the proxy needs one certificate
-that covers all of them: `*.websitebuilder.oneplataforma.com`. Let's Encrypt issues a wildcard **only
-through the DNS-01 challenge** — it has to see a TXT record in the zone, because there is no single
-hostname an HTTP challenge could answer on.
+Every published site gets a hostname under the root domain, so the proxy needs a certificate that
+covers all of them. Let's Encrypt issues a wildcard only through the DNS-01 challenge, and the
+resolver a Coolify host ships with answers the HTTP one — which cannot work here, because the
+challenge would have to answer on a hostname whose certificate does not exist yet.
 
-That is a proxy-level change, made once, outside this repository.
+The deployment avoids the problem rather than solving it: **Cloudflare terminates TLS.**
 
-1. Create a Cloudflare API token scoped to **Zone → DNS → Edit** on that zone only.
-2. In Coolify: **Servers → your server → Proxy → Configuration**, add a resolver to the Traefik
-   static configuration:
+1. In the Cloudflare zone, create an `A` record named `*` pointing at the VPS address.
+2. Leave it **proxied** (orange cloud). Cloudflare's certificate covers `*.oneplataforma.com`.
+3. SSL/TLS → mode **Full**. Traefik answers the edge with its own default certificate, which Full —
+   as opposed to Full (strict) — accepts.
 
-   ```yaml
-   certificatesResolvers:
-     wildcard:
-       acme:
-         email: <your address>
-         storage: /traefik/acme-wildcard.json
-         dnsChallenge:
-           provider: cloudflare
-           resolvers:
-             - "1.1.1.1:53"
-   ```
+One level only. Cloudflare's free certificate covers `algo.oneplataforma.com` and **not**
+`algo.websitebuilder.oneplataforma.com`, which is why published sites live directly under the root
+domain. Two levels would need either a DNS-01 resolver on the proxy or Cloudflare's Advanced
+Certificate Manager.
 
-3. Give the proxy container the token as `CF_DNS_API_TOKEN`, and restart it.
-4. Set `WILDCARD_CERT_RESOLVER=wildcard` on this resource and redeploy.
+Names the platform uses itself must never be claimable as a site address:
 
-Verify from anywhere, not from the server:
-
-```bash
-echo | openssl s_client -connect <anything>.websitebuilder.oneplataforma.com:443 \
-  -servername <anything>.websitebuilder.oneplataforma.com 2>/dev/null \
-  | openssl x509 -noout -subject -issuer
+```
+PLATFORM_RESERVED_SUBDOMAINS=websitebuilder,origin,www,api,admin,mail,cdn,app
 ```
 
-`CN=TRAEFIK DEFAULT CERT` means the wildcard was never issued and the browser will refuse the page.
-An issuer of `Let's Encrypt` means it worked.
+The product refuses those slugs on top of its own built-in list, which cannot be shortened.
+
+Verify from anywhere except the server:
+
+```bash
+echo | openssl s_client -connect <slug>.oneplataforma.com:443 \
+  -servername <slug>.oneplataforma.com 2>/dev/null | openssl x509 -noout -issuer
+```
+
+`issuer=` naming Cloudflare or Let's Encrypt means the browser will accept it.
+`CN=TRAEFIK DEFAULT CERT` means the record is not proxied and the edge is being bypassed.
 
 ## 5. DNS
 
@@ -188,31 +187,24 @@ All records are in the `oneplataforma.com` zone; names are relative to it.
 |---|---|---|---|---|
 | `websitebuilder` | A | VPS IP | DNS only | The application |
 | `origin.websitebuilder` | A | VPS IP | DNS only | Technical renderer host and Cloudflare fallback origin |
-| `*.websitebuilder` | A | VPS IP | DNS only | Every project subdomain |
+| `*` | A | VPS IP | **Proxied** | Every published site, with Cloudflare's certificate |
 | `customers.websitebuilder` | CNAME | `origin.websitebuilder.oneplataforma.com` | DNS only | What customers point their own domain at |
 
 There is deliberately no `api` record. Creating one would publish an API that the architecture keeps
 private.
 
-**Grey cloud, not orange.** Cloudflare's free Universal SSL covers `oneplataforma.com` and one level
-of subdomain. `origin.websitebuilder.oneplataforma.com` is three labels deep and outside it, so a
-proxied record there serves a certificate error. DNS-only lets Traefik issue certificates on the VPS.
+**Grey cloud for the platform's own two hostnames.** Cloudflare's free certificate covers
+`oneplataforma.com` and one level below it. `origin.websitebuilder.oneplataforma.com` is three labels
+deep and outside that, so a proxied record there would serve a certificate error. DNS-only lets
+Traefik issue for them itself, which it can, because each is one concrete hostname.
 
-**The wildcard certificate is required, not an optimisation.** Project subdomains are matched by a
-`HostRegexp` router, and Traefik cannot request a certificate for a pattern — it has no concrete
-hostname to ask Let's Encrypt for. On-demand HTTP-01 issuance, which covers a named domain like the
-technical origin, does not apply. Without a wildcard certificate every project subdomain answers
-over HTTP and presents Traefik's default self-signed certificate over HTTPS.
+**Orange cloud for the site wildcard.** `*` is where every published site lives, and it is the record
+that cannot be served by Traefik alone — a `HostRegexp` router has no concrete hostname to request a
+certificate for. Proxied, Cloudflare presents its own certificate for any `slug.oneplataforma.com`
+and the origin never needs one. §4.1 has the three settings.
 
-Issue it with a DNS-01 challenge: Coolify → Settings → Advanced → Let's Encrypt DNS Challenge, with
-a Cloudflare token scoped to Zone → DNS → Edit on `oneplataforma.com`. Then confirm:
-
-```bash
-echo | openssl s_client -servername anything.websitebuilder.oneplataforma.com \
-  -connect <VPS IP>:443 2>/dev/null | openssl x509 -noout -subject
-```
-
-`TRAEFIK DEFAULT CERT` means it has not been issued yet.
+An explicit record always wins over the wildcard, so `websitebuilder` keeps its own grey-cloud
+record and the dashboard is unaffected by any of this.
 
 ---
 
@@ -243,9 +235,19 @@ outrank both domain fields — the dashboard would be served by the renderer, an
 technical origin. At 10 it loses to every exact-host router on the machine, including the ones other
 applications create.
 
-The project pattern requires a label before the root domain, so the apex itself never matches. The
-renderer answers 404 for any hostname without an active record, including every reserved label, so
-even a rule that matched too much could not expose a tenant.
+The project pattern requires exactly one label before the root domain, so the apex never matches and
+`origin.websitebuilder.oneplataforma.com` — three labels — does not either. `websitebuilder` itself
+does match the pattern, and is protected by two things rather than one: the priority above, which
+loses to its exact-host router, and `PLATFORM_RESERVED_SUBDOMAINS`, which stops anyone publishing a
+site under that name in the first place.
+
+**The rules spell the domain out.** They contain no `${...}`, because Coolify applies these labels
+without interpolating them — a deployed container was found carrying `${PLATFORM_ROOT_DOMAIN_REGEX}`
+as literal text in its rule, matching nothing, which presents as every published site returning the
+proxy's 404. A test asserts no label in the file contains an interpolation.
+
+The renderer answers 404 for any hostname without an active record, including every reserved label,
+so even a rule that matched too much could not expose a tenant.
 
 **Verify rather than trust this table.** After the first deploy:
 

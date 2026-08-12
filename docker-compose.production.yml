@@ -107,16 +107,27 @@ services:
       dockerfile: backend/Dockerfile
       target: renderer
     restart: unless-stopped
-    # The renderer's own hostname comes from its Coolify domain field. This label adds the one thing
-    # that field cannot express: the open-ended set of project subdomains. Its priority is explicit
+    # The renderer's own hostname comes from its Coolify domain field. These labels add the one thing
+    # that field cannot express: the open-ended set of project subdomains. Their priority is explicit
     # and deliberately low — Traefik defaults to rule length, under which a long regexp outranks a
     # short exact host, and both this platform's domains would lose to the project wildcard.
+    #
+    # EVERY VALUE HERE IS LITERAL, ON PURPOSE.
+    #
+    # Coolify applies these labels to the container without interpolating them: a deployed container
+    # was found carrying the rule `HostRegexp(...${PLATFORM_ROOT_DOMAIN_REGEX}$$)` as text, matching
+    # no hostname at all, and `traefik.docker.network` set to `${COOLIFY_PROXY_NETWORK:-coolify}` —
+    # a network that does not exist. A default value is not a safety net when nothing expands it.
+    #
+    # So the root domain is written out, and the pattern ends with Go's `\z` rather than `$`, which
+    # a compose file would otherwise have to escape as `$$` — an escape that survives into the label
+    # on the path that does not interpolate. Changing the root domain means editing these two rules.
     #
     # Verify the generated routers after the first deploy rather than trusting this comment:
     #   docker inspect <renderer container> --format '{{json .Config.Labels}}' | jq
     labels:
       - traefik.enable=true
-      - traefik.docker.network=${COOLIFY_PROXY_NETWORK:-coolify}
+      - traefik.docker.network=coolify
       - traefik.http.services.wb-renderer.loadbalancer.server.port=3001
 
       # No router for the technical origin: that hostname is the renderer's Coolify domain field,
@@ -125,20 +136,22 @@ services:
 
       # Project subdomains. The pattern requires a label before the root domain, so the application's
       # own apex does not match it — that hostname belongs to the frontend and must never reach here.
-      - traefik.http.routers.wb-renderer-projects.rule=HostRegexp(`^[a-z0-9][a-z0-9-]*\.${PLATFORM_ROOT_DOMAIN_REGEX:?set the root domain with dots escaped, e.g. websitebuilder\.oneplataforma\.com}$$`)
+      - traefik.http.routers.wb-renderer-projects.rule=HostRegexp(`^[a-z0-9][a-z0-9-]*\.oneplataforma\.com\z`)
       - traefik.http.routers.wb-renderer-projects.entrypoints=https
-      - traefik.http.routers.wb-renderer-projects.tls=true
-      # A certificate for every project subdomain, which means one wildcard certificate.
+      # TLS with no certificate resolver, deliberately.
       #
-      # This is the part that cannot be solved with an HTTP challenge: Let's Encrypt issues
-      # `*.example.com` only through DNS-01, so the resolver named here must be configured on the
-      # proxy with a `dnsChallenge` and a DNS provider token. Point `WILDCARD_CERT_RESOLVER` at that
-      # resolver. Left at the default, Traefik will try the HTTP challenge for every new subdomain
-      # separately, fail to obtain one, and serve its own self-signed certificate — which is a
-      # browser warning that says the site is impersonating itself.
-      - traefik.http.routers.wb-renderer-projects.tls.certresolver=${WILDCARD_CERT_RESOLVER:-letsencrypt}
-      - traefik.http.routers.wb-renderer-projects.tls.domains[0].main=${PLATFORM_ROOT_DOMAIN}
-      - traefik.http.routers.wb-renderer-projects.tls.domains[0].sans=*.${PLATFORM_ROOT_DOMAIN}
+      # Every publish creates a hostname, and Let's Encrypt cannot issue for a wildcard through the
+      # HTTP challenge — it would need one order per subdomain, each answering on a hostname whose
+      # certificate does not exist yet. Naming a resolver here therefore produces a queue of failing
+      # ACME orders and, eventually, a rate limit.
+      #
+      # Instead the certificate for `*.oneplataforma.com` is Cloudflare's, terminated at their edge
+      # with the record proxied and SSL mode Full. Traefik answers the edge with its own default
+      # certificate, which Full (as opposed to Full Strict) accepts.
+      #
+      # Serving these hostnames directly, without Cloudflare in front, would require a DNS-01
+      # resolver on the proxy and a wildcard declared on this router. See docs/PRODUCTION_DEPLOYMENT.md.
+      - traefik.http.routers.wb-renderer-projects.tls=true
       - traefik.http.routers.wb-renderer-projects.service=wb-renderer
       # Below any exact-host router: this platform's own two domain fields, and every other
       # application on this VPS.
@@ -151,7 +164,7 @@ services:
       # router has to carry its own.
       - traefik.http.middlewares.wb-https-redirect.redirectscheme.scheme=https
       - traefik.http.middlewares.wb-https-redirect.redirectscheme.permanent=true
-      - traefik.http.routers.wb-renderer-projects-http.rule=HostRegexp(`^[a-z0-9][a-z0-9-]*\.${PLATFORM_ROOT_DOMAIN_REGEX}$$`)
+      - traefik.http.routers.wb-renderer-projects-http.rule=HostRegexp(`^[a-z0-9][a-z0-9-]*\.oneplataforma\.com\z`)
       - traefik.http.routers.wb-renderer-projects-http.entrypoints=http
       - traefik.http.routers.wb-renderer-projects-http.middlewares=wb-https-redirect
       - traefik.http.routers.wb-renderer-projects-http.service=wb-renderer
