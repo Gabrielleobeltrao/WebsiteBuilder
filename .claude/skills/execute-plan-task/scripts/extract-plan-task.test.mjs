@@ -62,14 +62,25 @@ test("rejects a duplicate task ID with exit code 3", () => {
   assert.throws(() => extractTask(duplicated, "P1-T1"), (error) => error.code === 3);
 });
 
+/**
+ * The real plan, in whichever convention it uses.
+ *
+ * Two have been in the repository: `**P3-T2 — Title**` and `**3.2 Title**`. The skill reads the
+ * plan the repository actually has, so these tests find its first task rather than naming one.
+ */
+const REAL_TASK = /^-\s*\[[ x~!]\]\s*\*\*(P\d+-T\d+|\d+\.\d+)\s*(?:—\s*)?/gm;
+
 test("the real plan resolves a task packet far smaller than the whole plan", () => {
-  const packet = formatPacket(extractTask(plan, "P3-T2"));
-  assert.match(packet, /P3-T2/);
+  const first = [...plan.matchAll(REAL_TASK)][0]?.[1];
+  assert.ok(first, "the plan parsed into no tasks at all");
+
+  const packet = formatPacket(extractTask(plan, first));
+  assert.match(packet, new RegExp(first.replace(".", "\\.")));
   assert.ok(packet.length < plan.length / 4, `packet ${packet.length} vs plan ${plan.length}`);
 });
 
 test("every task ID in the real plan is unique and extractable", () => {
-  const ids = [...plan.matchAll(/^-\s*\[[ x~!]\]\s*\*\*(P\d+-T\d+)\s*—/gm)].map((m) => m[1]);
+  const ids = [...plan.matchAll(REAL_TASK)].map((m) => m[1]);
   // A lower bound, not a count. It exists so a plan that stopped parsing fails loudly rather than
   // reporting zero tasks and passing; the exact number changes whenever the plan is replaced.
   assert.ok(ids.length > 10, `expected the plan to parse into tasks, found ${ids.length}`);

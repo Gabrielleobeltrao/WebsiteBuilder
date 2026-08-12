@@ -9,7 +9,14 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const TASK_HEADING = /^-\s*\[([ x~!])\]\s*\*\*(P\d+-T\d+)\s*—\s*(.+?)\*\*\s*$/;
+/**
+ * A task line, in either convention this repository has used.
+ *
+ * `**P3-T2 — Title**` was the first. `**3.2 Title**` is what the current plan uses, and the skill
+ * has to read the plan the repository actually has rather than the one it was written against —
+ * otherwise loading a task silently finds nothing and the whole point of the skill is lost.
+ */
+const TASK_HEADING = /^-\s*\[([ x~!])\]\s*\*\*(P\d+-T\d+|\d+\.\d+)\s*(?:—\s*)?(.+?)\*\*(.*)$/;
 const PHASE_HEADING = /^###\s+Phase\s+(\d+)\s*—\s*(.+)$/;
 const CHECKPOINT = /^\*\*Checkpoint\s+(\d+):/;
 const SECTION_HEADING = /^##\s+(\d+)\.\s+(.+)$/;
@@ -105,7 +112,7 @@ function main(argv) {
     planPath = resolve(args[planFlag + 1]);
     args.splice(planFlag, 2);
   }
-  if (args.length !== 1 || !/^P\d+-T\d+$/.test(args[0])) {
+  if (args.length !== 1 || !/^(P\d+-T\d+|\d+\.\d+)$/.test(args[0])) {
     process.stderr.write("Usage: extract-plan-task.mjs <TASK-ID> [--plan <path>]\n");
     process.exit(1);
   }
