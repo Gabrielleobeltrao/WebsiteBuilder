@@ -302,6 +302,8 @@ Everything an operator needs is in `docs/`:
 | [ANALYTICS_METRICS.md](docs/ANALYTICS_METRICS.md) | What every number means, and what is deliberately not measured |
 | [ANALYTICS_PRIVACY.md](docs/ANALYTICS_PRIVACY.md) | What is collected, what never is, and what a visitor controls |
 | [ANALYTICS_OPERATIONS.md](docs/ANALYTICS_OPERATIONS.md) | Budgets, storage formula, scale ceiling, rate limiting |
+| [FORMS.md](docs/FORMS.md) | What owns which part of a form, which definition each surface renders, lifecycle and tenancy |
+| [BLOCK_LIBRARY.md](docs/BLOCK_LIBRARY.md) | How a block is defined, rendered, edited, migrated and published |
 
 `npm run smoke:containers` builds the production images and exercises the running stack against a
 throwaway database. It needs Docker and `SMOKE_MONGODB_URI`.

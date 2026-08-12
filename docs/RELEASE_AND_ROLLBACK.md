@@ -141,7 +141,59 @@ There is no data migration to reverse, no schema version change, and no backfill
 
 ---
 
-## 7. Release record
+## 7. Releasing the form system
+
+### What the migration does
+
+Form blocks carry a payload version. A version-1 block held the submit label, the success and error
+messages and a consent flag; those now belong to the form definition, so the migration moves them
+off the block and parks anything the designer actually authored on the element as `legacyCopy`,
+which nothing renders.
+
+It runs **on read**, in memory, in the builder and in the publisher, and writes nothing until
+somebody saves. A published snapshot is never migrated. Running it twice is a no-op.
+
+Two records gain fields, both with a defined meaning when absent:
+
+- A definition gains `revision`. Absent means 1 — it has been edited zero times since revisions
+  existed, which is exactly what that number means.
+- A submission gains `formRevision` and a copy of the questions it answered. Absent means revision 1
+  and no snapshot, which is the truth about a record written before either existed.
+
+Published versions gain `forms`. Absent means none, and a page published before this that shows a
+form will report "the form this block pointed at no longer exists" until the site is republished.
+**That is the one action a customer with a live form must take: republish.**
+
+### Release order
+
+1. Deploy the API and the renderer together. They share the published-version shape, and a renderer
+   reading a version the API did not write forms into simply finds none.
+2. Republish any site that already had a form block on a page. Nothing else needs doing.
+
+The published content hash now covers the form definitions, so the first republish after this
+release always produces a new version even when nothing else changed. That is deliberate: without
+it, editing a form's questions hashed identically and the edit could never reach production.
+
+### Rollback limits
+
+Rolling the *code* back is safe. Rolling a *published version* back to one created before this
+release serves a snapshot with no forms in it, so pages showing a form render the "no longer exists"
+state rather than the form. Republish forward rather than rolling back if a live form matters.
+
+Definitions, submissions and their revisions are untouched by any rollback.
+
+### What to watch after deploying
+
+- `POST /__wb/forms/:formId/submissions` answering 303 for a browser and 200 for the runtime. A 404
+  means the version being served has no such form — almost always a site that has not been
+  republished.
+- 429s on that path. The limits are 5 per address and 60 per project per minute, per replica.
+- A page carrying a form must carry `script-src 'self'` and `form-action 'self'`; a page without one
+  must still carry `script-src 'none'`.
+
+---
+
+## 8. Release record
 
 | Date | Tag | Commit | Deployed by | Result |
 |---|---|---|---|---|

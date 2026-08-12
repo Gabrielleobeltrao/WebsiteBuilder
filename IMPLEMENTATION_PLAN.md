@@ -188,7 +188,7 @@ The current form implementation is incomplete and must not be treated as product
 - [!] **8.4 Run the deployed Coolify smoke when owner access/configuration exists.** Verify authenticated Forms Center, public domain routing, public submission, inbox visibility, and logs on the real deployment.
   - Use `[!]` only if this genuinely requires owner-only access or configuration, and state the exact command/action the owner must perform.
 
-- [ ] **8.5 Final handoff.** Update README/API/environment/deployment notes, Progress Log, and Decision Log. Report exact commands, counts, bundle sizes, remaining `[!]` items, migration/rollback notes, and final commit SHA. Commit and push to `development`; do not merge `main`.
+- [x] **8.5 Final handoff.** Update README/API/environment/deployment notes, Progress Log, and Decision Log. Report exact commands, counts, bundle sizes, remaining `[!]` items, migration/rollback notes, and final commit SHA. Commit and push to `development`; do not merge `main`.
 
 ## 5. Required verification matrix
 
@@ -246,6 +246,7 @@ YYYY-MM-DD HH:mm | Task X.Y | files/behavior changed | verification command + re
 2026-08-12 18:31 | Task 8.1 | tenant-isolation-audit extended to forms — definitions, submissions, counts, every write, the export stream and retention, all proved to see nothing of another workspace and to leave its records untouched; render-parity extended to a form, asserting preview and published output are byte-identical apart from the action attribute | vitest backend tenant-isolation-audit (14) + render-parity (13) → passing | —
 2026-08-12 18:33 | Task 8.3 | npm run typecheck exit 0; npm run test exit 0 with 2,067 tests across 144 files (shared 657/39, backend 681/43, frontend 729/62); npm run build exit 0; npm run test:e2e exit 0 with 95 passed including the six responsive visual-regression snapshots; npm run check:plan-skill 6/6; npm run check:runbook clean. Bundle: entry 574 kB raw / 176.5 kB gzip, all chunks 456.8 kB gzip against a 520 kB budget, first screen 39% of the total | —
 2026-08-12 18:33 | Task 8.4 | BLOCKED. `docker info` fails on this machine, so neither `npm run smoke:containers` nor a Coolify deployment can run here, and the deployed checks need production access this environment does not have. Owner action, in order: (1) `npm run build:images && SMOKE_MONGODB_URI=<a reachable MongoDB> npm run smoke:containers` on a machine with a Docker daemon; (2) deploy `development` in Coolify; (3) open a published site with a form, submit it, and confirm the answer appears in Forms -> Answers; (4) confirm the response carries `content-security-policy` with `form-action 'self'` and `script-src 'self'` on that page, and `script-src 'none'` on a page without a form | —
+2026-08-12 18:34 | Task 8.5 | docs/RELEASE_AND_ROLLBACK.md gains section 7 — what the form migration does, the release order, the rollback limit (a version published before this carries no forms, so republish forward rather than rolling back), and what to watch; README links docs/FORMS.md and docs/BLOCK_LIBRARY.md | npm run typecheck 0; npm run test 0 with 2,067 tests / 144 files; npm run build 0; npm run test:e2e 0 with 95 passed; check:plan-skill 6/6; check:runbook clean | see final commit
 ```
 
 ## 7. Decision Log
