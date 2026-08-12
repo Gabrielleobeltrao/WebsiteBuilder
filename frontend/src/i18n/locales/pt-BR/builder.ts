@@ -102,6 +102,7 @@ export default {
     pricing: { name: "Preços", title: "Planos", planName: "Plano", price: "0", period: "por mês", feature: "O que este plano inclui", cta: "Escolher este plano" },
     faq: { name: "Perguntas", title: "Perguntas frequentes", question: "Uma pergunta que as pessoas realmente fazem", answer: "A resposta, em palavras simples." },
     leadForm: { name: "Formulário de contato", title: "Conte sobre seu projeto", subtitle: "Respondemos em até um dia útil.", submit: "Enviar" },
+    fullPageForm: { name: "Formulário de página inteira", title: "Conte o que você precisa", subtitle: "Todo campo é opcional, a não ser que esteja marcado." },
     contact: { name: "Contato", title: "Fale com a gente", email: "Email", phone: "Telefone", address: "Endereço" },
     cta: { name: "Chamada para ação", title: "Quando você quiser", button: "Começar" },
     articleHeader: { name: "Cabeçalho de artigo", trail: "Você está aqui", title: "O título deste artigo", standfirst: "Uma frase que faça alguém querer ler.", imageAlt: "Descreva esta imagem" },
@@ -238,6 +239,21 @@ export default {
     previewDesktop: "Pré-visualização desktop",
     previewMobile: "Pré-visualização mobile",
     savedAt: "Salvo pela última vez {{when}}",
+  },
+
+  "form": {
+    unbound: "Escolha qual formulário este bloco mostra.",
+    missing: "O formulário que este bloco apontava não existe mais.",
+    archived: "Este formulário está arquivado e não recebe respostas.",
+    error: "Não foi possível enviar sua mensagem. Tente novamente.",
+    required: "(obrigatório)",
+    noneChosen: "Nenhum formulário escolhido",
+    incomplete: "Este formulário ainda não pergunta nada, então ninguém conseguiria preenchê-lo.",
+    usedOn_one: "Aparece em {{count}} página",
+    usedOn_other: "Aparece em {{count}} páginas",
+    create: "Criar formulário",
+    editFields: "Editar perguntas",
+    openCenter: "Abrir Formulários",
   },
 
   "fields": {

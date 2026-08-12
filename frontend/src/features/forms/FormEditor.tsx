@@ -11,9 +11,10 @@ import {
 } from "@websitebuilder/shared";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 
 import { ApiError } from "@/api/client";
+import { BackLink } from "@/features/forms/BackLink";
 import { formsApi } from "@/api/forms";
 import { projectsApi } from "@/api/projects";
 
@@ -152,9 +153,7 @@ export function FormEditor({
 
   return (
     <div>
-      <Link to={basePath} className="text-sm font-medium text-ink-600 underline underline-offset-4">
-        {t("forms:actions.back")}
-      </Link>
+      <BackLink basePath={basePath} />
 
       <h1 className="mt-3 font-display text-2xl font-semibold tracking-tight text-ink-950">
         {formId === undefined ? t("forms:editor.newTitle") : t("forms:editor.editTitle")}

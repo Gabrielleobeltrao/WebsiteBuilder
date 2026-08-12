@@ -102,6 +102,7 @@ export default {
     pricing: { name: "Pricing", title: "Plans", planName: "Plan", price: "0", period: "per month", feature: "What this plan includes", cta: "Choose this plan" },
     faq: { name: "Questions", title: "Frequently asked questions", question: "A question people actually ask", answer: "The answer, in plain words." },
     leadForm: { name: "Lead form", title: "Tell us about your project", subtitle: "We answer within one business day.", submit: "Send" },
+    fullPageForm: { name: "Full-page form", title: "Tell us what you need", subtitle: "Every field is optional unless we mark it." },
     contact: { name: "Contact", title: "Get in touch", email: "Email", phone: "Phone", address: "Address" },
     cta: { name: "Call to action", title: "Ready when you are", button: "Get started" },
     articleHeader: { name: "Article header", trail: "You are here", title: "The title of this article", standfirst: "One sentence that makes somebody want to read it.", imageAlt: "Describe this image" },
@@ -238,6 +239,21 @@ export default {
     previewDesktop: "Desktop preview",
     previewMobile: "Mobile preview",
     savedAt: "Last saved {{when}}",
+  },
+
+  "form": {
+    unbound: "Choose which form this block shows.",
+    missing: "The form this block pointed at no longer exists.",
+    archived: "This form is archived and is not accepting answers.",
+    error: "Your message could not be sent. Please try again.",
+    required: "(required)",
+    noneChosen: "No form chosen",
+    incomplete: "This form asks nothing yet, so a visitor could not complete it.",
+    usedOn_one: "Shown on {{count}} page",
+    usedOn_other: "Shown on {{count}} pages",
+    create: "Create a form",
+    editFields: "Edit questions",
+    openCenter: "Open Forms",
   },
 
   "fields": {

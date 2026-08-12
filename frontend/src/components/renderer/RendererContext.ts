@@ -1,3 +1,4 @@
+import type { PublishedForm } from "@websitebuilder/shared";
 import { createContext, useContext } from "react";
 
 /**
@@ -38,6 +39,29 @@ export type RendererContextValue = {
   resolveTrail?: () => ReadonlyArray<{ label: string; href: string | null }>;
   /** Allows http links in local development only. */
   allowHttp?: boolean;
+
+  /**
+   * The form a block references, as the surface being rendered should show it.
+   *
+   * The builder and the draft preview resolve the draft definition; a published page resolves the
+   * revision frozen into its own snapshot. Returning null is a real answer — the block says which
+   * of "not chosen", "gone" and "archived" it is in, rather than rendering nothing.
+   */
+  resolveForm?: (formId: string) => PublishedForm | null;
+  /** Whether the fields are operable, and whether submitting reaches a server. */
+  formMode?: "inert" | "preview" | "live";
+  /** Where a live form posts. One function so the endpoint is named in exactly one place. */
+  formAction?: (formId: string) => string;
+  /** What a visitor without JavaScript was sent back with after posting. */
+  formResult?: { formId: string; state: "ok" | "error" } | null;
+  /** Copy for the states a form has that its own definition does not describe. */
+  formStrings?: {
+    unbound: string;
+    missing: string;
+    archived: string;
+    error: string;
+    required: string;
+  };
 };
 
 const fallback: RendererContextValue = {

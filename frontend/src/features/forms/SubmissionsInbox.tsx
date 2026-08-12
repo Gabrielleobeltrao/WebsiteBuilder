@@ -7,9 +7,10 @@ import {
 } from "@websitebuilder/shared";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 
 import { ApiError } from "@/api/client";
+import { BackLink } from "@/features/forms/BackLink";
 import { formsApi, type SubmissionQuery } from "@/api/forms";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
@@ -123,9 +124,7 @@ export function SubmissionsInbox({
 
   return (
     <div>
-      <Link to={basePath} className="text-sm font-medium text-ink-600 underline underline-offset-4">
-        {t("forms:actions.back")}
-      </Link>
+      <BackLink basePath={basePath} />
 
       <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
         <h1 className="font-display text-2xl font-semibold tracking-tight text-ink-950">{t("forms:inbox.title")}</h1>

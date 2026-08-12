@@ -12,6 +12,9 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { RichTextEditor } from "@/components/common/RichTextEditor";
+import { useBuilderForms } from "@/features/forms/BuilderFormsContext";
+
+import { FormBindingField } from "./FormBindingField";
 
 import { ColorField, InspectorGroup, NumberField, SelectField, TextField, ToggleField } from "./controls";
 import { ItemsEditor } from "./ItemsEditor";
@@ -38,6 +41,7 @@ export function VisualElementInspector({
   transactionKey: string;
 }) {
   const { t } = useTranslation("builder");
+  const builderForms = useBuilderForms();
   const key = transactionKey;
 
   /** Applies a partial payload to whichever element type is selected. */
@@ -428,7 +432,21 @@ export function VisualElementInspector({
       return (
         <>
           <InspectorGroup titleKey="content">
-            <TextField label={t("fields.formId")} value={element.formId} transactionKey={`${key}:formId`} onChange={(formId) => set({ formId })} />
+            <FormBindingField
+              workspaceId={builderForms.workspaceId}
+              projectId={builderForms.projectId}
+              elementId={element.id}
+              formId={element.formId}
+              forms={builderForms.forms}
+              loading={builderForms.loading}
+              onBind={(formId) => {
+                // Binding clears the version-1 copy this block was carrying: it has served its
+                // purpose as a starting point, and leaving it would be a second, stale answer to
+                // what the form says.
+                set({ formId, legacyCopy: undefined });
+              }}
+              onFormsChanged={builderForms.reload}
+            />
             <p className="text-[11px] text-ink-500">{t("fields.formIdHint")}</p>
           </InspectorGroup>
           <InspectorGroup titleKey="layout">

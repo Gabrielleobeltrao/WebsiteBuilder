@@ -44,6 +44,7 @@ export default {
     save: "Salvar",
     cancel: "Cancelar",
     back: "Voltar para formulários",
+    backToBuilder: "Voltar para a página",
   },
 
   editor: {

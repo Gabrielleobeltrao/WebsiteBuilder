@@ -1,12 +1,15 @@
 import { Eye, Redo2, Rocket, Undo2 } from "lucide-react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
+import { mediaUrl } from "@/api/media";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { RendererContext, type RendererContextValue } from "@/components/renderer/RendererContext";
 import { PageMetadata } from "@/components/common/PageMetadata";
 import { EditableCanvas } from "@/features/editor/canvas/EditableCanvas";
 import { ElementsPanel } from "@/features/editor/panel/ElementsPanel";
-import type { ElementDefinition } from "@websitebuilder/shared";
+import { countReferences, type ElementDefinition } from "@websitebuilder/shared";
 import { LayersPanel } from "@/features/editor/panel/LayersPanel";
 import { PageSettingsPanel } from "@/features/editor/panel/PageSettingsPanel";
 import { PagesPanel } from "@/features/editor/panel/PagesPanel";
@@ -25,6 +28,8 @@ import {
 } from "@/features/editor/store/editorStore";
 import { useAuthoringCapability } from "@/features/editor/useAuthoringCapability";
 import { useKeyboardShortcuts } from "@/features/editor/useKeyboardShortcuts";
+import { BuilderFormsContext } from "@/features/forms/BuilderFormsContext";
+import { useProjectForms } from "@/features/forms/useProjectForms";
 import { canRedo, canUndo } from "@/features/editor/store/history";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
 import { useUnsavedChangesWarning } from "@/hooks/useUnsavedChangesWarning";
@@ -36,6 +41,10 @@ import { useUnsavedChangesWarning } from "@/hooks/useUnsavedChangesWarning";
  */
 export function EditorShell({ workspaceId, projectId }: { workspaceId: string; projectId: string }) {
   const { t } = useTranslation(["builder", "errors", "common"]);
+  // Loaded only when the document actually holds a form block, so the majority of sites that have
+  // none never make the request — and one appears the moment somebody inserts a block.
+  const hasFormBlock = useEditorStore((state) => countReferences(state.history.present.pages, "forms") > 0);
+  const projectForms = useProjectForms(workspaceId, projectId, { enabled: hasFormBlock });
   const capability = useAuthoringCapability();
   const formatRelative = useRelativeTime();
 
@@ -162,7 +171,46 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
     }
   };
 
+  /**
+   * The canvas renders through the same context the published page does.
+   *
+   * Media resolves to the workspace's own asset URLs — without this the canvas showed a grey
+   * placeholder for every image a designer had already chosen — and forms resolve to the draft
+   * definition, inert, so clicking a field selects the block rather than typing into it.
+   */
+  const rendererContext = useMemo(
+    (): RendererContextValue => ({
+      // Internal links stay unresolved here on purpose: clicking a button on the canvas selects it,
+      // and a working link would navigate out of the builder.
+      resolvePagePath: () => null,
+      resolveMediaUrl: (mediaId) => mediaUrl(workspaceId, mediaId),
+      resolveMediaVariantUrl: (mediaId, width) => mediaUrl(workspaceId, mediaId, width),
+      resolveForm: projectForms.resolveForm,
+      formMode: "inert",
+      formStrings: {
+        unbound: t("builder:form.unbound"),
+        missing: t("builder:form.missing"),
+        archived: t("builder:form.archived"),
+        error: t("builder:form.error"),
+        required: t("builder:form.required"),
+      },
+    }),
+    [workspaceId, projectForms.resolveForm, t],
+  );
+
+  const builderForms = useMemo(
+    () => ({
+      workspaceId,
+      projectId,
+      forms: projectForms.forms,
+      loading: projectForms.loading,
+      reload: () => void projectForms.reload(),
+    }),
+    [workspaceId, projectId, projectForms.forms, projectForms.loading, projectForms.reload],
+  );
+
   return (
+    <BuilderFormsContext.Provider value={builderForms}>
     <div className="flex h-dvh flex-col">
       <PageMetadata title={`${store.history.present.name} — ${t("common:productName")}`} />
 
@@ -243,7 +291,9 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
 
       <div className="flex min-h-0 flex-1">
         <main className="min-w-0 flex-1">
-          <EditableCanvas page={page} />
+          <RendererContext.Provider value={rendererContext}>
+            <EditableCanvas page={page} />
+          </RendererContext.Provider>
         </main>
 
         {/* Fixed width: changing panel modes must never resize or jump the canvas. */}
@@ -270,5 +320,6 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
         onConfirm={() => void store.load(workspaceId, projectId)}
       />
     </div>
+    </BuilderFormsContext.Provider>
   );
 }

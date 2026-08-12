@@ -44,6 +44,7 @@ export default {
     save: "Save",
     cancel: "Cancel",
     back: "Back to forms",
+    backToBuilder: "Back to the page",
   },
 
   editor: {

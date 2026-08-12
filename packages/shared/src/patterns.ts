@@ -1,4 +1,5 @@
 import { elementDefinition } from "./element-registry";
+import { DEFAULT_FORM_PRESENTATION } from "./forms";
 import type { BuilderElement, ElementType, SectionLayoutMode } from "./elements";
 import type { BuilderSection } from "./project";
 
@@ -317,6 +318,32 @@ export const PATTERNS: readonly PatternDefinition[] = [
           heading(createId, copy("leadForm.title"), "h2", 32),
           paragraph(createId, copy("leadForm.subtitle")),
           block("form", createId, { x: 0, y: 0, width: 520, height: 360 }, { submitLabel: copy("leadForm.submit") }),
+        ],
+      }),
+  },
+  {
+    /*
+     * A form that fills the page.
+     *
+     * Ordinary primitives, deliberately: a section, a heading, a paragraph and a form block. The
+     * alternative — a "full-page form" element type — would be a second page engine that renders as
+     * one opaque thing, resists being taken apart, and needs its own inspector for settings the
+     * blocks inside it already have.
+     */
+    id: "fullPageForm",
+    category: "page",
+    uses: ["text", "form"],
+    build: ({ copy, createId }) =>
+      section({
+        createId,
+        name: copy("fullPageForm.name"),
+        layoutMode: "flex",
+        elements: [
+          heading(createId, copy("fullPageForm.title"), "h1", 40),
+          paragraph(createId, copy("fullPageForm.subtitle")),
+          block("form", createId, { x: 0, y: 0, width: 720, height: 520 }, {
+            presentation: { ...DEFAULT_FORM_PRESENTATION, preset: "twoColumn", alignment: "center", padding: 24 },
+          }),
         ],
       }),
   },

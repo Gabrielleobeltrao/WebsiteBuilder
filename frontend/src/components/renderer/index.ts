@@ -13,6 +13,7 @@
  */
 export { CmsCollectionRenderer } from "./CmsCollectionRenderer";
 export { ElementRenderer } from "./ElementRenderer";
+export { DEFAULT_STRINGS as FORM_RENDERER_STRINGS, FormRenderer, readFormResult, type FormStrings } from "./FormRenderer";
 export { NavigationRenderer } from "./NavigationRenderer";
 export { ProjectPageRenderer, SectionRenderer } from "./ProjectPageRenderer";
 export { RendererContext, useRendererContext, type RendererContextValue } from "./RendererContext";

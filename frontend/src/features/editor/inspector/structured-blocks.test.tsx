@@ -104,6 +104,10 @@ describe("every structured block opens an inspector with its own fields", () => 
     it(`${type} shows ${field}`, async () => {
       const { user } = withBlock(type);
 
+      // A form block makes the shell load the project's definitions. Settled inside act so the
+      // state it sets belongs to the test rather than arriving after it.
+      if (type === "form") await act(async () => undefined);
+
       // Divider and gallery keep their controls under Style; the rest open on Content.
       if (["divider"].includes(type)) await user.click(screen.getByRole("tab", { name: "Style" }));
 
@@ -191,6 +195,7 @@ describe("guards a person would not think to ask for", () => {
 
   it("keeps a form block to presentation, and never to what the form says", async () => {
     const { id, user } = withBlock("form");
+    await act(async () => undefined);
 
     // Consent, the submit label and the messages moved to the definition, where one edit reaches
     // every page that shows the form. A copy here would drift from the copy that validates.

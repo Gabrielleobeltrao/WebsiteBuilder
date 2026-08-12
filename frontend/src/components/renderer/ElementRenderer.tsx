@@ -25,6 +25,7 @@ import { useRendererContext } from "./RendererContext";
 import { VisualElementRenderer } from "./VisualElementRenderer";
 import { BlockIcon } from "./BlockIcon";
 import { ContentElementRenderer } from "./ContentElementRenderer";
+import { FormRenderer } from "./FormRenderer";
 import { buttonStyle, containerStyle, imageStyle, isRenderable, textStyle } from "./styles";
 
 /**
@@ -200,6 +201,10 @@ export function ElementRenderer({ element, positioned = true }: { element: Build
       <ButtonRenderer element={element} />
     ) : element.type === "container" ? (
       <ContainerRenderer element={element} />
+    ) : element.type === "form" ? (
+      // Dispatched here rather than inside the visual renderer: a form needs the definition it
+      // references, which only the host can resolve.
+      <FormRenderer elementId={element.id} formId={element.formId} presentation={element.presentation} />
     ) : CONTENT_TYPES.has(element.type) ? (
       <ContentElementRenderer element={element as ContentElement} />
     ) : (

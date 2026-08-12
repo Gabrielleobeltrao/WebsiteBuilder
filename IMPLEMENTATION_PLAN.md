@@ -111,19 +111,19 @@ The current form implementation is incomplete and must not be treated as product
 
 ### Phase 4 — Builder binding and actual visual
 
-- [ ] **4.1 Replace raw `formId` editing with a form binding control.** The right inspector must show current form, searchable “Choose existing form”, “Create new form”, “Edit fields/settings”, usage, and missing/archived warnings.
+- [x] **4.1 Replace raw `formId` editing with a form binding control.** The right inspector must show current form, searchable “Choose existing form”, “Create new form”, “Edit fields/settings”, usage, and missing/archived warnings.
   - Acceptance: users never need to copy an ID; create binds automatically; rebind is explicit; unbind does not delete the definition.
 
-- [ ] **4.2 Implement quick-create and safe edit-and-return.** From a selected form block, allow name/template creation inline or open the Forms Center. Autosave the page draft before leaving and preserve a signed/validated internal `returnTo` containing project, page, selected block, and device preview.
+- [x] **4.2 Implement quick-create and safe edit-and-return.** From a selected form block, allow name/template creation inline or open the Forms Center. Autosave the page draft before leaving and preserve a signed/validated internal `returnTo` containing project, page, selected block, and device preview.
   - Acceptance: returning restores the exact builder context; unsafe external return URLs are rejected.
 
-- [ ] **4.3 Render the actual form in the canvas.** Use the shared renderer with editor mode: fields are visible, styled, selectable as one block, and cannot submit or steal builder drag/resize interactions.
+- [x] **4.3 Render the actual form in the canvas.** Use the shared renderer with editor mode: fields are visible, styled, selectable as one block, and cannot submit or steal builder drag/resize interactions.
   - Acceptance: no placeholder word and no `null` output; loading, unbound, missing, archived, and valid states are visually distinct and actionable.
 
-- [ ] **4.4 Add responsive presentation controls.** Expose preset, width, alignment, spacing, field spans, visual style, and normal free/grid/flex geometry without duplicating definition data.
+- [x] **4.4 Add responsive presentation controls.** Expose preset, width, alignment, spacing, field spans, visual style, and normal free/grid/flex geometry without duplicating definition data.
   - Acceptance: the form can be full-page, full-section, column-sized, or compact; Desktop/Tablet/Mobile previews remain inside their viewport with no horizontal overflow.
 
-- [ ] **4.5 Add the Full-page form pattern.** Insert a responsive section/container/form composition and open binding immediately.
+- [x] **4.5 Add the Full-page form pattern.** Insert a responsive section/container/form composition and open binding immediately.
   - Acceptance: pattern uses normal primitives, can be detached/edited, and compiles through the same pipeline.
 
 ### Phase 5 — Preview, publication, and public submission
@@ -223,6 +223,11 @@ YYYY-MM-DD HH:mm | Task X.Y | files/behavior changed | verification command + re
 2026-08-12 12:26 | Task 3.2 | FormsOverview: name, state badge, usage links into the builder on the exact page and block, total and unread answer counts linking into the correctly filtered inbox, last answer, last edit, search, and create/duplicate/archive-or-delete actions | vitest FormsCenter → every count asserted to be a destination; delete asks first and sends nothing before confirmation | —
 2026-08-12 12:26 | Task 3.3 | FormEditor: name, templates (blank/contact/lead/newsletter), add/reorder/remove questions with controls named after the question they act on, per-type settings, choices, help text, required, success message or an internal-page redirect chosen from this site's pages only, submit label, error message, notification recipients, retention; dirty/saving/saved state and a 409 that offers Reload instead of overwriting | vitest FormsCenter → real controls (no JSON field), conflict shows the other person's save, redirect offers only this site's pages | —
 2026-08-12 12:26 | Task 3.4 | SubmissionsInbox: status counts, filters for form/status/date held in the URL so a filtered view is linkable, pagination, row selection, bulk read/unread/archive/spam/delete, CSV export per form, and a detail dialog that labels answers from the snapshot the submission carries | vitest FormsCenter → a retired question is labelled rather than dropped; bulk delete confirms; mark-read is one request | —
+2026-08-12 17:46 | Task 4.3 | frontend/src/components/renderer/FormRenderer.tsx (new) dispatched from ElementRenderer; RendererContext gains resolveForm/formMode/formAction/formResult/formStrings; EditorShell now provides a renderer context so the canvas renders real inert fields — and, in the same change, resolves media, which the canvas had never done and which had been showing a grey placeholder for every image already chosen | vitest form-renderer → 16 passed: native post, revision hint, honeypot, labelled fields, radio fieldset, hidden field never emitted, inert canvas, and three distinct unbound/missing/archived states | —
+2026-08-12 17:46 | Task 4.1 | FormBindingField replaces the text box that asked a designer for a 24-character identifier: a picker over the project's forms, an inline create that binds in the same click, and warnings for missing/archived/unfinished shown beside the control that fixes them; binding clears the block's version-1 legacyCopy | vitest structured-blocks → the form block exposes no submit label or consent, and its arrangement control writes presentation.preset | —
+2026-08-12 17:46 | Task 4.2 | "Edit questions" and "Open Forms" save the draft first, then navigate with a returnTo built by this application and re-validated by safeReturnPath; the Forms Center's BackLink returns to the exact page, device and block using the three parameters EditorRoute already restores | vitest frontend → 714 passed; useProjectForms is gated on the document containing a form block, so a site without one makes no request | —
+2026-08-12 17:46 | Task 4.4 | form presentation is a strict schema (preset, alignment, fieldGap, padding, fullWidthFieldIds, colours, border) edited under Layout and Style; twoColumn collapses by track width rather than a media query, and the form is width:100%/max-width:100%/border-box so it cannot push a phone sideways | vitest form-renderer → the collapse rule and the overflow guard are asserted directly | —
+2026-08-12 17:46 | Task 4.5 | PATTERNS gains fullPageForm — a normal flex section holding a heading, a paragraph and a form block with a two-column centred presentation, built from the same primitives every other pattern uses | vitest shared patterns + frontend i18n parity → 38 passed | —
 ```
 
 ## 7. Decision Log
@@ -239,6 +244,9 @@ YYYY-MM-DD | Decision | alternatives considered | reason | migration/compatibili
 2026-08-12 | An archived module keeps its navigation entry | leave it hidden and add a separate Forms entry rule | archived means "no page references it any more", not "its records are gone" — hiding it was hiding the only route to a customer's inbox, contradicting the comment two functions above it | applies to blog and CMS too, which had the same defect
 2026-08-12 | A submission stores the revision and the field snapshot it answered | look the definition up when reading | labels and options change, and an answer beside a question nobody asked is not a record of anything; the CSV keeps retired answers in a final column rather than dropping the column | submissions written before this read as revision 1 with no snapshot, which is what they are
 2026-08-12 | CSV export streams a row at a time and is per form | build the file in memory; one sheet for every form | an export is the one read whose size the customer chooses, and a sheet whose columns are the union of every form's questions is unreadable | none
+2026-08-12 | The form block is dispatched to its own renderer from ElementRenderer | render it inside VisualElementRenderer | a form needs the definition it references, which only the host can resolve; the visual renderer is on the path the server compiles and has no resolver | the visual renderer keeps a `form` case that returns null so its exhaustiveness check stays honest
+2026-08-12 | The builder loads form definitions only when the document holds a form block | load them with every builder session | most sites have no form, and a request per session to render none of it answers a question nobody asked; the request appears the moment a block is inserted | none
+2026-08-12 | Return from the Forms Center reuses EditorRoute's existing ?element= and ?device= handling | a bespoke builder-context envelope | returning is then the route's existing behaviour rather than a second mechanism to keep in step; the address is built here and re-validated by safeReturnPath on arrival | none
 ```
 
 ## 8. Completion definition
