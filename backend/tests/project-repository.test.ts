@@ -179,3 +179,18 @@ describe("delete", () => {
     expect(await repository.findById(tenantA, keep.id)).not.toBeNull();
   });
 });
+
+describe("two people naming a site the same thing at the same time", () => {
+  it("gives each of them a site, with a slug of its own", async () => {
+    // Allocating a slug is a read then a write, and the unique index settles the tie. Before the
+    // retry, the loser of that race got an error instead of a site — for a collision the product
+    // resolves on its own for everybody who is not unlucky with timing.
+    const created = await Promise.all(
+      Array.from({ length: 8 }, () => repository.create(tenantA, { name: "Portfolio" })),
+    );
+
+    expect(created).toHaveLength(8);
+    expect(new Set(created.map((project) => project.slug)).size).toBe(8);
+    expect(created.every((project) => project.slug.startsWith("portfolio"))).toBe(true);
+  });
+});

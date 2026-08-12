@@ -134,31 +134,49 @@ export class ProjectRepository {
     return document === null ? null : toProject(document);
   }
 
+  /**
+   * Creates a project, choosing a free slug for it.
+   *
+   * Allocating a slug is a read followed by a write, and the unique index is what settles a tie. Two
+   * people creating "Portfolio" in the same instant both saw the same slug free, and the loser got
+   * an error instead of a site — for a name collision the product is perfectly able to resolve on
+   * their behalf, and had already resolved for everyone who was not unlucky with timing.
+   *
+   * So a duplicate key is treated as what it is: somebody took that slug between the look and the
+   * write. Look again. Bounded, because a genuine wall of contention should surface rather than
+   * spin, and `SlugTakenError` still exists for the caller who exhausts it.
+   */
   async create(
     context: WorkspaceContext,
     input: { name: string; clientId?: string },
     now = new Date().toISOString(),
   ): Promise<BuilderProject> {
-    const slug = await this.allocateSlug(input.name);
-    const document = createProjectDocument({ name: input.name, slug });
+    let lastSlug = "";
 
-    const toInsert = {
-      ...document,
-      workspaceId: context.workspaceId,
-      createdByUserId: context.userId,
-      ...(input.clientId ? { clientId: input.clientId } : {}),
-      revision: 1,
-      createdAt: now,
-      updatedAt: now,
-    } as Omit<ProjectDocument, "_id">;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const slug = await this.allocateSlug(input.name);
+      lastSlug = slug;
+      const document = createProjectDocument({ name: input.name, slug });
 
-    try {
-      const result = await this.collection.insertOne(toInsert as ProjectDocument);
-      return toProject({ ...toInsert, _id: result.insertedId } as ProjectDocument);
-    } catch (error) {
-      if (isDuplicateKey(error)) throw new SlugTakenError(slug);
-      throw error;
+      const toInsert = {
+        ...document,
+        workspaceId: context.workspaceId,
+        createdByUserId: context.userId,
+        ...(input.clientId ? { clientId: input.clientId } : {}),
+        revision: 1,
+        createdAt: now,
+        updatedAt: now,
+      } as Omit<ProjectDocument, "_id">;
+
+      try {
+        const result = await this.collection.insertOne(toInsert as ProjectDocument);
+        return toProject({ ...toInsert, _id: result.insertedId } as ProjectDocument);
+      } catch (error) {
+        if (!isDuplicateKey(error)) throw error;
+      }
     }
+
+    throw new SlugTakenError(lastSlug);
   }
 
   async rename(context: WorkspaceContext, projectId: string, name: string): Promise<BuilderProject | null> {
