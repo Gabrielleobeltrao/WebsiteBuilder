@@ -265,3 +265,86 @@ describe("every block renders the same in all three surfaces", () => {
     expect(render(onlyText)).not.toContain("<script");
   });
 });
+
+describe("a form is one rendering with three modes", () => {
+  const form = {
+    id: "f1",
+    name: "Contact",
+    revision: 4,
+    fields: [{ id: "name", type: "shortText" as const, label: "Your name", required: true }],
+    submitLabel: "Send",
+    successBehavior: { type: "message" as const, message: "Thank you." },
+    status: "ready" as const,
+  };
+
+  function withForm(): BuilderProject {
+    const project = fixtureProject();
+    const home = project.pages[0]!;
+    const sections = [...home.sections];
+    sections[0] = {
+      ...sections[0]!,
+      elements: [
+        {
+          id: "form-block",
+          name: "",
+          geometry: { x: 0, y: 0, width: 480, height: 360, rotation: 0 },
+          responsiveLayout: {
+            width: { value: 480, unit: "px" },
+            height: { value: 360, unit: "px" },
+            horizontalConstraint: "left",
+            verticalConstraint: "top",
+            visible: true,
+          },
+          zIndex: 1,
+          locked: false,
+          hidden: false,
+          type: "form",
+          version: elementDefinition("form").schemaVersion,
+          ...elementDefinition("form").defaults(),
+          formId: "f1",
+        },
+      ],
+    } as never;
+
+    return { ...project, pages: [{ ...home, sections }] } as BuilderProject;
+  }
+
+  // One project, rendered twice. Built fresh per call it would carry new ids, and the two
+  // renderings would differ for a reason that has nothing to do with forms.
+  const draw = (project: BuilderProject, mode: "preview" | "live", action: (formId: string) => string) => {
+    const route = buildRouteManifest(compileInput(project)).find((candidate) => candidate.path === "/");
+    if (route === undefined) throw new Error("fixture has no home route");
+
+    return renderRouteHtml({
+      route,
+      document: project,
+      canonicalUrl: "https://example.test/",
+      mediaBaseUrl: "/api/v1/public/media",
+      forms: { byId: new Map([["f1", form]]), mode, action },
+    });
+  };
+
+  it("differs between preview and publication only in where it posts", () => {
+    const project = withForm();
+    const published = draw(project, "live", (id) => `/__wb/forms/${id}/submissions`);
+    const preview = draw(project, "preview", (id) => `/api/v1/preview/forms/${id}`);
+
+    // Everything except the action attribute is byte-identical, which is what makes a preview a
+    // rehearsal rather than a second implementation.
+    const strip = (html: string) => html.replace(/action="[^"]*"/g, 'action="…"');
+    const [a, b] = [strip(published), strip(preview)];
+    const at = [...a].findIndex((character, index) => character !== b[index]);
+    expect(at === -1 ? "" : `${a.slice(Math.max(0, at - 90), at + 90)}\n---\n${b.slice(Math.max(0, at - 90), at + 90)}`).toBe("");
+
+    expect(published).toContain('action="/__wb/forms/f1/submissions"');
+    expect(preview).toContain('action="/api/v1/preview/forms/f1"');
+  });
+
+  it("renders the questions the snapshot froze, not a placeholder", () => {
+    const html = draw(withForm(), "live", (id) => `/__wb/forms/${id}/submissions`);
+
+    expect(html).toContain("Your name");
+    expect(html).toContain('name="name"');
+    expect(html).toContain('value="4"');
+  });
+});

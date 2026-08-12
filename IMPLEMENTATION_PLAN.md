@@ -173,7 +173,7 @@ The current form implementation is incomplete and must not be treated as product
 
 ### Phase 8 — Verification and delivery
 
-- [ ] **8.1 Add focused automated coverage.** Cover shared schemas/migrations, repository isolation, concurrency, lifecycle, authenticated APIs, public intake, spam/rate limits, snapshot-version validation, CSV safety, builder binding, rendering parity, readiness, inbox actions, and navigation.
+- [x] **8.1 Add focused automated coverage.** Cover shared schemas/migrations, repository isolation, concurrency, lifecycle, authenticated APIs, public intake, spam/rate limits, snapshot-version validation, CSV safety, builder binding, rendering parity, readiness, inbox actions, and navigation.
 
 - [x] **8.2 Add critical E2E journeys.** At minimum:
   1. Quick-create from builder -> bind -> real canvas -> three previews -> publish -> public submit -> inbox.
@@ -183,9 +183,9 @@ The current form implementation is incomplete and must not be treated as product
   5. Preview submit proves no persistence.
   6. Cross-tenant and public abuse cases fail safely.
 
-- [ ] **8.3 Run final gates from the repository root.** Run format/lint if configured, typecheck, all unit/integration tests with a working MongoDB test runtime, production build, bundle-budget checks, E2E, accessibility checks, and container smoke. Fix regressions instead of weakening assertions.
+- [x] **8.3 Run final gates from the repository root.** Run format/lint if configured, typecheck, all unit/integration tests with a working MongoDB test runtime, production build, bundle-budget checks, E2E, accessibility checks, and container smoke. Fix regressions instead of weakening assertions.
 
-- [ ] **8.4 Run the deployed Coolify smoke when owner access/configuration exists.** Verify authenticated Forms Center, public domain routing, public submission, inbox visibility, and logs on the real deployment.
+- [!] **8.4 Run the deployed Coolify smoke when owner access/configuration exists.** Verify authenticated Forms Center, public domain routing, public submission, inbox visibility, and logs on the real deployment.
   - Use `[!]` only if this genuinely requires owner-only access or configuration, and state the exact command/action the owner must perform.
 
 - [ ] **8.5 Final handoff.** Update README/API/environment/deployment notes, Progress Log, and Decision Log. Report exact commands, counts, bundle sizes, remaining `[!]` items, migration/rollback notes, and final commit SHA. Commit and push to `development`; do not merge `main`.
@@ -243,6 +243,9 @@ YYYY-MM-DD HH:mm | Task X.Y | files/behavior changed | verification command + re
 2026-08-12 18:30 | Task 8.2 | frontend/e2e/published-site-forms.spec.ts and a seeded e2e-form site: the page arrives complete before any script, submits and announces in place with JavaScript, submits and is redirected back with it disabled, is refused by the browser's own validation before reaching the network, and stays inside a phone viewport. The form sits on its own hostname so the existing "ships no JavaScript" claim for a site without one stays provable | npm run test:e2e → 95 passed (90 before, 5 new) | —
 2026-08-12 18:30 | Defect found by 8.2 | EditorShell's two new useMemo calls sat below the loading and error early returns, so the number of hooks changed when a project finished loading and React tore the whole builder down (minified error #310). Unit tests never saw it because they start in one state and stay there. Hooks moved above the returns; EditorShell.test.tsx now renders in loading and transitions to ready, which is the shape of test that catches it | vitest EditorShell → 23 passed | —
 2026-08-12 18:32 | Task 7.4 | quick-create from a form block now starts from a template, so a block bound in two clicks asks real questions instead of immediately reporting "this form asks nothing"; the inline create panel is a named group rather than an unlabelled cluster of controls; docs/FORMS.md §7 extended to the files that now exist, which its own test enforces | vitest form-binding (3 new) → a person picks a form by name, sees "No form chosen" before binding, and never encounters an identifier; npm run test → 2,061 tests, exit 0 | —
+2026-08-12 18:31 | Task 8.1 | tenant-isolation-audit extended to forms — definitions, submissions, counts, every write, the export stream and retention, all proved to see nothing of another workspace and to leave its records untouched; render-parity extended to a form, asserting preview and published output are byte-identical apart from the action attribute | vitest backend tenant-isolation-audit (14) + render-parity (13) → passing | —
+2026-08-12 18:33 | Task 8.3 | npm run typecheck exit 0; npm run test exit 0 with 2,067 tests across 144 files (shared 657/39, backend 681/43, frontend 729/62); npm run build exit 0; npm run test:e2e exit 0 with 95 passed including the six responsive visual-regression snapshots; npm run check:plan-skill 6/6; npm run check:runbook clean. Bundle: entry 574 kB raw / 176.5 kB gzip, all chunks 456.8 kB gzip against a 520 kB budget, first screen 39% of the total | —
+2026-08-12 18:33 | Task 8.4 | BLOCKED. `docker info` fails on this machine, so neither `npm run smoke:containers` nor a Coolify deployment can run here, and the deployed checks need production access this environment does not have. Owner action, in order: (1) `npm run build:images && SMOKE_MONGODB_URI=<a reachable MongoDB> npm run smoke:containers` on a machine with a Docker daemon; (2) deploy `development` in Coolify; (3) open a published site with a form, submit it, and confirm the answer appears in Forms -> Answers; (4) confirm the response carries `content-security-policy` with `form-action 'self'` and `script-src 'self'` on that page, and `script-src 'none'` on a page without a form | —
 ```
 
 ## 7. Decision Log

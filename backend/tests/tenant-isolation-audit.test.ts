@@ -7,6 +7,7 @@ import { BlogRepository, ensureBlogIndexes } from "../src/modules/blog/repositor
 import { TemplateRepository, ensureTemplateIndexes } from "../src/modules/blog/templates";
 import { CampaignRepository, ensureCampaignIndexes } from "../src/modules/campaigns/repository";
 import { ClientRepository } from "../src/modules/clients/repository";
+import { ensureFormIndexes, FormRepository } from "../src/modules/forms/repository";
 import { MediaRepository } from "../src/modules/media/repository";
 import { createGridFsStorage } from "../src/modules/media/storage";
 import { PreferencesRepository } from "../src/modules/preferences/repository";
@@ -30,10 +31,12 @@ let blog: BlogRepository;
 let templates: TemplateRepository;
 let media: MediaRepository;
 let preferences: PreferencesRepository;
+let forms: FormRepository;
 
 const A: WorkspaceContext = { workspaceId: "workspace-a", userId: "user-a" };
 const B: WorkspaceContext = { workspaceId: "workspace-b", userId: "user-b" };
 const PROJECT_B = "project-b";
+let bFormId = "";
 
 const post = (overrides: Record<string, unknown> = {}) => ({
   title: "Theirs",
@@ -60,6 +63,7 @@ beforeAll(async () => {
     ensureBlogIndexes(database.db),
     ensureTemplateIndexes(database.db),
     ensureCampaignIndexes(database.db),
+    ensureFormIndexes(database.db),
   ]);
 
   projects = new ProjectRepository(database.db);
@@ -69,6 +73,7 @@ beforeAll(async () => {
   templates = new TemplateRepository(database.db);
   media = new MediaRepository(database.db, createGridFsStorage(database.db));
   preferences = new PreferencesRepository(database.db);
+  forms = new FormRepository(database.db);
 }, 120_000);
 
 afterAll(async () => {
@@ -103,6 +108,16 @@ beforeEach(async () => {
 
   await templates.loadOrCreate(B, PROJECT_B, "article");
   await preferences.save("user-b", "pt-BR");
+
+  const form = await forms.create(B, PROJECT_B, {
+    name: "Their form",
+    fields: [{ id: "name", type: "shortText", label: "Their question", required: true }],
+    submitLabel: "Send",
+    successBehavior: { type: "message", message: "Thanks" },
+    notificationRecipients: [],
+  });
+  bFormId = form.id;
+  await forms.submit({ projectId: PROJECT_B, formId: form.id, values: { name: "Their visitor" } });
 }, 60_000);
 
 describe("reads", () => {
@@ -210,5 +225,48 @@ describe("user-level records", () => {
     // Another user's preference is simply absent, and resolving falls back rather than leaking.
     expect(await preferences.find("user-a")).toBeNull();
     expect(await preferences.resolve("user-a")).toBe("en-US");
+  });
+});
+
+describe("forms", () => {
+  it("shows workspace A nothing of workspace B's definitions or answers", async () => {
+    expect(await forms.list(A, PROJECT_B)).toEqual([]);
+    expect(await forms.findById(A, PROJECT_B, bFormId)).toBeNull();
+    expect((await forms.listSubmissions(A, PROJECT_B, { formId: bFormId })).total).toBe(0);
+    expect(await forms.findSubmission(A, PROJECT_B, bFormId)).toBeNull();
+    expect((await forms.countsByForm(A, PROJECT_B)).size).toBe(0);
+    expect(await forms.hasRecords(A, PROJECT_B)).toBe(false);
+  });
+
+  it("refuses every write workspace A could aim at workspace B's form", async () => {
+    const definition = {
+      name: "Mine now",
+      fields: [{ id: "name", type: "shortText" as const, label: "Q", required: false }],
+      submitLabel: "Send",
+      successBehavior: { type: "message" as const, message: "Thanks" },
+      notificationRecipients: [],
+    };
+
+    expect(await forms.update(A, PROJECT_B, bFormId, definition, { expectedRevision: 1 })).toBeNull();
+    expect(await forms.duplicate(A, PROJECT_B, bFormId, "Copy")).toBeNull();
+    expect(await forms.restore(A, PROJECT_B, bFormId)).toBeNull();
+    expect(await forms.removeOrArchive(A, PROJECT_B, bFormId)).toBe("not-found");
+    expect(await forms.setSubmissionStatuses(A, PROJECT_B, [bFormId], "spam")).toBe(0);
+    expect(await forms.deleteSubmissions(A, PROJECT_B, [bFormId])).toBe(0);
+
+    // And B's records are untouched by any of it.
+    expect((await forms.list(B, PROJECT_B))[0]?.name).toBe("Their form");
+    expect((await forms.listSubmissions(B, PROJECT_B, {})).total).toBe(1);
+  });
+
+  it("streams nothing from another tenant into an export", async () => {
+    const rows = [];
+    for await (const row of forms.streamSubmissions(A, PROJECT_B, {})) rows.push(row);
+    expect(rows).toEqual([]);
+  });
+
+  it("applies retention only inside the workspace that asked for it", async () => {
+    expect(await forms.applyRetention(A, PROJECT_B, bFormId, 1, new Date("2027-01-01T00:00:00Z"))).toBe(0);
+    expect((await forms.listSubmissions(B, PROJECT_B, {})).total).toBe(1);
   });
 });
