@@ -1,5 +1,5 @@
 import { LENGTH_UNITS, serializeLength, type LengthUnit, type ResponsiveLength } from "@websitebuilder/shared";
-import { useId, useState, type ReactNode } from "react";
+import { createContext, useContext, useId, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useEditorStore } from "@/features/editor/store/editorStore";
@@ -17,18 +17,53 @@ import { useEditorStore } from "@/features/editor/store/editorStore";
  *    not end up persisted in the builder document.
  */
 
+export type InspectorGroupKey = "content" | "style" | "layout" | "responsive" | "advanced" | "canvas" | "seo";
+
+/** The three tabs an inspector offers, stable for every element type. */
+export type InspectorTab = "content" | "style" | "advanced";
+
+/**
+ * Which tab each group belongs to.
+ *
+ * Layout and responsive sizing are style decisions, not a separate navigation mode — grouping them
+ * under Style is what lets the inspector be three tabs instead of five, without any control losing
+ * its home.
+ */
+export const GROUP_TAB: Record<InspectorGroupKey, InspectorTab> = {
+  content: "content",
+  style: "style",
+  layout: "style",
+  responsive: "style",
+  advanced: "advanced",
+  // Settings-panel groups. They never appear inside a tabbed inspector; the mapping exists so the
+  // record stays total and a future group cannot be added without deciding where it belongs.
+  canvas: "style",
+  seo: "content",
+};
+
+/**
+ * The tab currently shown, when these groups are inside a tabbed inspector.
+ *
+ * `null` — the default — means no tabs are in play and every group renders, which is how the same
+ * groups keep working inside a plain settings panel.
+ */
+export const InspectorTabContext = createContext<InspectorTab | null>(null);
+
 export function InspectorGroup({
   titleKey,
   children,
   defaultOpen = true,
 }: {
-  titleKey: "content" | "style" | "layout" | "responsive" | "advanced";
+  titleKey: InspectorGroupKey;
   children: ReactNode;
   defaultOpen?: boolean;
 }) {
   const { t } = useTranslation("builder");
   const [open, setOpen] = useState(defaultOpen);
   const contentId = useId();
+  const tab = useContext(InspectorTabContext);
+
+  if (tab !== null && GROUP_TAB[titleKey] !== tab) return null;
 
   return (
     <section className="border-b border-ink-100 py-3 last:border-b-0">

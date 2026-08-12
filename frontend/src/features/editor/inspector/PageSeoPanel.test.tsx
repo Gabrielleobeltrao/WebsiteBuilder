@@ -59,21 +59,27 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** SEO is a subsection of Page settings, not a destination of its own. */
 async function openSeoPanel() {
   useEditorStore.getState().loadFromProject(project());
   renderWithProviders(<EditorShell workspaceId="w1" projectId="aaaaaaaaaaaaaaaaaaaaaaaa" />);
   const user = userEvent.setup();
-  await user.click(screen.getByRole("tab", { name: "SEO" }));
+  await user.click(screen.getByRole("tab", { name: "Page settings" }));
   return user;
 }
 
 const currentSeo = () => useEditorStore.getState().history.present.pages[0]?.seo;
 
 describe("page SEO panel", () => {
-  it("is a mode of the same right panel, not a separate screen", async () => {
+  it("lives inside Page settings, beside the page name it belongs to", async () => {
     await openSeoPanel();
-    expect(screen.getByRole("tab", { name: "SEO" })).toHaveAttribute("aria-selected", "true");
+
+    expect(screen.getByRole("tab", { name: "Page settings" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab", { name: "SEO" })).toBeNull();
+    // Same panel, same page: the canvas never leaves and the identity fields are right there.
     expect(screen.getByRole("group", { name: "Page canvas" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Page name")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: /SEO/ })).toBeInTheDocument();
   });
 
   it("edits the title and description of the current page", async () => {
@@ -137,7 +143,7 @@ describe("page SEO panel", () => {
     renderWithProviders(<EditorShell workspaceId="w1" projectId="aaaaaaaaaaaaaaaaaaaaaaaa" />, { locale: "pt-BR" });
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "SEO" }));
+    await user.click(screen.getByRole("tab", { name: "Configurações da página" }));
     expect(screen.getByLabelText("Título de SEO")).toBeInTheDocument();
   });
 });

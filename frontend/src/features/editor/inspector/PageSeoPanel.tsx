@@ -39,7 +39,7 @@ export function PageSeoPanel() {
 
   return (
     <>
-      <InspectorGroup titleKey="content">
+      <InspectorGroup titleKey="seo">
         <TextField
           label={t("seo.pageTitle")}
           value={page.seo.title}

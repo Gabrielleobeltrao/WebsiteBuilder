@@ -43,7 +43,7 @@ import * as sectionOps from "./sections";
 
 export const AUTOSAVE_DELAY_MS = 1500;
 
-export type PanelMode = "pages" | "elements" | "layers" | "pageSettings" | "pageSeo";
+export type PanelMode = "pages" | "elements" | "layers" | "pageSettings" | "siteSettings";
 export type InspectorTarget = { kind: "section"; sectionId: string } | { kind: "element"; elementId: string };
 
 export type PersistenceState =

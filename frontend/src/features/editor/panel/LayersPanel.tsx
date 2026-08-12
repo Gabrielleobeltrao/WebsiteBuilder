@@ -49,7 +49,6 @@ export function LayersPanel() {
 
   return (
     <div>
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-500">{t("layers.title")}</h2>
       {page === null || isEmpty ? (
         <p className="text-xs text-ink-500">{t("layers.empty")}</p>
       ) : (

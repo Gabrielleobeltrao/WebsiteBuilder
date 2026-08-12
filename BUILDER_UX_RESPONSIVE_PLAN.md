@@ -582,23 +582,23 @@ Opening a finding sets the current page, device, selection, and inspector contex
 
 ### Phase 4 — Builder shell and right sidebar UX
 
-- [ ] **4.1 Simplify the top bar.**
+- [x] **4.1 Simplify the top bar.**
   - Acceptance: only the actions in Section 4.2 remain; duplicate preview buttons and width tools are gone.
   - Verify: UI test asserts action inventory and keyboard labels.
 
-- [ ] **4.2 Replace peer text tabs with right icon rail plus content panel.**
+- [x] **4.2 Replace peer text tabs with right icon rail plus content panel.**
   - Acceptance: Add, Pages, Structure, Page settings, and Site settings are stable destinations; canvas width does not jump.
   - Verify: component tests switch destinations and measure stable sidebar class/width contract.
 
-- [ ] **4.3 Build the contextual three-tab inspector.**
+- [x] **4.3 Build the contextual three-tab inspector.**
   - Acceptance: selection opens Content/Style/Advanced automatically; Back returns to last explicit destination.
   - Verify: selection state-machine tests and element-type coverage.
 
-- [ ] **4.4 Consolidate Page settings and SEO.**
+- [x] **4.4 Consolidate Page settings and SEO.**
   - Acceptance: page identity, slug, canvas, and SEO are organized in one destination without losing existing validation/preview.
   - Verify: existing Page SEO tests remain green and new navigation tests pass.
 
-- [ ] **4.5 Preserve conditional feature navigation.**
+- [x] **4.5 Preserve conditional feature navigation.**
   - Acceptance: optional configuration appears only after related content is used.
   - Verify: unused/used feature lifecycle component tests.
 
@@ -774,6 +774,7 @@ Add entries in chronological order. Do not replace previous entries.
 
 | Date | Task | Commit | Verification | Result |
 | --- | --- | --- | --- | --- |
+| 2026-08-11 | 4.1-4.5 builder shell and right sidebar | n/a | `npm run typecheck && npm run test && npm run build` | 1,717 tests pass, zero failures. Top bar is the Section 4.2 inventory plus manual Save; five destinations on an icon rail; inspector is Content/Style/Advanced; Page SEO is a subsection of Page settings; feature links appear only once a feature is used |
 | 2026-08-11 | 3.1-3.5 device-aware editing | n/a | `npm run typecheck && npm run test` | 1,708 tests pass, zero failures. Every Phase 0 capture is green |
 | 2026-08-11 | 0.1 baseline | n/a | `git status --short` empty; `development`/`origin/development`/`origin/main` all at `4bb5148` | Audited baseline `2afd955` is an ancestor. Suite green at the starting commit: 1,609 unit, 47 E2E |
 | 2026-08-11 | 0.2 fixtures | n/a | `npm run typecheck` | Shared fixtures compile and are reachable from both workspaces through `@websitebuilder/shared/responsive-fixtures` |
@@ -791,6 +792,8 @@ Add material implementation decisions here before or while making them.
 
 | ID | Decision | Reason | Consequences |
 | --- | --- | --- | --- |
+| D-014 | Manual Save stays in the top bar | Autosave can fail, and someone about to close the tab is entitled to force the write rather than trust a timer they cannot see | Section 4.2's conditional allowance is exercised; the action inventory test states the reason so it is not re-litigated |
+| D-013 | Layout and responsive sizing live under the Style tab | The inspector is three stable tabs, and both are visual decisions; a fourth tab would reintroduce the navigation mode Section 4.4 removes | `GROUP_TAB` maps group to tab in one place, so a new group cannot be added without deciding where it belongs |
 | D-012 | The device switcher stores a width, not a mode | The canvas has to render at some width, and two values would eventually disagree about which device is on screen | The device is derived wherever a write needs it, so the switcher and the canvas cannot drift |
 | D-001 | Keep builder controls on the right | Explicit product requirement | Elementor interaction logic is adapted, not copied spatially |
 | D-002 | Expose exactly three device modes | Clearer UX requested | Internal tests may still sweep intermediate widths |

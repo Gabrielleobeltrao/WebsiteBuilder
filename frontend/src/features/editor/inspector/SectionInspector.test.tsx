@@ -49,7 +49,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function setupSection(withElements = 0) {
+/** Selects a section and opens the Style tab, where a section's layout controls live. */
+async function setupSection(withElements = 0) {
   useEditorStore.getState().loadFromProject(project());
   const sectionId = useEditorStore.getState().history.present.pages[0]?.sections[0]?.id;
   if (!sectionId) throw new Error("fixture is missing its section");
@@ -60,6 +61,7 @@ function setupSection(withElements = 0) {
   act(() => useEditorStore.getState().select({ kind: "section", sectionId }));
 
   renderWithProviders(<EditorShell workspaceId="w1" projectId="aaaaaaaaaaaaaaaaaaaaaaaa" />);
+  await userEvent.setup().click(screen.getByRole("tab", { name: "Style" }));
   return sectionId;
 }
 
@@ -69,7 +71,7 @@ const currentSection = (id: string) =>
 describe("section inspector", () => {
   it("converts an empty section immediately, with no warning to dismiss", async () => {
     const user = userEvent.setup();
-    const id = setupSection(0);
+    const id = await setupSection(0);
 
     await user.selectOptions(screen.getByLabelText("Layout mode"), "grid");
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -78,7 +80,7 @@ describe("section inspector", () => {
 
   it("warns before converting a populated section and states how much is affected", async () => {
     const user = userEvent.setup();
-    const id = setupSection(3);
+    const id = await setupSection(3);
 
     await user.selectOptions(screen.getByLabelText("Layout mode"), "grid");
     const dialog = screen.getByRole("dialog", { name: "Change this section's layout?" });
@@ -92,7 +94,7 @@ describe("section inspector", () => {
 
   it("leaves the section untouched when the warning is cancelled", async () => {
     const user = userEvent.setup();
-    const id = setupSection(2);
+    const id = await setupSection(2);
 
     await user.selectOptions(screen.getByLabelText("Layout mode"), "flex");
     await user.click(screen.getByRole("button", { name: "Cancel" }));
@@ -101,7 +103,7 @@ describe("section inspector", () => {
 
   it("shows grid controls only for a grid section", async () => {
     const user = userEvent.setup();
-    setupSection(0);
+    await setupSection(0);
 
     expect(screen.queryByLabelText("Minimum column width")).toBeNull();
     await user.selectOptions(screen.getByLabelText("Layout mode"), "grid");
@@ -111,7 +113,7 @@ describe("section inspector", () => {
 
   it("shows flex controls only for a flex section", async () => {
     const user = userEvent.setup();
-    setupSection(0);
+    await setupSection(0);
 
     await user.selectOptions(screen.getByLabelText("Layout mode"), "flex");
     expect(screen.getByLabelText("Direction")).toBeInTheDocument();
@@ -120,7 +122,7 @@ describe("section inspector", () => {
 
   it("stores grid settings as typed fields under the breakpoint", async () => {
     const user = userEvent.setup();
-    const id = setupSection(0);
+    const id = await setupSection(0);
 
     await user.selectOptions(screen.getByLabelText("Layout mode"), "grid");
     await user.selectOptions(screen.getByLabelText("Column behaviour"), "fixed");
@@ -134,7 +136,7 @@ describe("section inspector", () => {
 
   it("keeps layout changes scoped to the section being edited", async () => {
     const user = userEvent.setup();
-    const first = setupSection(0);
+    const first = await setupSection(0);
     act(() => useEditorStore.getState().addSection("free"));
     const second = useEditorStore.getState().history.present.pages[0]?.sections[1]?.id;
 
@@ -145,13 +147,14 @@ describe("section inspector", () => {
     expect(second && currentSection(second)?.layoutMode).toBe("free");
   });
 
-  it("labels the section inspector in Portuguese", () => {
+  it("labels the section inspector in Portuguese", async () => {
     useEditorStore.getState().loadFromProject(project());
     const sectionId = useEditorStore.getState().history.present.pages[0]?.sections[0]?.id;
     if (!sectionId) throw new Error("fixture is missing its section");
     act(() => useEditorStore.getState().select({ kind: "section", sectionId }));
 
     renderWithProviders(<EditorShell workspaceId="w1" projectId="aaaaaaaaaaaaaaaaaaaaaaaa" />, { locale: "pt-BR" });
+    await userEvent.setup().click(screen.getByRole("tab", { name: "Estilo" }));
     expect(screen.getByLabelText("Modo de layout")).toBeInTheDocument();
   });
 });

@@ -11,7 +11,7 @@ export type PanelView =
   | { kind: "elements" }
   | { kind: "layers" }
   | { kind: "pageSettings" }
-  | { kind: "pageSeo" }
+  | { kind: "siteSettings" }
   | { kind: "sectionInspector"; sectionId: string }
   | { kind: "elementInspector"; elementId: string };
 
@@ -29,5 +29,17 @@ export function isInspector(view: PanelView): boolean {
   return view.kind === "sectionInspector" || view.kind === "elementInspector";
 }
 
-/** Modes a user can open deliberately, and therefore the only ones worth returning to. */
-export const NON_INSPECTOR_MODES: PanelMode[] = ["pages", "elements", "layers", "pageSettings", "pageSeo"];
+/**
+ * Destinations a user opens deliberately, and therefore the only ones worth returning to.
+ *
+ * Five, in the order the rail shows them. Page SEO is not among them: it is page settings, and
+ * making it a sixth peer meant an author had to know the product's internal split to find the title
+ * of the page they were editing.
+ */
+export const NON_INSPECTOR_MODES: PanelMode[] = [
+  "elements",
+  "pages",
+  "layers",
+  "pageSettings",
+  "siteSettings",
+];

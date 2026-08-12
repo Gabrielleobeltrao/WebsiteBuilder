@@ -87,55 +87,202 @@ describe("EditorShell layout", () => {
   });
 });
 
-describe("right panel state machine", () => {
-  it("switches modes without losing the canvas", async () => {
-    const user = userEvent.setup();
+describe("top bar", () => {
+  /** Everything in the bar that a person can act on, in reading order. */
+  const actionInventory = () =>
+    [...screen.getByRole("banner").querySelectorAll("button, a, select")].map(
+      (node) => node.getAttribute("aria-label") ?? node.textContent?.trim(),
+    );
+
+  it("carries navigation and document actions only", () => {
     useEditorStore.getState().loadFromProject(project());
     render();
 
-    await user.click(screen.getByRole("tab", { name: "Layers" }));
-    expect(screen.getByRole("tab", { name: "Layers" })).toHaveAttribute("aria-selected", "true");
+    // Manual Save stays because autosave can fail and a person closing the tab is entitled to force
+    // the write. Everything else is exactly Section 4.2 of the plan.
+    expect(actionInventory()).toEqual([
+      "Back to sites",
+      "Current page",
+      "Desktop · 1440px",
+      "Tablet · 768px",
+      "Mobile · 390px",
+      "Undo",
+      "Redo",
+      "Preview",
+      "Save",
+      "Publish",
+    ]);
+  });
+
+  it("offers one preview, not one per device", () => {
+    useEditorStore.getState().loadFromProject(project());
+    render();
+
+    const previews = within(screen.getByRole("banner")).getAllByRole("link", { name: /preview/i });
+    expect(previews).toHaveLength(1);
+    expect(previews[0]).toHaveAttribute("href", "/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
+  });
+
+  it("links to the publish flow", () => {
+    useEditorStore.getState().loadFromProject(project());
+    render();
+
+    expect(screen.getByRole("link", { name: "Publish" })).toHaveAttribute(
+      "href",
+      "/app/w1/sites/aaaaaaaaaaaaaaaaaaaaaaaa/publish",
+    );
+  });
+
+  it("switches page from the bar without leaving the builder", async () => {
+    const user = userEvent.setup();
+    useEditorStore.getState().loadFromProject(project());
+    act(() => useEditorStore.getState().addPage("About"));
+    render();
+
+    const about = useEditorStore.getState().history.present.pages.find((page) => page.name === "About");
+    await user.selectOptions(screen.getByLabelText("Current page"), about?.id ?? "");
+
+    expect(useEditorStore.getState().ui.currentPageId).toBe(about?.id);
     expect(screen.getByRole("group", { name: "Page canvas" })).toBeInTheDocument();
   });
 
-  it("replaces the panel with the section inspector when a section is selected", async () => {
+  it("carries no width tool or diagnostics", () => {
+    useEditorStore.getState().loadFromProject(project());
+    render();
+
+    const bar = screen.getByRole("banner");
+    expect(within(bar).queryByRole("slider")).toBeNull();
+    expect(within(bar).queryByLabelText(/width/i)).toBeNull();
+  });
+});
+
+describe("right panel state machine", () => {
+  const railDestinations = () =>
+    within(screen.getByRole("tablist", { name: "Builder destinations" }))
+      .getAllByRole("tab")
+      .map((tab) => tab.getAttribute("aria-label"));
+
+  it("offers five stable destinations on an icon rail, not a row of text tabs", () => {
+    useEditorStore.getState().loadFromProject(project());
+    render();
+
+    expect(railDestinations()).toEqual(["Add elements", "Pages", "Structure", "Page settings", "Site settings"]);
+    // Icons carry a name and a tooltip; the label is not lost, only the space it used to take.
+    for (const tab of within(screen.getByRole("tablist", { name: "Builder destinations" })).getAllByRole("tab")) {
+      expect(tab).toHaveAttribute("title", tab.getAttribute("aria-label"));
+    }
+  });
+
+  it("switches destinations without moving the canvas", async () => {
+    const user = userEvent.setup();
+    useEditorStore.getState().loadFromProject(project());
+    render();
+
+    const panel = screen.getByRole("complementary", { name: "Builder controls" });
+    const widthBefore = panel.className;
+
+    await user.click(screen.getByRole("tab", { name: "Structure" }));
+    expect(screen.getByRole("tab", { name: "Structure" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { level: 2, name: "Structure" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Page canvas" })).toBeInTheDocument();
+    // The panel is one fixed-width region: its class contract is what stops the canvas jumping.
+    expect(panel.className).toBe(widthBefore);
+    expect(panel.className).toContain("w-80");
+  });
+
+  it("replaces the panel content with the section inspector when a section is selected", async () => {
     const user = userEvent.setup();
     useEditorStore.getState().loadFromProject(project());
     render();
 
     await user.click(screen.getByRole("region", { name: "Section" }));
 
-    expect(screen.queryByRole("tab", { name: "Pages" })).toBeNull();
-    expect(screen.getByRole("heading", { level: 3, name: "Responsive" })).toBeInTheDocument();
+    // The rail stays — leaving an inspector must not require guessing — but its panel is gone.
+    expect(screen.getByRole("tab", { name: "Pages" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add page" })).toBeNull();
+    expect(screen.getByRole("tablist", { name: "Element settings" })).toBeInTheDocument();
   });
 
-  it("returns to the remembered mode when Back is pressed", async () => {
+  it("returns to the remembered destination when Back is pressed", async () => {
     const user = userEvent.setup();
     useEditorStore.getState().loadFromProject(project());
     render();
 
-    await user.click(screen.getByRole("tab", { name: "Layers" }));
+    await user.click(screen.getByRole("tab", { name: "Structure" }));
     await user.click(screen.getByRole("region", { name: "Section" }));
     await user.click(screen.getByRole("button", { name: "Back" }));
 
-    expect(screen.getByRole("tab", { name: "Layers" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Structure" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { level: 2, name: "Structure" })).toBeInTheDocument();
   });
 
-  it("organises every inspector into the same five groups", async () => {
+  it("keeps the chosen inspector tab when the selection changes", async () => {
     const user = userEvent.setup();
     useEditorStore.getState().loadFromProject(project());
     render();
+    const sectionId = useEditorStore.getState().history.present.pages[0]?.sections[0]?.id ?? "";
 
-    await user.click(screen.getByRole("region", { name: "Section" }));
-    expect(
-      screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent?.replace(/[−+]/g, "").trim()),
-    ).toEqual([
-      "Content",
-      "Style",
-      "Layout",
-      "Responsive",
-      "Advanced",
-    ]);
+    act(() => useEditorStore.getState().addElement(sectionId, "text"));
+    await user.click(screen.getByRole("tab", { name: "Style" }));
+    act(() => useEditorStore.getState().addElement(sectionId, "button"));
+
+    expect(screen.getByRole("tab", { name: "Style" })).toHaveAttribute("aria-selected", "true");
+  });
+});
+
+describe("site settings destination", () => {
+  const openSiteSettings = async (user: ReturnType<typeof userEvent.setup>) =>
+    user.click(screen.getByRole("tab", { name: "Site settings" }));
+
+  it("edits the site name and its search defaults in the document", async () => {
+    const user = userEvent.setup();
+    useEditorStore.getState().loadFromProject(project());
+    render();
+    await openSiteSettings(user);
+
+    await user.clear(screen.getByLabelText("Site name"));
+    await user.type(screen.getByLabelText("Site name"), "Acme Ltd");
+    expect(useEditorStore.getState().history.present.name).toBe("Acme Ltd");
+
+    await user.click(screen.getByRole("button", { name: /Advanced/ }));
+    await user.click(screen.getByLabelText("Allow search engines to index this site"));
+    expect(useEditorStore.getState().history.present.seo.defaultRobots.index).toBe(false);
+  });
+
+  it("offers configuration for a feature only once the site uses it", async () => {
+    const user = userEvent.setup();
+    useEditorStore.getState().loadFromProject(project());
+    render();
+    await openSiteSettings(user);
+
+    expect(screen.queryByRole("link", { name: "Blog" })).toBeNull();
+
+    act(() =>
+      useEditorStore.setState((state) => ({
+        history: {
+          ...state.history,
+          present: {
+            ...state.history.present,
+            featureStates: [
+              {
+                feature: "blog",
+                lifecycle: "ready",
+                draftReferenceCount: 1,
+                publishedReferenceCount: 0,
+                blockingIssueCount: 0,
+                warningCount: 0,
+                sourceRevision: 1,
+              },
+            ],
+          },
+        },
+      })),
+    );
+
+    expect(screen.getByRole("link", { name: "Blog" })).toHaveAttribute(
+      "href",
+      "/app/w1/sites/aaaaaaaaaaaaaaaaaaaaaaaa/blog",
+    );
   });
 });
 
@@ -213,6 +360,7 @@ describe("localization", () => {
     renderWithProviders(<EditorShell workspaceId="w1" projectId="aaaaaaaaaaaaaaaaaaaaaaaa" />, { locale: "pt-BR" });
 
     expect(screen.getByRole("tab", { name: "Páginas" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Configurações do site" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Salvar" })).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Todas as alterações salvas");
   });

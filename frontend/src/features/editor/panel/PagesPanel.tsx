@@ -19,7 +19,6 @@ export function PagesPanel() {
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-500">{t("pages.title")}</h2>
         <button
           type="button"
           onClick={() => {

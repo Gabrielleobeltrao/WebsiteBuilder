@@ -146,7 +146,7 @@ export function PreviewRoute() {
                 viewport === mode ? "bg-ink-900 text-white" : "border border-ink-200 text-ink-700",
               ].join(" ")}
             >
-              {mode === "desktop" ? t("builder:topBar.previewDesktop") : t("builder:topBar.previewMobile")}
+              {t(`builder:responsive.preset.${mode}`)}
             </button>
           ))}
           </div>

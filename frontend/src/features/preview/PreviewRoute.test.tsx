@@ -196,7 +196,7 @@ describe("preview isolation", () => {
     renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
     await screen.findByRole("heading", { level: 1, name: "Home page" });
 
-    await user.click(screen.getByRole("button", { name: "Preview mobile" }));
+    await user.click(screen.getByRole("button", { name: "Mobile" }));
     expect(requests.every((request) => request.startsWith("GET"))).toBe(true);
   });
 });
@@ -207,8 +207,8 @@ describe("desktop and mobile preview", () => {
     renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
     await screen.findByRole("heading", { level: 1, name: "Home page" });
 
-    const desktop = screen.getByRole("button", { name: "Preview desktop" });
-    const mobile = screen.getByRole("button", { name: "Preview mobile" });
+    const desktop = screen.getByRole("button", { name: "Desktop" });
+    const mobile = screen.getByRole("button", { name: "Mobile" });
     expect(mobile).toHaveAttribute("aria-pressed", "true");
 
     await user.click(desktop);
@@ -221,7 +221,7 @@ describe("desktop and mobile preview", () => {
     renderPreview("/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
     await screen.findByRole("heading", { level: 1, name: "Home page" });
 
-    await user.click(screen.getByRole("button", { name: "Preview desktop" }));
+    await user.click(screen.getByRole("button", { name: "Desktop" }));
     expect(screen.getByRole("heading", { level: 1, name: "Home page" })).toBeInTheDocument();
   });
 });

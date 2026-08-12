@@ -1,4 +1,4 @@
-import { Redo2, Undo2 } from "lucide-react";
+import { Eye, Redo2, Rocket, Undo2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
@@ -8,8 +8,8 @@ import { EditableCanvas } from "@/features/editor/canvas/EditableCanvas";
 import { ElementsPanel } from "@/features/editor/panel/ElementsPanel";
 import { LayersPanel } from "@/features/editor/panel/LayersPanel";
 import { PageSettingsPanel } from "@/features/editor/panel/PageSettingsPanel";
-import { PageSeoPanel } from "@/features/editor/inspector/PageSeoPanel";
 import { PagesPanel } from "@/features/editor/panel/PagesPanel";
+import { SiteSettingsPanel } from "@/features/editor/panel/SiteSettingsPanel";
 import { resolvePanelView } from "@/features/editor/panel/panelMachine";
 import { RightPanel } from "@/features/editor/panel/RightPanel";
 import { DeviceSwitcher } from "@/features/editor/canvas/DeviceSwitcher";
@@ -113,8 +113,8 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
         return <LayersPanel />;
       case "pageSettings":
         return <PageSettingsPanel />;
-      case "pageSeo":
-        return <PageSeoPanel />;
+      case "siteSettings":
+        return <SiteSettingsPanel workspaceId={workspaceId} projectId={projectId} />;
     }
   };
 
@@ -128,6 +128,18 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
             {t("builder:topBar.backToSites")}
           </Link>
           <h1 className="truncate font-display text-sm font-semibold text-ink-900">{store.history.present.name}</h1>
+          <select
+            aria-label={t("builder:topBar.currentPage")}
+            value={page?.id ?? ""}
+            onChange={(event) => store.setCurrentPage(event.target.value)}
+            className="max-w-40 truncate rounded-md border border-ink-200 px-2 py-1 text-xs text-ink-700"
+          >
+            {store.history.present.pages.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>
+                {candidate.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="flex items-center gap-3">
@@ -155,25 +167,33 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
           >
             <Redo2 aria-hidden className="size-4" />
           </button>
-          <Link
-            to={`/preview/${workspaceId}/${projectId}?viewport=desktop`}
-            className="rounded-md border border-ink-200 px-3 py-1.5 text-xs font-medium text-ink-700"
-          >
-            {t("builder:topBar.previewDesktop")}
-          </Link>
+          {/* One preview. Which device it opens in is the device switcher's job, not a second
+              button's — two preview buttons was the product asking the same question twice. */}
           <Link
             to={`/preview/${workspaceId}/${projectId}`}
-            className="rounded-md border border-ink-200 px-3 py-1.5 text-xs font-medium text-ink-700"
+            className="flex items-center gap-1.5 rounded-md border border-ink-200 px-3 py-1.5 text-xs
+              font-medium text-ink-700"
           >
-            {t("builder:topBar.previewMobile")}
+            <Eye aria-hidden className="size-3.5" />
+            {t("builder:topBar.preview")}
           </Link>
+          {/* Manual save stays: autosave can fail, and a person about to close the tab is entitled
+              to make the write happen rather than trust a timer they cannot see. */}
           <button
             type="button"
             onClick={() => void store.save()}
-            className="rounded-md bg-accent-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-700"
+            className="rounded-md border border-ink-200 px-3 py-1.5 text-xs font-medium text-ink-700"
           >
             {t("builder:topBar.save")}
           </button>
+          <Link
+            to={`/app/${workspaceId}/sites/${projectId}/publish`}
+            className="flex items-center gap-1.5 rounded-md bg-accent-600 px-3 py-1.5 text-xs font-semibold
+              text-white hover:bg-accent-700"
+          >
+            <Rocket aria-hidden className="size-3.5" />
+            {t("builder:topBar.publish")}
+          </Link>
         </div>
       </header>
 

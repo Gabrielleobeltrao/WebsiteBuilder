@@ -1,17 +1,22 @@
 import type { BuilderElement, BuilderPage, BuilderSection } from "@websitebuilder/shared";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { PanelMode } from "@/features/editor/store/editorStore";
 import { ElementInspector } from "@/features/editor/inspector/ElementInspector";
+import { InspectorTabContext, type InspectorTab } from "@/features/editor/inspector/controls";
 import { SectionInspector } from "@/features/editor/inspector/SectionInspector";
-import { NON_INSPECTOR_MODES, type PanelView } from "./panelMachine";
+import { PanelRail } from "./PanelRail";
+import { type PanelView } from "./panelMachine";
 
 /**
- * The single right-hand region. Its width is fixed so changing modes never resizes or horizontally
- * jumps the canvas — only the content inside it is replaced.
+ * The single right-hand region: one narrow destination rail on the outer edge, one content area
+ * beside it. Its total width is fixed, so changing destination — or selecting an element, which
+ * swaps the content for an inspector — never resizes or horizontally jumps the canvas.
  */
 
-const INSPECTOR_GROUPS = ["content", "style", "layout", "responsive", "advanced"] as const;
+/** Stable for every element type, so the tab a person is on survives changing selection. */
+const INSPECTOR_TABS: InspectorTab[] = ["content", "style", "advanced"];
 
 function findElement(sections: readonly BuilderSection[], elementId: string): BuilderElement | null {
   for (const section of sections) {
@@ -32,29 +37,6 @@ function search(elements: readonly BuilderElement[], elementId: string): Builder
   return null;
 }
 
-function ModeTabs({ active, onChange }: { active: PanelMode; onChange: (mode: PanelMode) => void }) {
-  const { t } = useTranslation("builder");
-  return (
-    <div role="tablist" aria-label={t("panel.label")} className="flex gap-1 border-b border-ink-100 p-2">
-      {NON_INSPECTOR_MODES.map((mode) => (
-        <button
-          key={mode}
-          role="tab"
-          type="button"
-          aria-selected={active === mode}
-          onClick={() => onChange(mode)}
-          className={[
-            "flex-1 rounded-md px-2 py-1.5 text-xs font-medium",
-            active === mode ? "bg-ink-900 text-white" : "text-ink-600 hover:bg-ink-50",
-          ].join(" ")}
-        >
-          {t(`panel.${mode}`)}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function InspectorShell({
   title,
   typeLabel,
@@ -69,6 +51,11 @@ function InspectorShell({
   children?: React.ReactNode;
 }) {
   const { t } = useTranslation("builder");
+  // Component state, deliberately: which tab is open is a view preference and must never reach the
+  // document. Keeping it across selections is what makes "select another element and keep editing
+  // its colour" work without a second click.
+  const [tab, setTab] = useState<InspectorTab>("content");
+
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-ink-100 p-3">
@@ -91,23 +78,53 @@ function InspectorShell({
         </nav>
         <h2 className="mt-2 font-display text-sm font-semibold text-ink-900">{title}</h2>
         <p className="text-xs text-ink-500">{typeLabel}</p>
+
+        <div role="tablist" aria-label={t("inspector.tabs")} className="mt-3 flex gap-1">
+          {INSPECTOR_TABS.map((candidate) => (
+            <button
+              key={candidate}
+              role="tab"
+              type="button"
+              aria-selected={tab === candidate}
+              onClick={() => setTab(candidate)}
+              className={[
+                "flex-1 rounded-md px-2 py-1 text-xs font-medium",
+                tab === candidate ? "bg-ink-900 text-white" : "text-ink-600 hover:bg-ink-50",
+              ].join(" ")}
+            >
+              {t(`inspector.${candidate}`)}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3">
-        {children ??
-          INSPECTOR_GROUPS.map((group) => (
-            <section key={group} className="border-b border-ink-100 py-3 last:border-b-0">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-                {t(`inspector.${group}`)}
-              </h3>
-            </section>
-          ))}
+        <InspectorTabContext.Provider value={tab}>{children}</InspectorTabContext.Provider>
       </div>
     </div>
   );
 }
 
 export function RightPanel(props: {
+  view: PanelView;
+  page: BuilderPage | null;
+  pages: readonly BuilderPage[];
+  panelMode: PanelMode;
+  onPanelMode: (mode: PanelMode) => void;
+  onBack: () => void;
+  renderMode: (mode: PanelMode) => React.ReactNode;
+}) {
+  return (
+    <div className="flex h-full">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <PanelContent {...props} />
+      </div>
+      <PanelRail active={props.panelMode} onChange={props.onPanelMode} />
+    </div>
+  );
+}
+
+function PanelContent(props: {
   view: PanelView;
   page: BuilderPage | null;
   pages: readonly BuilderPage[];
@@ -149,7 +166,9 @@ export function RightPanel(props: {
 
   return (
     <div className="flex h-full flex-col">
-      <ModeTabs active={props.panelMode} onChange={props.onPanelMode} />
+      <div className="border-b border-ink-100 px-3 py-2">
+        <h2 className="font-display text-sm font-semibold text-ink-900">{t(`panel.${view.kind}`)}</h2>
+      </div>
       <div className="flex-1 overflow-y-auto p-3">{props.renderMode(view.kind)}</div>
     </div>
   );

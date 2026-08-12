@@ -20,7 +20,6 @@ export function ElementsPanel({ onAdd }: { onAdd?: (type: (typeof BLOCKS)[number
 
   return (
     <div>
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-500">{t("elements.title")}</h2>
       <ul className="grid grid-cols-2 gap-2">
         {BLOCKS.map(({ type, Icon }) => (
           <li key={type}>

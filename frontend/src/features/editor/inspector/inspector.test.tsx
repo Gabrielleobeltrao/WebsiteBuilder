@@ -1,5 +1,5 @@
 import { createProjectDocument, type BuilderProject } from "@websitebuilder/shared";
-import { act, screen, within } from "@testing-library/react";
+import { act, cleanup, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -66,15 +66,44 @@ async function setupWithElement(type: "text" | "image" | "button") {
 
 const currentElement = (id: string) => findElement(useEditorStore.getState().history.present, id);
 
+/** The inspector opens on Content; every other group lives behind its tab. */
+const openTab = (user: ReturnType<typeof userEvent.setup>, name: string) =>
+  user.click(screen.getByRole("tab", { name }));
+
+/** The group headings currently rendered, without the disclosure glyph. */
+const headingsInPanel = () =>
+  within(screen.getByRole("complementary", { name: "Builder controls" }))
+    .getAllByRole("heading", { level: 3 })
+    .map((heading) => heading.textContent?.replace(/[−+]/g, "").trim());
+
 describe("inspector structure", () => {
-  it("uses the same five groups for every element type", async () => {
+  it("offers the same three tabs for every element type", async () => {
+    // Stability is the point: a person who is editing colours does not have to rediscover where
+    // colours live every time they select a different kind of element.
+    for (const type of ["text", "image", "button"] as const) {
+      await setupWithElement(type);
+      const tabs = within(screen.getByRole("tablist", { name: "Element settings" })).getAllByRole("tab");
+      expect(tabs.map((tab) => tab.textContent), type).toEqual(["Content", "Style", "Advanced"]);
+      cleanup();
+    }
+  });
+
+  it("puts layout and responsive sizing inside Style rather than beside it", async () => {
+    const user = userEvent.setup();
     await setupWithElement("text");
-    const headings = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent?.replace(/[−+]/g, "").trim());
-    expect(headings).toEqual(["Content", "Style", "Layout", "Responsive", "Advanced"]);
+
+    expect(headingsInPanel()).toEqual(["Content"]);
+    await openTab(user, "Style");
+    expect(headingsInPanel()).toEqual(["Style", "Layout", "Responsive"]);
+    await openTab(user, "Advanced");
+    expect(headingsInPanel()).toEqual(["Advanced"]);
   });
 
   it("only shows controls that can affect the selected type", async () => {
+    const user = userEvent.setup();
     await setupWithElement("image");
+    await openTab(user, "Style");
+
     expect(screen.queryByLabelText("Line height")).toBeNull();
     expect(screen.getByLabelText("Fit")).toBeInTheDocument();
   });
@@ -82,6 +111,7 @@ describe("inspector structure", () => {
   it("collapses and expands a group without touching the document", async () => {
     const user = userEvent.setup();
     const id = await setupWithElement("text");
+    await openTab(user, "Style");
     const before = useEditorStore.getState().history;
 
     await user.click(screen.getByRole("button", { name: /Style/ }));
@@ -116,6 +146,7 @@ describe("text inspector", () => {
   it("keeps font size a structured value with an allowlisted unit", async () => {
     const user = userEvent.setup();
     const id = await setupWithElement("text");
+    await openTab(user, "Style");
 
     await user.selectOptions(screen.getByLabelText("Font size unit"), "rem");
     const element = currentElement(id);
@@ -209,6 +240,7 @@ describe("advanced group", () => {
     const user = userEvent.setup();
     const id = await setupWithElement("text");
 
+    await openTab(user, "Advanced");
     await user.click(screen.getByRole("button", { name: /Advanced/ }));
     await user.clear(screen.getByLabelText("Display name"));
     await user.type(screen.getByLabelText("Display name"), "Headline");
@@ -229,6 +261,7 @@ describe("z-order controls", () => {
     const second = useEditorStore.getState().ui.selection;
     if (second?.kind !== "element") throw new Error("adding an element should select it");
 
+    await openTab(user, "Style");
     await user.click(screen.getByRole("button", { name: "Send to back" }));
     expect(currentElement(second.elementId)?.zIndex).toBe(1);
     expect(currentElement(first)?.zIndex).toBe(2);
