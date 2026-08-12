@@ -123,9 +123,15 @@ quietly stop describing the repository.
 
 ```
 packages/shared/src/forms.ts
+packages/shared/src/form-usage.ts
 packages/shared/src/visual-elements.ts
 packages/shared/src/element-migrations.ts
 packages/shared/src/publication.ts
 backend/src/modules/forms/repository.ts
 backend/src/modules/forms/routes.ts
+backend/src/modules/forms/export.ts
+backend/src/renderer/forms.ts
+frontend/src/components/renderer/FormRenderer.tsx
+frontend/src/features/forms/FormsRoute.tsx
+frontend/src/features/editor/inspector/FormBindingField.tsx
 ```

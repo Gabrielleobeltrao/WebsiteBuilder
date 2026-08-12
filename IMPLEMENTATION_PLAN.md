@@ -168,7 +168,7 @@ The current form implementation is incomplete and must not be treated as product
 - [x] **7.3 Protect bundle and runtime budgets.** Lazy-load Forms Center/editor/inbox and keep the public runtime conditional. Reduce the main entry enough to remove the current Vite `>500 kB` warning or document a measured, justified budget decision.
   - Acceptance: bundle report records raw/gzip deltas; pages without forms receive no form runtime.
 
-- [ ] **7.4 Perform a clarity pass.** Keep one primary action per empty state, consistent statuses, plain labels, contextual help, skeletons instead of layout jumps, and no dead/duplicated controls.
+- [x] **7.4 Perform a clarity pass.** Keep one primary action per empty state, consistent statuses, plain labels, contextual help, skeletons instead of layout jumps, and no dead/duplicated controls.
   - Acceptance: a first-time user can create a form, place it, preview it, publish it, submit it, and find the response without copying IDs or guessing navigation.
 
 ### Phase 8 — Verification and delivery
@@ -242,6 +242,7 @@ YYYY-MM-DD HH:mm | Task X.Y | files/behavior changed | verification command + re
 2026-08-12 18:30 | Task 7.2 | the generated form is asserted at all three presets with long labels, a fifty-option list and a long answer: every control is width-bounded inside a border-box parent, every grid item carries min-width 0 or spans the row, and a large option set stays a native select rather than fifty rendered controls; a Playwright viewport check confirms no horizontal overflow at 390px on the published page | vitest form-renderer (20) + published-site-forms phone viewport → passing | —
 2026-08-12 18:30 | Task 8.2 | frontend/e2e/published-site-forms.spec.ts and a seeded e2e-form site: the page arrives complete before any script, submits and announces in place with JavaScript, submits and is redirected back with it disabled, is refused by the browser's own validation before reaching the network, and stays inside a phone viewport. The form sits on its own hostname so the existing "ships no JavaScript" claim for a site without one stays provable | npm run test:e2e → 95 passed (90 before, 5 new) | —
 2026-08-12 18:30 | Defect found by 8.2 | EditorShell's two new useMemo calls sat below the loading and error early returns, so the number of hooks changed when a project finished loading and React tore the whole builder down (minified error #310). Unit tests never saw it because they start in one state and stay there. Hooks moved above the returns; EditorShell.test.tsx now renders in loading and transitions to ready, which is the shape of test that catches it | vitest EditorShell → 23 passed | —
+2026-08-12 18:32 | Task 7.4 | quick-create from a form block now starts from a template, so a block bound in two clicks asks real questions instead of immediately reporting "this form asks nothing"; the inline create panel is a named group rather than an unlabelled cluster of controls; docs/FORMS.md §7 extended to the files that now exist, which its own test enforces | vitest form-binding (3 new) → a person picks a form by name, sees "No form chosen" before binding, and never encounters an identifier; npm run test → 2,061 tests, exit 0 | —
 ```
 
 ## 7. Decision Log

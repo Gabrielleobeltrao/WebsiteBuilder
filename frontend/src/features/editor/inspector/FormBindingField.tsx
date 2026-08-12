@@ -1,4 +1,4 @@
-import type { FormSummary } from "@websitebuilder/shared";
+import { buildFormTemplate, FORM_TEMPLATE_IDS, type FormSummary, type FormTemplateId } from "@websitebuilder/shared";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
@@ -44,6 +44,7 @@ export function FormBindingField({
 
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
+  const [template, setTemplate] = useState<FormTemplateId>("contact");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -80,14 +81,16 @@ export function FormBindingField({
     setBusy(true);
     setFailure(null);
     try {
-      // Created and bound in one step. A form that exists but is attached to nothing is the state
-      // this control exists to avoid.
+      /*
+       * Created, filled in and bound in one step.
+       *
+       * A form created empty is bound to a block that immediately reports "this form asks nothing",
+       * which is a dead end two clicks after somebody asked for a contact form. A template gives it
+       * questions; they are ordinary fields from that moment and can be changed like any other.
+       */
       const created = await formsApi.create(workspaceId, projectId, {
+        ...buildFormTemplate(template, (key) => (t as (value: string) => string)(`forms:${key}`)),
         name: trimmed,
-        fields: [],
-        submitLabel: t("forms:templates.blank.submit"),
-        successBehavior: { type: "message", message: t("forms:templates.blank.success") },
-        notificationRecipients: [],
       });
 
       onBind(created.id);
@@ -166,7 +169,7 @@ export function FormBindingField({
       </div>
 
       {creating && (
-        <div className="rounded-md border border-ink-200 p-2">
+        <div role="group" aria-label={t("builder:form.create")} className="rounded-md border border-ink-200 p-2">
           <label htmlFor={nameId} className="block text-xs font-medium text-ink-700">
             {t("forms:editor.name")}
             <input
@@ -176,6 +179,21 @@ export function FormBindingField({
               className="mt-1 w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm text-ink-900"
             />
           </label>
+          <label className="mt-2 block text-xs font-medium text-ink-700">
+            {t("forms:editor.template")}
+            <select
+              value={template}
+              onChange={(event) => setTemplate(event.target.value as FormTemplateId)}
+              className="mt-1 w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm text-ink-900"
+            >
+              {FORM_TEMPLATE_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {t(`forms:templates.${id}.name` as "forms:templates.blank.name")}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <div className="mt-2 flex gap-2">
             <button
               type="button"
