@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { CONTENT_ELEMENT_SCHEMAS, type ContentElement } from "./content-elements";
 import { VISUAL_ELEMENT_SCHEMAS, type VisualElement } from "./visual-elements";
 
 import {
@@ -46,6 +47,15 @@ export const ELEMENT_TYPES = [
   "pricingTable",
   "announcementBar",
   "form",
+  "richText",
+  "navigationMenu",
+  "siteLogo",
+  "testimonial",
+  "carousel",
+  "contactInfo",
+  "counter",
+  "countdown",
+  "tableOfContents",
 ] as const;
 export type ElementType = (typeof ELEMENT_TYPES)[number];
 
@@ -153,7 +163,8 @@ export type BuilderElement =
   | ImageElement
   | ButtonElement
   | ContainerElement
-  | VisualElement;
+  | VisualElement
+  | ContentElement;
 
 export const textElementSchema = z
   .object({
@@ -262,6 +273,7 @@ export const builderElementSchema: z.ZodType<BuilderElement> = z.discriminatedUn
   // The visual elements are part of the document, not a separate catalogue: they are saved,
   // reloaded, validated and rendered through exactly the same path as a text box.
   ...VISUAL_ELEMENT_SCHEMAS,
+  ...CONTENT_ELEMENT_SCHEMAS,
 ]) as unknown as z.ZodType<BuilderElement>;
 
 /** Returns the nesting depth of an element tree, where a leaf element is depth 1. */

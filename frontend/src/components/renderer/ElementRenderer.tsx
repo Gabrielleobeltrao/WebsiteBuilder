@@ -1,4 +1,7 @@
 import {
+  CONTENT_ELEMENT_SCHEMAS,
+  type ContentElement,
+  type VisualElement,
   buildSizes,
   buildSrcSet,
   resolveSafeLinkHref,
@@ -10,9 +13,18 @@ import {
 } from "@websitebuilder/shared";
 import { createElement } from "react";
 
+/**
+ * Which block belongs to which renderer.
+ *
+ * Derived from the schema lists rather than written out, so a block added to either group is
+ * dispatched without a second list remembering to mention it.
+ */
+const CONTENT_TYPES = new Set<string>(CONTENT_ELEMENT_SCHEMAS.map((schema) => schema.shape.type.value));
+
 import { useRendererContext } from "./RendererContext";
 import { VisualElementRenderer } from "./VisualElementRenderer";
 import { BlockIcon } from "./BlockIcon";
+import { ContentElementRenderer } from "./ContentElementRenderer";
 import { buttonStyle, containerStyle, imageStyle, isRenderable, textStyle } from "./styles";
 
 /**
@@ -188,8 +200,10 @@ export function ElementRenderer({ element, positioned = true }: { element: Build
       <ButtonRenderer element={element} />
     ) : element.type === "container" ? (
       <ContainerRenderer element={element} />
+    ) : CONTENT_TYPES.has(element.type) ? (
+      <ContentElementRenderer element={element as ContentElement} />
     ) : (
-      <VisualElementRenderer element={element} />
+      <VisualElementRenderer element={element as VisualElement} />
     );
 
   // One wrapper in every layout mode, carrying the id the compiled stylesheet addresses and the

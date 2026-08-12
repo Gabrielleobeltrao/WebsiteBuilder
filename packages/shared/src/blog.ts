@@ -90,7 +90,8 @@ export const ALLOWED_RICH_TEXT_NODES = [
 
 export const ALLOWED_RICH_TEXT_MARKS = ["bold", "italic", "strike", "code", "link"] as const;
 
-type RichTextNode = { type: string; content?: RichTextNode[]; marks?: Array<{ type: string }> };
+/** Exported so a schema in another module can name the type its own inference depends on. */
+export type RichTextNode = { type: string; content?: RichTextNode[]; marks?: Array<{ type: string }> };
 
 export const richTextNodeSchema: z.ZodType<RichTextNode> = z.lazy(() =>
   z
