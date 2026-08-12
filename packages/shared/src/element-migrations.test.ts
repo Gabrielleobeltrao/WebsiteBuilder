@@ -116,3 +116,51 @@ describe("every block declares a version its defaults were written for", () => {
     }
   });
 });
+
+describe("a gallery written before images had their own text", () => {
+  const legacyGallery = () =>
+    ({
+      ...base,
+      type: "gallery",
+      version: 1,
+      mediaIds: ["photo-a", "photo-b"],
+      columns: 3,
+      gap: 12,
+      lightbox: true,
+    }) as unknown as BuilderElement;
+
+  it("moves each id into an item that can carry alternative text", () => {
+    const migrated = migrateElement(legacyGallery());
+
+    expect(migrated).toMatchObject({
+      version: 2,
+      items: [
+        { mediaId: "photo-a", alt: "", decorative: false, caption: "" },
+        { mediaId: "photo-b", alt: "", decorative: false, caption: "" },
+      ],
+    });
+    expect(migrated).not.toHaveProperty("mediaIds");
+  });
+
+  it("produces a document the schema accepts", () => {
+    expect(builderElementSchema.safeParse(migrateElement(legacyGallery())).success).toBe(true);
+  });
+
+  it("leaves the text empty rather than inventing a description", () => {
+    const migrated = migrateElement(legacyGallery());
+    // A made-up description of a picture nobody has seen is worse than none: it reads as accurate.
+    expect(migrated).toMatchObject({ items: [{ alt: "" }, { alt: "" }] });
+  });
+
+  it("reports what it migrated", () => {
+    const { report } = migrateDocumentElements(documentWith([legacyGallery()]));
+    expect(report.migrated).toEqual([
+      { elementId: "11111111-1111-4111-8111-111111111111", type: "gallery", from: 1, to: 2 },
+    ]);
+  });
+
+  it("is idempotent: migrating twice changes nothing further", () => {
+    const once = migrateElement(legacyGallery());
+    expect(migrateElement(once)).toBe(once);
+  });
+});

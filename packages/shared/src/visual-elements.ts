@@ -39,7 +39,18 @@ export const iconListElementSchema = z
   .object({
     ...elementBase,
     type: z.literal("iconList"),
-    items: z.array(z.object({ icon: z.enum(ICON_NAMES), text: z.string().max(200) }).strict()).max(20),
+    items: z
+      .array(
+        z
+          .object({
+            icon: z.enum(ICON_NAMES),
+            text: z.string().max(200),
+            /** A row may link. Optional, so every list written before this stays valid. */
+            link: safeLinkSchema.optional(),
+          })
+          .strict(),
+      )
+      .max(20),
     iconSize: z.number().int().min(8).max(64),
     gap: z.number().int().min(0).max(48),
   })
@@ -75,10 +86,30 @@ export const galleryElementSchema = z
   .object({
     ...elementBase,
     type: z.literal("gallery"),
-    mediaIds: z.array(z.string().min(1)).max(60),
+    /**
+     * Each image with its own alternative text.
+     *
+     * Version 1 stored bare ids, which meant every image in a gallery rendered with an empty alt —
+     * fine for decoration, wrong for a portfolio, and impossible for an author to correct. The
+     * migration moves each id into an item and leaves the text for someone to write.
+     */
+    items: z
+      .array(
+        z
+          .object({
+            mediaId: z.string().max(120),
+            alt: z.string().max(500),
+            decorative: z.boolean(),
+            caption: z.string().max(300),
+          })
+          .strict(),
+      )
+      .max(60),
     columns: z.number().int().min(1).max(6),
     gap: z.number().int().min(0).max(48),
     lightbox: z.boolean(),
+    /** Keeps a grid even when the images differ in shape. Absent means each keeps its own. */
+    aspectRatio: z.number().positive().max(10).optional(),
   })
   .strict();
 

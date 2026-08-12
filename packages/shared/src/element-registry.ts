@@ -257,7 +257,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
   },
   gallery: {
     type: "gallery",
-    schemaVersion: 1,
+    schemaVersion: 2,
     category: "media",
     labelKey: "gallery",
     keywords: ["photos", "grid", "album"],
@@ -267,7 +267,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     acceptsChildren: false,
     freePositionable: true,
     runtime: "lightbox",
-    defaults: () => ({ mediaIds: [], columns: 3, gap: 12, lightbox: true }),
+    defaults: () => ({ items: [], columns: 3, gap: 12, lightbox: true }),
   },
   video: {
     type: "video",

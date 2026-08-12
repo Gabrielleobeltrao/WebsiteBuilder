@@ -158,16 +158,16 @@ The implementation must first activate and complete block schemas that already e
 ### Phase 4 — Activate the fourteen existing visual schemas
 
 - [x] **4.1 Icon.** Replace placeholder glyphs with an allowlisted, tree-shakeable SVG icon catalog. Support size, color, accessible/decorative mode, and typed link.
-- [ ] **4.2 Icon List.** Editable item order, icon choice, label, typed link, spacing, alignment, wrapping, and keyboard-safe controls.
+- [x] **4.2 Icon List.** Editable item order, icon choice, label, typed link, spacing, alignment, wrapping, and keyboard-safe controls.
 - [x] **4.3 Divider and Spacer.** Responsive thickness/length/style/color and responsive space; never create horizontal overflow.
-- [ ] **4.4 Accordion.** Editable items, single/multiple-open behavior, native semantics where possible, keyboard behavior, initial state, icons, and FAQ schema option.
+- [x] **4.4 Accordion.** Editable items, single/multiple-open behavior, native semantics where possible, keyboard behavior, initial state, icons, and FAQ schema option.
 - [ ] **4.5 Tabs.** Editable labels/panels, selected state, arrow-key navigation, orientation, mobile overflow/stack behavior, and no-JavaScript readable fallback.
-- [ ] **4.6 Gallery.** Media-library selection, order, columns/gap, aspect ratio, captions, responsive layout, and accessible lightbox.
+- [x] **4.6 Gallery.** Media-library selection, order, columns/gap, aspect ratio, captions, responsive layout, and accessible lightbox.
 - [ ] **4.7 Video.** Validate YouTube/Vimeo identifiers, privacy-conscious loading, poster/consent placeholder, caption, aspect ratio, and no arbitrary iframe URL.
-- [ ] **4.8 Social Links.** Allowlisted networks plus website/email, editable labels, icon style, spacing, and secure external links. No API-fed social content.
+- [x] **4.8 Social Links.** Allowlisted networks plus website/email, editable labels, icon style, spacing, and secure external links. No API-fed social content.
 - [ ] **4.9 Download Button.** Select an owned media/file record, show label and optional metadata, and enforce tenant-safe/public access. Do not accept filesystem paths.
 - [ ] **4.10 Breadcrumbs.** Resolve from the current page/navigation context, include accessible navigation markup and optional structured data, and avoid manually duplicated paths.
-- [ ] **4.11 Table.** Header/caption semantics, row/column editing, responsive scroll or stacked strategy, alignment, borders, and safe plain/rich cell content.
+- [x] **4.11 Table.** Header/caption semantics, row/column editing, responsive scroll or stacked strategy, alignment, borders, and safe plain/rich cell content.
 - [ ] **4.12 Pricing Table.** Plans/features/price/period/CTA, highlighted plan, responsive stacking, typed CTA links, and readable semantic markup.
 - [ ] **4.13 Announcement Bar.** Text, optional icon/link, dismissibility, storage scope, sticky behavior, and correct reserved layout space.
   - Acceptance: all fourteen types can be inserted, saved, reloaded, copied, pasted, undone, resized where appropriate, previewed, published, and migrated.
@@ -319,6 +319,7 @@ The plan adopts the proven discoverability and contextual-editing patterns, whil
 - 2026-08-12 — 4.1 Icon complete: allowlisted SVG set, size, colour, decorative by default, and a typed link that gives the icon an accessible name when it becomes the only thing announced. 4.3 Divider and Spacer complete: divider is capped at the width of what holds it so a rule cannot push a phone sideways; spacer height is geometry and is edited once, in Layout, with its own value per device.
 - 2026-08-12 — 3.2 Image complete: the workspace media library is the picker — typing a database id by hand was the only way to fill a media field, and a tenant-crossing reference was a typo away. Added caption (as `figure`/`figcaption`), typed link through the same safe-link contract, loading priority with `fetchPriority`, and stored intrinsic dimensions so the browser reserves the slot. The gallery and download button pick from the same library. 3.3 Button complete: its stored icon renders before or after the label, decorative, spaced by the shared style.
 - 2026-08-12 — 3.1 Text complete: one text contract with semantic tags h1–h6/p, typography, alignment and per-device values through the existing responsive style overrides, plus a maximum-width control shared by every block. Heading hierarchy is guidance, not rewriting: `auditPageAccessibility` already reports a missing h1, a second h1 and a skipped level. 3.4 Container complete: a container chooses free, flex or grid, which is what decides whether its children are placed by coordinate or reflowed by the browser.
+- 2026-08-12 — 4.2 Icon list rows may link, through the same typed contract. 4.4 Accordion is mutually exclusive in the browser itself — sibling `details` sharing a `name` close each other, so "one open at a time" needs no script. 4.6 Gallery moved to payload version 2: each image carries its own alternative text, decorative flag and caption, with a real migration from bare ids that leaves the text empty rather than inventing a description; optional aspect ratio keeps a grid even when the images differ in shape. 4.8 Each social network gets its own mark instead of a shared arrow. 4.11 A wide table scrolls inside its own box rather than widening the page.
 - 2026-08-12 — **Next**: 3.1-3.4 (media picker for image, container responsive controls), 4.2/4.4-4.6/4.8-4.13 (per-block rendering upgrades: icon-list links need a schema v2 + migration, accordion/tabs/gallery/table/pricing/announcement behaviour), then Phases 5-10. Every phase so far is committed on `development`; `main` untouched.
 - 2026-08-12 — 10.4 (frontend) An unexpected `console.error`/`console.warn` now fails the test that produced it; a test that means to provoke one declares it with `allowConsole(/pattern/)`. All 53 frontend files pass under the gate.
 

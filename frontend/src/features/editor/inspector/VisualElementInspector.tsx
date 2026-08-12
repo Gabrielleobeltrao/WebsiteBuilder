@@ -186,13 +186,40 @@ export function VisualElementInspector({
           <InspectorGroup titleKey="content">
             <ItemsEditor
               label={t("fields.images")}
-              items={element.mediaIds}
+              items={element.items}
               max={60}
-              create={() => ""}
-              describe={(item, index) => item || t("items.position", { index: index + 1 })}
-              onChange={(mediaIds) => set({ mediaIds })}
+              create={() => ({ mediaId: "", alt: "", decorative: false, caption: "" })}
+              describe={(item, index) => item.alt || item.mediaId || t("items.position", { index: index + 1 })}
+              onChange={(items) => set({ items })}
             >
-              {(item, update) => <MediaPickerField label={t("fields.image")} value={item} onChange={update} />}
+              {(item, update) => (
+                <>
+                  <MediaPickerField
+                    label={t("fields.image")}
+                    value={item.mediaId}
+                    onChange={(mediaId) => update({ ...item, mediaId })}
+                  />
+                  <ToggleField
+                    label={t("fields.decorative")}
+                    checked={item.decorative}
+                    onChange={(decorative) => update({ ...item, decorative })}
+                  />
+                  {!item.decorative && (
+                    <TextField
+                      label={t("fields.alt")}
+                      value={item.alt}
+                      transactionKey={`${key}:galleryAlt`}
+                      onChange={(alt) => update({ ...item, alt })}
+                    />
+                  )}
+                  <TextField
+                    label={t("fields.caption")}
+                    value={item.caption}
+                    transactionKey={`${key}:galleryCaption`}
+                    onChange={(caption) => update({ ...item, caption })}
+                  />
+                </>
+              )}
             </ItemsEditor>
           </InspectorGroup>
           <InspectorGroup titleKey="style">

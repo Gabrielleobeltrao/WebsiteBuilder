@@ -21,11 +21,32 @@ export type ElementMigration = (payload: Record<string, unknown>) => Record<stri
 /**
  * Steps per type, keyed by the version they upgrade *from*.
  *
- * Empty today because every block is at version 1. It is the mechanism, not the content, that has
- * to exist before the first payload change — a migration added after the fact cannot see the
- * documents it needed to fix.
+ * A step runs on read and returns the payload as the next version stores it. Adding one after the
+ * fact cannot repair the documents it needed to fix, which is why the mechanism exists before the
+ * first change rather than after it.
  */
-export const ELEMENT_MIGRATIONS: Partial<Record<ElementType, Record<number, ElementMigration>>> = {};
+export const ELEMENT_MIGRATIONS: Partial<Record<ElementType, Record<number, ElementMigration>>> = {
+  gallery: {
+    /**
+     * 1 → 2: bare media ids become items that can carry their own alternative text.
+     *
+     * Every image in a version-1 gallery rendered with an empty alt, because there was nowhere to
+     * put one. The text starts empty and readiness asks for it: inventing a description of a
+     * picture nobody has seen would be worse than saying nothing.
+     */
+    1: (payload) => {
+      const ids = Array.isArray(payload.mediaIds) ? payload.mediaIds : [];
+      const { mediaIds: _dropped, ...rest } = payload;
+
+      return {
+        ...rest,
+        items: ids
+          .filter((id): id is string => typeof id === "string")
+          .map((mediaId) => ({ mediaId, alt: "", decorative: false, caption: "" })),
+      };
+    },
+  },
+};
 
 export function currentElementVersion(type: ElementType): number {
   return ELEMENT_REGISTRY[type]?.schemaVersion ?? 1;

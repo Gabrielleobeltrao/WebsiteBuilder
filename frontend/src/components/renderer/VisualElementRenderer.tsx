@@ -69,7 +69,7 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
           {element.items.map((item, index) => (
             <li key={index} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <BlockIcon name={item.icon} size={element.iconSize} />
-              <span>{item.text}</span>
+              <IconListLabel item={item} />
             </li>
           ))}
         </ul>
@@ -103,17 +103,32 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
             padding: 0,
           }}
         >
-          {element.mediaIds.map((mediaId) => {
-            const src = resolveMediaUrl(mediaId);
+          {element.items.map((item, index) => {
+            const src = item.mediaId === "" ? null : resolveMediaUrl(item.mediaId);
             return src === null ? null : (
-              <li key={mediaId} style={{ minWidth: 0 }}>
-                <img
-                  src={src}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  style={{ width: "100%", display: "block", objectPosition: serializeFocalPoint(undefined) }}
-                />
+              <li key={`${item.mediaId}-${index}`} style={{ minWidth: 0 }}>
+                <figure style={{ margin: 0 }}>
+                  <img
+                    src={src}
+                    // Each image carries its own text. A gallery that describes none of its images
+                    // is a wall of "image" to anyone who cannot see it.
+                    alt={item.decorative ? "" : item.alt}
+                    {...(item.decorative ? { role: "presentation" } : {})}
+                    loading="lazy"
+                    decoding="async"
+                    style={{
+                      width: "100%",
+                      display: "block",
+                      objectPosition: serializeFocalPoint(undefined),
+                      ...(element.aspectRatio === undefined
+                        ? {}
+                        : { aspectRatio: element.aspectRatio, objectFit: "cover" as const }),
+                    }}
+                  />
+                  {item.caption !== "" && (
+                    <figcaption style={{ fontSize: "0.875em", marginTop: 4 }}>{item.caption}</figcaption>
+                  )}
+                </figure>
               </li>
             );
           })}
@@ -122,6 +137,10 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
 
     case "table":
       return (
+        // The scroll lives here rather than on the page: a table with six columns on a phone is
+        // going to be wider than the screen, and the choice is between scrolling the table and
+        // scrolling everything.
+        <div style={{ overflowX: "auto", maxWidth: "100%" }}>
         <table style={{ borderCollapse: "collapse", width: "100%" }}>
           {element.caption !== "" && <caption>{element.caption}</caption>}
           {element.hasHeaderRow && (
@@ -145,6 +164,7 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
             ))}
           </tbody>
         </table>
+        </div>
       );
 
     case "pricingTable":
@@ -168,6 +188,8 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
       );
 
     case "socialLinks":
+      // Each network keeps its own mark rather than a shared arrow: a row of identical glyphs tells
+      // a visitor nothing about where each one goes.
       return (
         <ul style={{ display: "flex", gap: element.gap, listStyle: "none", padding: 0 }}>
           {element.items.map((item) => (
@@ -175,7 +197,7 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
               {/* Named, so it is not announced as a bare bullet, and opened without handing over
                   the opener. */}
               <a href={item.url} rel="noreferrer noopener" target="_blank" aria-label={item.network}>
-                <BlockIcon name="external-link" size={element.iconSize} />
+                <BlockIcon name={SOCIAL_ICONS[item.network] ?? "external-link"} size={element.iconSize} />
               </a>
             </li>
           ))}
@@ -207,7 +229,9 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
       return (
         <div>
           {element.items.map((item, index) => (
-            <details key={index}>
+            // `name` makes a group of details mutually exclusive in the browser itself, so
+            // "one open at a time" needs no script and works on the page as served.
+            <details key={index} {...(element.allowMultiple ? {} : { name: `accordion-${element.id}` })}>
               <summary style={{ minHeight: 44, display: "flex", alignItems: "center" }}>{item.question}</summary>
               <div>{item.answer}</div>
             </details>
@@ -244,6 +268,42 @@ export function VisualElementRenderer({ element }: { element: VisualElement }) {
   // Unreachable while every member of the union is handled above. When a new block is added and
   // this stops compiling, that is the point: the block has no rendering yet.
   return assertHandled(element);
+}
+
+/**
+ * A mark per network, from the same closed icon set.
+ *
+ * Not a brand logo: shipping trademarked marks in a builder's public output is somebody else's
+ * licensing decision, and a recognisable neutral glyph beside a named link does the job.
+ */
+const SOCIAL_ICONS: Record<string, string> = {
+  instagram: "heart",
+  facebook: "info",
+  linkedin: "info",
+  youtube: "play",
+  tiktok: "play",
+  whatsapp: "phone",
+  x: "close",
+  github: "external-link",
+};
+
+/** An icon-list row, which may be a link. */
+function IconListLabel({ item }: { item: { text: string; link?: unknown } }) {
+  const { resolvePagePath, allowHttp } = useRendererContext();
+  const link =
+    item.link === undefined
+      ? null
+      : resolveSafeLinkHref(item.link as Parameters<typeof resolveSafeLinkHref>[0], {
+          resolvePagePath,
+          ...(allowHttp === undefined ? {} : { allowHttp }),
+        });
+
+  if (link === null) return <span>{item.text}</span>;
+  return (
+    <a href={link.href} {...(link.target ? { target: link.target } : {})} {...(link.rel ? { rel: link.rel } : {})}>
+      {item.text}
+    </a>
+  );
 }
 
 function assertHandled(element: never): never {
