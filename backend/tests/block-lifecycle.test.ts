@@ -157,7 +157,8 @@ describe("every block reaches a visitor", () => {
     const version = await publishing.findActiveForProject(projectId);
     expect(version).not.toBeNull();
 
-    const types = version?.document.pages[0]?.sections[0]?.elements.map((element) => element.type) ?? [];
+    const snapshot = version?.document as BuilderProject | undefined;
+    const types = snapshot?.pages[0]?.sections[0]?.elements.map((element) => element.type) ?? [];
     expect(types).toHaveLength(ELEMENT_TYPES.length - 1);
   });
 });
