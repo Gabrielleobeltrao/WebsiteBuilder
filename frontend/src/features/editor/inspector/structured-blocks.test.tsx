@@ -90,6 +90,14 @@ describe("every structured block opens an inspector with its own fields", () => 
     ["pricingTable", "Plans"],
     ["announcementBar", "Text"],
     ["form", "Form"],
+    ["richText", "Edit the text directly"],
+    ["navigationMenu", "Menu items"],
+    ["siteLogo", "Text when there is no image"],
+    ["testimonial", "Quote"],
+    ["carousel", "Slides"],
+    ["contactInfo", "Details"],
+    ["counter", "Display"],
+    ["countdown", "Target moment"],
   ];
 
   for (const [type, field] of cases) {
@@ -238,5 +246,51 @@ describe("the core blocks keep their own controls", () => {
 
     await user.selectOptions(screen.getByLabelText("Tag"), "h2");
     expect(current(id)).toMatchObject({ tag: "h2" });
+  });
+});
+
+describe("the blocks that carry their own meaning", () => {
+  it("refuses to let a countdown mean a different moment for every visitor", async () => {
+    const { user } = withBlock("countdown");
+
+    await user.type(screen.getByLabelText("Target moment"), "2026-12-24T18:00");
+
+    // A wall-clock time is midnight somewhere. Storing one is how a launch counts down to the
+    // wrong instant for half the people watching it.
+    expect(screen.getByRole("alert")).toHaveTextContent("no timezone");
+
+    await user.type(screen.getByLabelText("Target moment"), "-03:00");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("asks for a maximum only when a counter is a bar", async () => {
+    const { user } = withBlock("counter");
+
+    expect(screen.queryByLabelText("Maximum")).toBeNull();
+    await user.selectOptions(screen.getByLabelText("Display"), "bar");
+    expect(screen.getByLabelText("Maximum")).toBeInTheDocument();
+  });
+
+  it("binds a menu item to a page rather than to a typed address", async () => {
+    const { id, user } = withBlock("navigationMenu");
+
+    await user.click(screen.getByRole("button", { name: "Add Menu items" }));
+    await user.selectOptions(screen.getByLabelText("Link to"), "internal");
+
+    const element = current(id);
+    const home = useEditorStore.getState().history.present.pages[0]?.id;
+    // Renaming or moving that page updates the menu; a stored address would not.
+    expect(element?.type === "navigationMenu" && element.items[0]?.link).toEqual({ kind: "internal", pageId: home });
+  });
+
+  it("treats no rating as absent rather than as zero stars", async () => {
+    const { id, user } = withBlock("testimonial");
+
+    await user.selectOptions(screen.getByLabelText("Rating"), "4");
+    expect(current(id)).toMatchObject({ rating: 4 });
+
+    await user.selectOptions(screen.getByLabelText("Rating"), "none");
+    // A zero-star rating is a claim about the person quoted. Absence is not.
+    expect(current(id)).not.toHaveProperty("rating", 0);
   });
 });

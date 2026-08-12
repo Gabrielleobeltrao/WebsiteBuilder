@@ -1,4 +1,6 @@
 import {
+  CONTACT_ITEM_KINDS,
+  hasTimezone,
   ICON_NAMES,
   SOCIAL_NETWORKS,
   socialUrlMatchesNetwork,
@@ -430,6 +432,178 @@ export function VisualElementInspector({
             )}
           </InspectorGroup>
         </>
+      );
+
+    case "richText":
+      return (
+        <InspectorGroup titleKey="content">
+          <p className="text-[11px] text-ink-500">{t("fields.richTextHint")}</p>
+        </InspectorGroup>
+      );
+
+    case "navigationMenu":
+      return (
+        <>
+          <InspectorGroup titleKey="content">
+            <ItemsEditor
+              label={t("fields.menuItems")}
+              items={element.items}
+              max={20}
+              create={() => ({ label: "", link: { kind: "none" as const } })}
+              describe={(item, index) => item.label || t("items.position", { index: index + 1 })}
+              onChange={(items) => set({ items })}
+            >
+              {(item, update) => (
+                <>
+                  <TextField label={t("fields.label")} value={item.label} transactionKey={`${key}:menuLabel`} onChange={(label) => update({ ...item, label })} />
+                  <LinkEditor link={item.link} pages={pages} transactionKey={`${key}:menuLink`} onChange={(link) => update({ ...item, link })} />
+                </>
+              )}
+            </ItemsEditor>
+          </InspectorGroup>
+          <InspectorGroup titleKey="style">
+            <SelectField
+              label={t("fields.orientation")}
+              value={element.orientation}
+              options={(["horizontal", "vertical"] as const).map((value) => ({ value, label: t(`options.orientation.${value}`) }))}
+              onChange={(orientation) => set({ orientation })}
+            />
+            <NumberField label={t("fields.collapseBelow")} value={element.collapseBelow} min={320} max={1440} transactionKey={`${key}:collapse`} onChange={(collapseBelow) => set({ collapseBelow: Math.round(collapseBelow) })} />
+          </InspectorGroup>
+        </>
+      );
+
+    case "siteLogo":
+      return (
+        <InspectorGroup titleKey="content">
+          <MediaPickerField label={t("fields.image")} value={element.mediaId} onChange={(mediaId) => set({ mediaId })} onClear={() => set({ mediaId: "" })} />
+          <TextField label={t("fields.alt")} value={element.alt} transactionKey={`${key}:logoAlt`} onChange={(alt) => set({ alt })} />
+          <TextField label={t("fields.fallbackText")} value={element.fallbackText} transactionKey={`${key}:fallback`} onChange={(fallbackText) => set({ fallbackText })} />
+          <ToggleField label={t("fields.linksHome")} checked={element.linksHome} onChange={(linksHome) => set({ linksHome })} />
+        </InspectorGroup>
+      );
+
+    case "testimonial":
+      return (
+        <InspectorGroup titleKey="content">
+          <TextField label={t("fields.quote")} value={element.quote} multiline transactionKey={`${key}:quote`} onChange={(quote) => set({ quote })} />
+          <TextField label={t("fields.personName")} value={element.personName} transactionKey={`${key}:personName`} onChange={(personName) => set({ personName })} />
+          <TextField label={t("fields.personRole")} value={element.personRole} transactionKey={`${key}:personRole`} onChange={(personRole) => set({ personRole })} />
+          <MediaPickerField label={t("fields.avatar")} value={element.avatarMediaId} onChange={(avatarMediaId) => set({ avatarMediaId })} onClear={() => set({ avatarMediaId: "" })} />
+          <SelectField
+            label={t("fields.rating")}
+            value={element.rating === undefined ? "none" : String(element.rating)}
+            options={["none", "1", "2", "3", "4", "5"].map((value) => ({ value, label: value === "none" ? t("fields.noRating") : value }))}
+            onChange={(value) => set(value === "none" ? { rating: undefined } : { rating: Number(value) })}
+          />
+        </InspectorGroup>
+      );
+
+    case "carousel":
+      return (
+        <>
+          <InspectorGroup titleKey="content">
+            <ItemsEditor
+              label={t("fields.slides")}
+              items={element.slides}
+              max={20}
+              create={() => ({ mediaId: "", alt: "", heading: "", text: "", link: { kind: "none" as const }, ctaLabel: "" })}
+              describe={(item, index) => item.heading || t("items.position", { index: index + 1 })}
+              onChange={(slides) => set({ slides })}
+            >
+              {(slide, update) => (
+                <>
+                  <MediaPickerField label={t("fields.image")} value={slide.mediaId} onChange={(mediaId) => update({ ...slide, mediaId })} />
+                  <TextField label={t("fields.alt")} value={slide.alt} transactionKey={`${key}:slideAlt`} onChange={(alt) => update({ ...slide, alt })} />
+                  <TextField label={t("fields.heading")} value={slide.heading} transactionKey={`${key}:slideHeading`} onChange={(heading) => update({ ...slide, heading })} />
+                  <TextField label={t("fields.text")} value={slide.text} multiline transactionKey={`${key}:slideText`} onChange={(text) => update({ ...slide, text })} />
+                  <TextField label={t("fields.ctaLabel")} value={slide.ctaLabel} transactionKey={`${key}:slideCta`} onChange={(ctaLabel) => update({ ...slide, ctaLabel })} />
+                  <LinkEditor link={slide.link} pages={pages} transactionKey={`${key}:slideLink`} onChange={(link) => update({ ...slide, link })} />
+                </>
+              )}
+            </ItemsEditor>
+          </InspectorGroup>
+          <InspectorGroup titleKey="advanced" defaultOpen={false}>
+            <NumberField label={t("fields.autoplaySeconds")} value={element.autoplaySeconds} min={0} max={60} transactionKey={`${key}:autoplay`} onChange={(autoplaySeconds) => set({ autoplaySeconds: Math.round(autoplaySeconds) })} />
+            <p className="text-[11px] text-ink-500">{t("fields.autoplayHint")}</p>
+          </InspectorGroup>
+        </>
+      );
+
+    case "contactInfo":
+      return (
+        <>
+          <InspectorGroup titleKey="content">
+            <ItemsEditor
+              label={t("fields.details")}
+              items={element.items}
+              max={12}
+              create={() => ({ kind: "email" as const, label: "", value: "" })}
+              describe={(item, index) => item.value || t("items.position", { index: index + 1 })}
+              onChange={(items) => set({ items })}
+            >
+              {(item, update) => (
+                <>
+                  <SelectField
+                    label={t("fields.detailKind")}
+                    value={item.kind}
+                    options={CONTACT_ITEM_KINDS.map((value) => ({ value, label: t(`options.contact.${value}`) }))}
+                    onChange={(kind) => update({ ...item, kind })}
+                  />
+                  <TextField label={t("fields.label")} value={item.label} transactionKey={`${key}:contactLabel`} onChange={(label) => update({ ...item, label })} />
+                  <TextField label={t("fields.value")} value={item.value} transactionKey={`${key}:contactValue`} onChange={(value) => update({ ...item, value })} />
+                </>
+              )}
+            </ItemsEditor>
+          </InspectorGroup>
+          <InspectorGroup titleKey="style">
+            <NumberField label={t("fields.iconSize")} value={element.iconSize} min={12} max={48} transactionKey={`${key}:contactIconSize`} onChange={(iconSize) => set({ iconSize: Math.round(iconSize) })} />
+          </InspectorGroup>
+        </>
+      );
+
+    case "counter":
+      return (
+        <InspectorGroup titleKey="content">
+          <SelectField
+            label={t("fields.display")}
+            value={element.display}
+            options={(["number", "bar"] as const).map((value) => ({ value, label: t(`options.display.${value}`) }))}
+            onChange={(display) => set({ display })}
+          />
+          <NumberField label={t("fields.value")} value={element.value} transactionKey={`${key}:counterValue`} onChange={(value) => set({ value })} />
+          {element.display === "bar" && (
+            <NumberField label={t("fields.max")} value={element.max ?? 100} min={1} transactionKey={`${key}:counterMax`} onChange={(max) => set({ max })} />
+          )}
+          <TextField label={t("fields.prefix")} value={element.prefix} transactionKey={`${key}:prefix`} onChange={(prefix) => set({ prefix })} />
+          <TextField label={t("fields.suffix")} value={element.suffix} transactionKey={`${key}:suffix`} onChange={(suffix) => set({ suffix })} />
+          <TextField label={t("fields.label")} value={element.label} transactionKey={`${key}:counterLabel`} onChange={(label) => set({ label })} />
+        </InspectorGroup>
+      );
+
+    case "countdown":
+      return (
+        <InspectorGroup titleKey="content">
+          <TextField label={t("fields.target")} value={element.target} transactionKey={`${key}:target`} onChange={(target) => set({ target })} />
+          {element.target.trim() !== "" && !hasTimezone(element.target) && (
+            // A wall-clock time is a different moment in every timezone, which is how a launch
+            // counts down to the wrong instant for half the visitors.
+            <p role="alert" className="text-[11px] text-red-700">
+              {t("fields.targetNeedsZone")}
+            </p>
+          )}
+          <p className="text-[11px] text-ink-500">{t("fields.targetHint")}</p>
+          <TextField label={t("fields.expiredText")} value={element.expiredText} transactionKey={`${key}:expired`} onChange={(expiredText) => set({ expiredText })} />
+        </InspectorGroup>
+      );
+
+    case "tableOfContents":
+      return (
+        <InspectorGroup titleKey="content">
+          <TextField label={t("fields.title")} value={element.title} transactionKey={`${key}:tocTitle`} onChange={(title) => set({ title })} />
+          <NumberField label={t("fields.minLevel")} value={element.minLevel} min={1} max={6} transactionKey={`${key}:minLevel`} onChange={(minLevel) => set({ minLevel: Math.round(minLevel) })} />
+          <NumberField label={t("fields.maxLevel")} value={element.maxLevel} min={1} max={6} transactionKey={`${key}:maxLevel`} onChange={(maxLevel) => set({ maxLevel: Math.round(maxLevel) })} />
+        </InspectorGroup>
       );
 
     default:
