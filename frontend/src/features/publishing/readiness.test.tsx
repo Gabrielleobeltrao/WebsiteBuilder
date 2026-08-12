@@ -79,7 +79,30 @@ describe("responsive findings in the publish flow", () => {
     const links = await screen.findAllByRole("link", { name: "Open in builder" });
     // 320 is a phone, so the builder opens on mobile: the width with the least room, where fixing
     // it usually fixes the wider cases too.
-    expect(links[0]).toHaveAttribute("href", "/app/w1/sites/p1/builder/page-2?element=element-9&device=mobile");
+    // Page, element, device and the tab holding the field: a link that opens the block and leaves
+    // somebody hunting through three tabs is most of the way to useless.
+    expect(links[0]).toHaveAttribute(
+      "href",
+      "/app/w1/sites/p1/builder/page-2?element=element-9&tab=style&device=mobile",
+    );
+  });
+
+  it("opens a block finding on the tab that holds the field it is about", async () => {
+    respondWith([
+      {
+        code: "block-incomplete",
+        blockCode: "video-without-id",
+        severity: "blocking",
+        detail: "This video has no identifier, so it shows an empty frame.",
+        path: "/",
+        pageId: "page-1",
+        elementId: "video-3",
+      },
+    ]);
+    render();
+
+    const link = await screen.findByRole("link", { name: "Open in builder" });
+    expect(link).toHaveAttribute("href", "/app/w1/sites/p1/builder/page-1?element=video-3&tab=content");
   });
 
   it("offers the same route out of a warning, which does not block", async () => {

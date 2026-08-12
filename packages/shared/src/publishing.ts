@@ -125,6 +125,8 @@ export type PreflightIssue = {
   elementId?: string;
   /** Widths the problem occurs at. */
   ranges?: WidthRange[];
+  /** For a block finding, the specific check that produced it, so the UI can open the right field. */
+  blockCode?: string;
 };
 
 /**
@@ -242,6 +244,7 @@ export function preflight(input: {
     // the ones that cannot work at all block publication. The rest are reported.
     issues.push({
       code: "block-incomplete",
+      blockCode: finding.code,
       severity: finding.severity === "error" ? "blocking" : "warning",
       detail: finding.detail,
       path: finding.path,

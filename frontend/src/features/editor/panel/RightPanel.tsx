@@ -1,6 +1,7 @@
 import type { BuilderElement, BuilderPage, BuilderSection } from "@websitebuilder/shared";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router";
 
 import type { PanelMode } from "@/features/editor/store/editorStore";
 import { ElementInspector } from "@/features/editor/inspector/ElementInspector";
@@ -51,10 +52,26 @@ function InspectorShell({
   children?: React.ReactNode;
 }) {
   const { t } = useTranslation("builder");
+  const [searchParams] = useSearchParams();
+
   // Component state, deliberately: which tab is open is a view preference and must never reach the
   // document. Keeping it across selections is what makes "select another element and keep editing
   // its colour" work without a second click.
   const [tab, setTab] = useState<InspectorTab>("content");
+
+  /**
+   * A readiness finding opens the block *and* the tab holding the field it is about.
+   *
+   * Applied once per address: after that the tab belongs to the person editing, and re-imposing the
+   * URL's choice on every render would fight them.
+   */
+  const requested = searchParams.get("tab");
+  const applied = useRef<string | null>(null);
+  useEffect(() => {
+    if (requested === null || applied.current === requested) return;
+    applied.current = requested;
+    if (requested === "content" || requested === "style" || requested === "advanced") setTab(requested);
+  }, [requested]);
 
   return (
     <div className="flex h-full flex-col">

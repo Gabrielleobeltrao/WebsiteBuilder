@@ -290,10 +290,38 @@ const describeRange = (range: { from: number; to: number }) =>
  * Page, device and element travel in the URL rather than in memory, so the link survives a reload
  * and can be shared — and so the builder has one way of being told what to open, not two.
  */
+/**
+ * Which tab of the inspector holds the field a finding is about.
+ *
+ * Opening the right block on the right device and then leaving somebody to hunt through three tabs
+ * is most of the way to useless. Unlisted codes open on Content, which is where a block's own
+ * fields live.
+ */
+const FINDING_TAB: Record<string, "content" | "style" | "advanced"> = {
+  "image-without-alt": "content",
+  "gallery-image-without-alt": "content",
+  "video-without-id": "content",
+  "form-without-definition": "content",
+  "menu-empty": "content",
+  "countdown-without-target": "content",
+  "countdown-without-timezone": "content",
+  "download-without-file": "content",
+  "logo-without-alt": "content",
+  "button-without-link": "content",
+  "table-without-headers": "content",
+  "responsive-layout": "style",
+  "duplicate-anchor": "advanced",
+};
+
 function openInBuilder(input: { workspaceId: string; projectId: string; issue: PreflightIssue }): string {
   const { workspaceId, projectId, issue } = input;
   const params = new URLSearchParams();
   if (issue.elementId !== undefined) params.set("element", issue.elementId);
+
+  // The block's own code decides the tab where the responsible field is; layout problems open on
+  // Style, which is where geometry and per-device values live.
+  const detailCode = issue.code === "block-incomplete" ? (issue.blockCode ?? "") : issue.code;
+  params.set("tab", FINDING_TAB[detailCode] ?? "content");
 
   // The narrowest width the problem appears at is the one worth opening on: it is where the layout
   // has the least room, and fixing it there usually fixes the wider cases too.

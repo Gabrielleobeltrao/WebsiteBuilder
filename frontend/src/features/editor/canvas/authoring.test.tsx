@@ -454,3 +454,25 @@ describe("opening a readiness finding in the builder", () => {
     expect(useEditorStore.getState().ui.editingWidth).toBe(768);
   });
 });
+
+describe("a finding opens the tab holding its field", () => {
+  it("opens the inspector on the tab the address names", async () => {
+    useEditorStore.getState().loadFromProject(project());
+    const page = currentPage();
+    act(() => useEditorStore.getState().addElement(page.sections[0]!.id, "text"));
+    const elementId = firstSection().elements[0]!.id;
+    act(() => useEditorStore.getState().select(null));
+
+    vi.spyOn(useEditorStore.getState(), "load").mockResolvedValue(undefined);
+    useEditorStore.setState({ loadStatus: "ready" });
+
+    renderWithProviders(
+      <Routes>
+        <Route path="/app/:workspaceId/sites/:projectId/builder/:pageId" element={<EditorRoute />} />
+      </Routes>,
+      { route: `/app/w1/sites/aaaaaaaaaaaaaaaaaaaaaaaa/builder/${page.id}?element=${elementId}&tab=style` },
+    );
+
+    expect(screen.getByRole("tab", { name: "Style" })).toHaveAttribute("aria-selected", "true");
+  });
+});
