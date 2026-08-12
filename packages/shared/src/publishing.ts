@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { DEVICE_MODES } from "./devices";
+import type { BlockFinding } from "./block-readiness";
 import type { ResponsiveFinding, WidthRange } from "./diagnostics";
 import { isReservedSubdomain, normalizeHostname, projectSlugSchema } from "./slug";
 
@@ -108,7 +109,8 @@ export type PreflightIssue = {
     | "module-incomplete"
     | "document-too-large"
     | "revision-changed"
-    | "responsive-layout";
+    | "responsive-layout"
+    | "block-incomplete";
   severity: "blocking" | "warning";
   detail: string;
   path?: string;
@@ -166,6 +168,8 @@ export function preflight(input: {
   routes: readonly RouteManifestEntry[];
   /** Layout findings from the responsive sweep, already attributed to their page. */
   responsive?: readonly (ResponsiveFinding & { pageId: string })[];
+  /** Blocks that are not finished: no video id, no form, no alternative text. */
+  blocks?: readonly BlockFinding[];
   referencedMediaIds: readonly string[];
   mediaExists: (mediaId: string) => boolean;
   schemaVersion: number;
@@ -230,6 +234,19 @@ export function preflight(input: {
       pageId: finding.pageId,
       ...(finding.elementId === undefined ? {} : { elementId: finding.elementId }),
       ranges: finding.ranges,
+    });
+  }
+
+  for (const finding of input.blocks ?? []) {
+    // An unconfigured block reaches a visitor as a broken site rather than an unfinished one, so
+    // the ones that cannot work at all block publication. The rest are reported.
+    issues.push({
+      code: "block-incomplete",
+      severity: finding.severity === "error" ? "blocking" : "warning",
+      detail: finding.detail,
+      path: finding.path,
+      pageId: finding.pageId,
+      ...(finding.elementId === "" ? {} : { elementId: finding.elementId }),
     });
   }
 

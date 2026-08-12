@@ -1,5 +1,6 @@
 import { postPath, type BlogSettings } from "./blog";
 import { normalizeCollectionSlug, type CmsCollectionInput, type CmsItemStatus } from "./cms";
+import { auditPageBlocks } from "./block-readiness";
 import { diagnoseResponsive, type ResponsiveFinding } from "./diagnostics";
 import { walkElements } from "./elements";
 import { pagePath, type BuilderProject } from "./project";
@@ -116,6 +117,9 @@ export function compileSite(input: CompileInput): CompileResult {
     sourceRevision: input.project.revision,
     routes,
     responsive: sweepPages(input.project),
+    blocks: input.project.pages.flatMap((page) =>
+      auditPageBlocks({ page, path: pagePath(page), document: input.project }),
+    ),
     referencedMediaIds,
     mediaExists: input.mediaExists,
     schemaVersion: input.project.schemaVersion,
