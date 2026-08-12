@@ -203,6 +203,12 @@ export default {
   },
 
   "fields": {
+    image: "Image",
+    file: "File",
+    chooseImage: "Choose from the media library",
+    clearImage: "Remove the chosen file",
+    loading: "Loading",
+    loadingHint: "Eager only for an image a visitor sees before scrolling. Marking every image eager is the same as marking none.",
     size: "Size",
     title: "Title",
     address: "Address",
@@ -305,6 +311,7 @@ export default {
       }
     },
   "options": {
+    loading: { lazy: "When it comes into view", eager: "Immediately" },
     lineStyle: { solid: "Solid", dashed: "Dashed", dotted: "Dotted" },
     provider: { youtube: "YouTube", vimeo: "Vimeo" },
     separator: { chevron: "Chevron", slash: "Slash", dot: "Dot" },

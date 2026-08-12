@@ -203,6 +203,12 @@ export default {
   },
 
   "fields": {
+    image: "Imagem",
+    file: "Arquivo",
+    chooseImage: "Escolher da biblioteca de mídia",
+    clearImage: "Remover o arquivo escolhido",
+    loading: "Carregamento",
+    loadingHint: "Prioritário apenas para uma imagem que o visitante vê antes de rolar. Marcar todas como prioritárias é o mesmo que não marcar nenhuma.",
     size: "Tamanho",
     title: "Título",
     address: "Endereço",
@@ -305,6 +311,7 @@ export default {
       }
     },
   "options": {
+    loading: { lazy: "Quando aparecer na tela", eager: "Imediatamente" },
     lineStyle: { solid: "Sólida", dashed: "Tracejada", dotted: "Pontilhada" },
     provider: { youtube: "YouTube", vimeo: "Vimeo" },
     separator: { chevron: "Seta", slash: "Barra", dot: "Ponto" },

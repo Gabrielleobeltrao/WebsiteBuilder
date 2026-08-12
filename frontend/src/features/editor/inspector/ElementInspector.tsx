@@ -11,6 +11,7 @@ import { selectEditingDevice, useEditorStore } from "@/features/editor/store/edi
 import { DeviceValue } from "./DeviceValue";
 import { ColorField, InspectorGroup, LengthField, NumberField, SelectField, TextField, ToggleField } from "./controls";
 import { LinkEditor } from "./LinkEditor";
+import { MediaPickerField } from "./MediaPickerField";
 import { VisualElementInspector } from "./VisualElementInspector";
 
 /**
@@ -117,6 +118,22 @@ export function ElementInspector({ element, pages }: { element: BuilderElement; 
                 }
               />
             )}
+            {element.source.kind === "media" && (
+              <MediaPickerField
+                label={t("fields.image")}
+                value={element.source.mediaId}
+                onChange={(mediaId) =>
+                  patch((current) =>
+                    current.type === "image" ? { ...current, source: { kind: "media", mediaId } } : current,
+                  )
+                }
+                onClear={() =>
+                  patch((current) =>
+                    current.type === "image" ? { ...current, source: { kind: "media", mediaId: "" } } : current,
+                  )
+                }
+              />
+            )}
             <ToggleField
               label={t("fields.decorative")}
               checked={element.decorative}
@@ -132,6 +149,25 @@ export function ElementInspector({ element, pages }: { element: BuilderElement; 
                 onChange={(alt) => patch((current) => (current.type === "image" ? { ...current, alt } : current))}
               />
             )}
+            <TextField
+              label={t("fields.caption")}
+              value={element.caption ?? ""}
+              transactionKey={`${key}:caption`}
+              onChange={(caption) => patch((current) => (current.type === "image" ? { ...current, caption } : current))}
+            />
+            <LinkEditor
+              link={element.link ?? { kind: "none" }}
+              pages={pages}
+              transactionKey={`${key}:imageLink`}
+              onChange={(link) => patch((current) => (current.type === "image" ? { ...current, link } : current))}
+            />
+            <SelectField
+              label={t("fields.loading")}
+              value={element.loading ?? "lazy"}
+              options={(["lazy", "eager"] as const).map((value) => ({ value, label: t(`options.loading.${value}`) }))}
+              onChange={(loading) => patch((current) => (current.type === "image" ? { ...current, loading } : current))}
+            />
+            <p className="text-[11px] text-ink-500">{t("fields.loadingHint")}</p>
           </>
         )}
 

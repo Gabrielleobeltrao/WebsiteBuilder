@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 
 import { ColorField, InspectorGroup, NumberField, SelectField, TextField, ToggleField } from "./controls";
 import { ItemsEditor } from "./ItemsEditor";
+import { MediaPickerField } from "./MediaPickerField";
 import { LinkEditor } from "./LinkEditor";
 
 /**
@@ -191,9 +192,7 @@ export function VisualElementInspector({
               describe={(item, index) => item || t("items.position", { index: index + 1 })}
               onChange={(mediaIds) => set({ mediaIds })}
             >
-              {(item, update) => (
-                <TextField label={t("fields.mediaId")} value={item} transactionKey={`${key}:mediaId`} onChange={update} />
-              )}
+              {(item, update) => <MediaPickerField label={t("fields.image")} value={item} onChange={update} />}
             </ItemsEditor>
           </InspectorGroup>
           <InspectorGroup titleKey="style">
@@ -261,7 +260,12 @@ export function VisualElementInspector({
     case "downloadButton":
       return (
         <InspectorGroup titleKey="content">
-          <TextField label={t("fields.mediaId")} value={element.mediaId} transactionKey={`${key}:mediaId`} onChange={(mediaId) => set({ mediaId })} />
+          <MediaPickerField
+            label={t("fields.file")}
+            value={element.mediaId}
+            onChange={(mediaId) => set({ mediaId })}
+            onClear={() => set({ mediaId: "" })}
+          />
           <TextField label={t("fields.label")} value={element.label} transactionKey={`${key}:label`} onChange={(label) => set({ label })} />
         </InspectorGroup>
       );

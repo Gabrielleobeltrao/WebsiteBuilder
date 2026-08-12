@@ -180,3 +180,74 @@ describe("what a published page draws for a block", () => {
     expect(container.querySelector('[role="img"]')).not.toBeNull();
   });
 });
+
+describe("an image is more than a tag", () => {
+  const imageElement = (overrides: Record<string, unknown>) =>
+    ({
+      id: "img-1",
+      name: "",
+      geometry: { x: 0, y: 0, width: 200, height: 120, rotation: 0 },
+      responsiveLayout: {
+        width: { value: 200, unit: "px" },
+        height: { value: 120, unit: "px" },
+        horizontalConstraint: "left",
+        verticalConstraint: "top",
+        visible: true,
+      },
+      zIndex: 1,
+      locked: false,
+      hidden: false,
+      type: "image",
+      version: 1,
+      source: { kind: "url", url: "https://example.test/a.png" },
+      alt: "A photo",
+      decorative: false,
+      style: { objectFit: "cover", borderRadius: 0 },
+      ...overrides,
+    }) as BuilderElement;
+
+  const pageOfImage = (overrides: Record<string, unknown>) => {
+    const page = pageWith([freeSectionFixture()]);
+    return { ...page, sections: [{ ...page.sections[0]!, elements: [imageElement(overrides)] }] };
+  };
+
+  it("reserves the space the file will occupy", () => {
+    const { container } = renderPage(pageOfImage({ dimensions: { width: 1200, height: 800 } }));
+    const image = container.querySelector("img");
+
+    // Without width and height the browser cannot hold the slot, and everything below jumps as the
+    // image arrives.
+    expect(image?.getAttribute("width")).toBe("1200");
+    expect(image?.getAttribute("height")).toBe("800");
+  });
+
+  it("waits to load unless it is the one image above the fold", () => {
+    expect(renderPage(pageOfImage({})).container.querySelector("img")?.getAttribute("loading")).toBe("lazy");
+    expect(
+      renderPage(pageOfImage({ loading: "eager" })).container.querySelector("img")?.getAttribute("loading"),
+    ).toBe("eager");
+  });
+
+  it("puts a caption in a figure, not in a paragraph under a picture", () => {
+    const { container } = renderPage(pageOfImage({ caption: "Our workshop" }));
+
+    expect(container.querySelector("figure figcaption")?.textContent).toBe("Our workshop");
+  });
+
+  it("links through the same safe-link contract as everything else", () => {
+    const { container } = renderPage(
+      pageOfImage({ link: { kind: "external", url: "https://example.test/about", newTab: true } }),
+    );
+
+    const anchor = container.querySelector("a");
+    expect(anchor?.getAttribute("href")).toBe("https://example.test/about");
+    expect(anchor?.getAttribute("rel")).toContain("noopener");
+  });
+
+  it("refuses an unsafe link rather than rendering it", () => {
+    const { container } = renderPage(pageOfImage({ link: { kind: "external", url: "javascript:alert(1)", newTab: false } }));
+
+    expect(container.querySelector("a")).toBeNull();
+    expect(container.querySelector("img")).not.toBeNull();
+  });
+});

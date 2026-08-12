@@ -117,6 +117,12 @@ export type ImageElement = BaseElement & {
   decorative: boolean;
   focalPoint?: FocalPoint;
   artDirection?: ArtDirectionSource[];
+  link?: SafeLink;
+  caption?: string;
+  /** `eager` only for media a visitor sees before scrolling. Everything else waits. */
+  loading?: "lazy" | "eager";
+  /** The source's own pixel size, so the browser reserves the space before the file arrives. */
+  dimensions?: { width: number; height: number };
   style: { objectFit: "cover" | "contain" | "fill"; borderRadius: number };
 };
 
@@ -184,6 +190,23 @@ export const imageElementSchema = z
     focalPoint: focalPointSchema.optional(),
     /** Per-width source overrides, for a different crop on a phone rather than a smaller file. */
     artDirection: z.array(artDirectionSourceSchema).max(4).optional(),
+    /** An image may be a link. Typed like every other link in the product, never a raw URL. */
+    link: safeLinkSchema.optional(),
+    caption: z.string().max(500).optional(),
+    /**
+     * Priority. Absent means lazy, which is right for everything a visitor has not scrolled to;
+     * `eager` is for the one image above the fold, and marking every image eager is the same as
+     * marking none.
+     */
+    loading: z.enum(["lazy", "eager"]).optional(),
+    /**
+     * The source's intrinsic size. Emitted as `width`/`height` so the browser reserves the space
+     * before the file arrives — without it, text jumps down the page as each image loads.
+     */
+    dimensions: z
+      .object({ width: z.number().int().positive().max(20_000), height: z.number().int().positive().max(20_000) })
+      .strict()
+      .optional(),
     style: z
       .object({
         objectFit: z.enum(["cover", "contain", "fill"]),

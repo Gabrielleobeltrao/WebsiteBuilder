@@ -84,7 +84,7 @@ describe("every structured block opens an inspector with its own fields", () => 
     ["gallery", "Images"],
     ["video", "Video identifier"],
     ["socialLinks", "Profiles"],
-    ["downloadButton", "Media identifier"],
+    ["downloadButton", "File"],
     ["breadcrumbs", "Navigation label"],
     ["table", "Caption"],
     ["pricingTable", "Plans"],

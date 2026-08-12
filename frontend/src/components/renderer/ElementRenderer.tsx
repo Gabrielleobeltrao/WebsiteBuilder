@@ -55,17 +55,58 @@ export function ImageRenderer({ element }: { element: ImageElement }) {
   // height the browser cannot hold the slot, and everything below shifts as the image arrives.
   const largest = variants.at(-1);
 
-  return (
+  // The stored intrinsic size wins over the widest variant: it is what the author knows about the
+  // file, and the variants describe what the server produced from it.
+  const intrinsic = element.dimensions ?? largest;
+
+  const image = (
     <img
       src={src}
       {...(srcSet === "" ? {} : { srcSet, sizes: IMAGE_SIZES })}
-      {...(largest === undefined ? {} : { width: largest.width, height: largest.height })}
+      {...(intrinsic === undefined ? {} : { width: intrinsic.width, height: intrinsic.height })}
       alt={element.decorative ? "" : element.alt}
       {...(element.decorative ? { role: "presentation" } : {})}
-      loading="lazy"
+      // `eager` is for the one image a visitor sees before scrolling; everything else waits.
+      loading={element.loading === "eager" ? "eager" : "lazy"}
+      {...(element.loading === "eager" ? { fetchPriority: "high" as const } : {})}
       decoding="async"
       style={imageStyle(element)}
     />
+  );
+
+  return <ImageFrame element={element}>{image}</ImageFrame>;
+}
+
+/**
+ * Wraps an image in whatever it needs beyond the tag itself: a link, a caption, or neither.
+ *
+ * A caption is `<figcaption>` inside a `<figure>`, which is what makes it a caption rather than a
+ * paragraph that happens to sit under a picture — assistive technology reads the two as one thing.
+ */
+function ImageFrame({ element, children }: { element: ImageElement; children: React.ReactNode }) {
+  const { resolvePagePath, allowHttp } = useRendererContext();
+  const link =
+    element.link === undefined
+      ? null
+      : resolveSafeLinkHref(element.link, { resolvePagePath, ...(allowHttp === undefined ? {} : { allowHttp }) });
+
+  const linked =
+    link === null ? (
+      children
+    ) : (
+      <a href={link.href} {...(link.target ? { target: link.target } : {})} {...(link.rel ? { rel: link.rel } : {})}>
+        {children}
+      </a>
+    );
+
+  const caption = element.caption?.trim() ?? "";
+  if (caption === "") return <>{linked}</>;
+
+  return (
+    <figure style={{ margin: 0 }}>
+      {linked}
+      <figcaption style={{ fontSize: "0.875em", marginTop: 4 }}>{caption}</figcaption>
+    </figure>
   );
 }
 
