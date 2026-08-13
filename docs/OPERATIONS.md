@@ -8,6 +8,40 @@ Running the platform: backups, monitoring, smoke checks and incidents. It contai
 
 ---
 
+
+## Watching from outside
+
+```bash
+npm run health
+```
+
+Checks the application and the renderer over HTTPS, the way a visitor reaches them, and exits
+non-zero when either is not answering. `HEALTH_HOST`, `HEALTH_RENDERER_HOST` and `HEALTH_SITE_HOST`
+point it somewhere else; `HEALTH_SITE_HOST` also checks one published customer site.
+
+It exists because Coolify's healthcheck cannot see the failure that actually happened. On
+2026-08-12 every container reported healthy for half an hour while every visitor received a 504:
+the containers were well, and the gateway was dialling an address it could not reach. A check that
+asks a container about itself will answer "yes" for the whole of that outage.
+
+### Making it continuous
+
+The script exits 0 or 1 and prints one line per surface, so anything that runs commands can watch
+with it. In rough order of how much it survives:
+
+1. **An external uptime monitor** — any service that requests
+   `https://websitebuilder.oneplataforma.com/api/v1/health` every minute and alerts. It is the only
+   option that keeps watching when the machine itself is the thing that failed, which is why it is
+   first. No code here is involved.
+2. **Cron on the VPS** — five minutes apart, alerting through whatever the operator already reads:
+
+   ```cron
+   */5 * * * * cd /path/to/WebsiteBuilder && npm run health >> /var/log/wb-health.log 2>&1
+   ```
+
+   Cheaper to set up and blind to an outage that takes the host down with it.
+3. **By hand**, before and after every deployment. Which is what the command is for.
+
 ## 1. Where the deployment is documented
 
 Standing the platform up — Coolify fields, environment variables, DNS, routing and the first deploy

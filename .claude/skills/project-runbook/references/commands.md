@@ -16,10 +16,16 @@ npm run build:tracker    # rebuilds the published-site analytics tracker into it
 npm run build:runtime    # rebuilds the published-site interaction runtime into its source constant
 npm run test:e2e         # Playwright
 npm run smoke:containers # builds the production images and exercises the running stack
+npm run health           # asks production the way a visitor does, and exits non-zero if it is down
 ```
 
 `smoke:containers` needs Docker and a throwaway database in `SMOKE_MONGODB_URI`. It uses its own
 Compose project and database name, so it cannot touch production data.
+
+`health` requests the public hostnames over HTTPS rather than asking a container about itself,
+because a container reporting healthy while every visitor gets a 504 is a real state this platform
+has been in. `HEALTH_HOST` points it elsewhere. See `docs/OPERATIONS.md` for running it on a
+schedule.
 
 `npm run test` starts an in-memory MongoDB per backend test file. The binary is downloaded on first
 run and cached in `node_modules/.cache/mongodb-binaries`, so the machine needs network access once —
