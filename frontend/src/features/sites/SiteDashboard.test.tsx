@@ -55,13 +55,24 @@ const render = () =>
 afterEach(() => vi.unstubAllGlobals());
 
 describe("contextual module navigation", () => {
-  it("shows no optional module for an untouched site", async () => {
+  it("shows no optional module for an untouched site, but offers a way into each", async () => {
     mockStatus([feature({ feature: "blog" }), feature({ feature: "forms" }), feature({ feature: "cms" })]);
     render();
 
     const optional = await screen.findByRole("navigation", { name: "Modules" });
-    expect(within(optional).queryByRole("link", { name: /Blog/ })).toBeNull();
     expect(within(optional).getByText(/No optional modules are in use yet/)).toBeInTheDocument();
+
+    /*
+     * Not in the permanent navigation, and not unreachable either.
+     *
+     * The blog could only be turned on from its own page, and nothing anywhere linked to that page —
+     * so turning it on required knowing the URL. An untouched module keeps out of the navigation
+     * and still has a door.
+     */
+    expect(within(optional).getByRole("link", { name: /Blog/ })).toHaveAttribute(
+      "href",
+      "/app/w1/sites/p1/blog",
+    );
   });
 
   it("reveals a module once the server says it is in use", async () => {

@@ -248,6 +248,8 @@ export function createRendererApp(options: {
         route,
         document: site.document,
         forms: publishedForms,
+        // The two blog routes render from what this version froze, not from the live blog.
+        ...(site.version.blog === undefined ? {} : { blog: site.version.blog }),
         runtimeSrc: `${RUNTIME_SCRIPT_PATH}?v=${RUNTIME_VERSION}`,
         canonicalUrl: `https://${site.domain.hostname}${normalizePath(req.path)}`,
         // Same origin as the application: the API has no public hostname of its own, and a

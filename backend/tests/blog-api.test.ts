@@ -7,6 +7,7 @@ import { createApp } from "../src/app";
 import { createSeededWorkspaceResolver } from "../src/middleware/workspace";
 import { BlogRepository, ensureBlogIndexes } from "../src/modules/blog/repository";
 import { createBlogRouter, createPublicBlogRouter } from "../src/modules/blog/routes";
+import { ensureTemplateIndexes, TemplateRepository } from "../src/modules/blog/templates";
 import { testEnv, testLogger } from "./helpers";
 import { startTestDatabase, type TestDatabase } from "./mongo";
 
@@ -44,6 +45,7 @@ beforeAll(async () => {
         path: "/workspaces/:workspaceId/projects/:projectId/blog",
         router: createBlogRouter({
           repository,
+          templates: new TemplateRepository(database.db),
           resolveWorkspace: createSeededWorkspaceResolver({ workspaceId: WORKSPACE, userId: "user-a" }),
         }),
       },
@@ -59,6 +61,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await database.clear();
   await ensureBlogIndexes(database.db);
+  await ensureTemplateIndexes(database.db);
 });
 
 describe("settings", () => {
@@ -168,5 +171,33 @@ describe("workspace scoping", () => {
     expect((await request(app).get(`${otherBase}/settings`)).status).toBe(403);
     expect((await request(app).get(`${otherBase}/posts`)).status).toBe(403);
     expect((await request(app).post(`${otherBase}/posts`).send(post())).status).toBe(403);
+  });
+});
+
+describe("turning the blog on", () => {
+  it("creates and publishes both templates, so the routes it publishes can answer", async () => {
+    const response = await request(app).post(`${base}/activate`).send({ format: "grid" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({ enabled: true, format: "grid" });
+    // The two ids nothing in the product used to set. Without them the blog reported a blocking
+    // setup issue that blocked publication of the whole site, with no way out through the interface.
+    expect(response.body.data.indexTemplateId).toBeTruthy();
+    expect(response.body.data.articleTemplateId).toBeTruthy();
+  });
+
+  it("refuses a format it does not have", async () => {
+    const response = await request(app).post(`${base}/activate`).send({ format: "newspaper" });
+    expect(response.status).toBe(400);
+  });
+
+  it("leaves a blog that is on exactly where it was", async () => {
+    await request(app).post(`${base}/activate`).send({ format: "list" });
+    const again = await request(app).post(`${base}/activate`).send({ format: "magazine" });
+
+    // Changing the format is not re-creating the blog: the templates it already had are the ones it
+    // keeps, so a site that had edited them does not lose that.
+    expect(again.status).toBe(200);
+    expect(again.body.data.format).toBe("magazine");
   });
 });

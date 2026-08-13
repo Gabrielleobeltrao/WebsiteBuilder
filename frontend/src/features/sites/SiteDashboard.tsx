@@ -19,11 +19,13 @@ type LoadState = { status: "loading" } | { status: "error"; code: string } | { s
  * browsed the Elements library. That is what keeps a site with no blog from carrying a Blog entry
  * for its whole life.
  */
-export const MODULE_ROUTES: Record<SiteFeatureKey, string> = {
+export const MODULE_ROUTES: Record<SiteFeatureKey, string | null> = {
   blog: "blog",
   forms: "forms",
   cms: "cms",
-  search: "search",
+  // No destination yet. Written as null rather than as a path that does not exist, so nothing
+  // renders a link to it and the route test knows not to demand one.
+  search: null,
 };
 
 function badgeFor(feature: SiteFeatureState): { key: string; tone: string } | null {
@@ -76,6 +78,15 @@ export function SiteDashboard({
   const base = `/app/${workspaceId}/sites/${projectId}`;
   const visibleModules =
     state.status === "ready" ? state.site.features.filter((feature) => isVisibleInNavigation(feature.lifecycle)) : [];
+
+  // Untouched modules that have somewhere to go. Derived rather than listed, so a module gaining a
+  // destination gains its way in without anybody remembering to add it here.
+  const startable =
+    state.status === "ready"
+      ? state.site.features.filter(
+          (feature) => !isVisibleInNavigation(feature.lifecycle) && MODULE_ROUTES[feature.feature] !== null,
+        )
+      : [];
 
   return (
     <div>
@@ -238,6 +249,27 @@ export function SiteDashboard({
                   );
                 })}
               </ul>
+            )}
+
+            {/*
+              A way in to the modules this site is not using yet.
+              An optional module stays out of the permanent navigation on purpose — that is what
+              keeps a site with no blog from carrying a Blog entry for its whole life — but "not in
+              the navigation" had come to mean "unreachable": the blog could only be turned on from
+              its own page, and nothing anywhere linked to that page.
+            */}
+            {startable.length > 0 && (
+              <p className="mt-3 text-xs text-ink-500">
+                {t("dashboard:site.startModule")}{" "}
+                {startable.map((feature, index) => (
+                  <span key={feature.feature}>
+                    {index > 0 && " · "}
+                    <Link to={`${base}/${MODULE_ROUTES[feature.feature]}`} className="underline underline-offset-2">
+                      {t(`dashboard:site.nav.${feature.feature}`)}
+                    </Link>
+                  </span>
+                ))}
+              </p>
             )}
           </nav>
 

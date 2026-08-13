@@ -233,7 +233,14 @@ function ContactValue({ kind, value }: { kind: string; value: string }) {
  * this walks it — which is what makes prose from a customer safe by construction rather than by
  * sanitising a string somebody hopes was cleaned.
  */
-function RichText({ nodes }: { nodes: readonly RichTextNode[] }): ReactNode {
+/**
+ * Validated rich text, walked into elements.
+ *
+ * Exported because the blog renders article bodies through the same walker. A second implementation
+ * would be a second place for the allowlist to drift, on the one surface where drifting means
+ * stored markup reaching a stranger's browser.
+ */
+export function RichText({ nodes }: { nodes: readonly RichTextNode[] }): ReactNode {
   return (
     <>
       {nodes.map((node, index) => (

@@ -3,8 +3,21 @@ export default {
   description: "Write, publish and manage posts without opening the visual builder.",
   activate: {
     title: "This site has no blog yet",
-    description: "Turning it on creates safe starter templates. Nothing is published until you publish a post.",
+    description: "Choose how the list of posts reads. Turning it on creates the index and article pages; nothing is public until you publish a post.",
     action: "Turn on the blog",
+    formatLegend: "Reading format",
+    changeable: "You can change the format later without touching a single post.",
+    format: {
+      list: { name: "List", description: "One post per row, with its summary. Best for longer writing." },
+      grid: { name: "Grid", description: "Three across, cover first. Best when posts have images." },
+      magazine: { name: "Magazine", description: "One post led large, the rest in pairs beneath it." },
+    },
+  },
+  summary: {
+    title: "This blog at a glance",
+    published: "Published",
+    drafts: "Drafts",
+    address: "Readers find it at",
   },
   settings: {
     title: "Blog settings",

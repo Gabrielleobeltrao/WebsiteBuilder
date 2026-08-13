@@ -11,6 +11,7 @@
  * browser. Wiring them into the server-rendered path is a decision to make with that trade-off in
  * view, not a side effect of an export line.
  */
+export { BlogIndexRenderer, BlogPostRenderer } from "./BlogRenderer";
 export { CmsCollectionRenderer } from "./CmsCollectionRenderer";
 export { ElementRenderer } from "./ElementRenderer";
 export { DEFAULT_STRINGS as FORM_RENDERER_STRINGS, FormRenderer, readFormResult, type FormStrings } from "./FormRenderer";

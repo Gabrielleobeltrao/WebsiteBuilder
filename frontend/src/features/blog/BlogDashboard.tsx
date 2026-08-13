@@ -1,5 +1,7 @@
 import {
-  DEFAULT_BLOG_SETTINGS,
+  BLOG_FORMATS,
+  blogFormatOf,
+  type BlogFormat,
   type BlogPost,
   type BlogSettings,
 } from "@websitebuilder/shared";
@@ -37,6 +39,8 @@ export function BlogDashboard({
   const searchId = useId();
 
   const [settings, setSettings] = useState<BlogSettings | null>(null);
+  /** Counts for the whole blog, not for the filter currently applied to the list below. */
+  const [counts, setCounts] = useState<{ published: number; drafts: number }>({ published: 0, drafts: 0 });
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
@@ -56,6 +60,16 @@ export function BlogDashboard({
         ]);
         setSettings(loadedSettings);
         setState({ status: "ready", page });
+
+        // Asked for separately because the list is filtered and paginated: counting its rows would
+        // report "3 published" to somebody who had just filtered to drafts.
+        if (loadedSettings.enabled) {
+          const [published, drafts] = await Promise.all([
+            blogApi.listPosts(workspaceId, projectId, { status: "published", ...(signal ? { signal } : {}) }),
+            blogApi.listPosts(workspaceId, projectId, { status: "draft", ...(signal ? { signal } : {}) }),
+          ]);
+          setCounts({ published: published.total, drafts: drafts.total });
+        }
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         setState({ status: "error", code: error instanceof ApiError ? error.code : "INTERNAL_ERROR" });
@@ -70,8 +84,10 @@ export function BlogDashboard({
     return () => controller.abort();
   }, [load]);
 
-  const activate = async () => {
-    await blogApi.saveSettings(workspaceId, projectId, { ...DEFAULT_BLOG_SETTINGS, enabled: true });
+  const activate = async (format: BlogFormat) => {
+    // One request, and the server does the rest: creating both templates and pointing the settings
+    // at them is what makes a blog that is on a blog that can serve its own routes.
+    await blogApi.activate(workspaceId, projectId, format);
     await load();
   };
 
@@ -86,19 +102,7 @@ export function BlogDashboard({
 
   // Activation is an explicit, recoverable choice — never a side effect of visiting this route.
   if (settings !== null && !settings.enabled) {
-    return (
-      <div className="rounded-xl border border-dashed border-ink-200 p-10 text-center">
-        <h2 className="font-display text-lg font-semibold text-ink-900">{t("blog:activate.title")}</h2>
-        <p className="mx-auto mt-2 max-w-md text-sm text-ink-600">{t("blog:activate.description")}</p>
-        <button
-          type="button"
-          onClick={() => void activate()}
-          className="mt-6 rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-700"
-        >
-          {t("blog:activate.action")}
-        </button>
-      </div>
-    );
+    return <ChooseFormat onChoose={(format) => void activate(format)} />;
   }
 
   return (
@@ -115,6 +119,14 @@ export function BlogDashboard({
           {t("blog:posts.create")}
         </Link>
       </div>
+
+      {settings !== null && (
+        <BlogSummary
+          settings={settings}
+          counts={counts}
+          onFormat={(format) => void run(() => blogApi.saveSettings(workspaceId, projectId, { ...settings, format }))}
+        />
+      )}
 
       <div className="mt-6 flex flex-wrap items-end gap-3">
         <div role="group" aria-label={t("blog:posts.all")} className="flex gap-1">
@@ -264,5 +276,157 @@ export function BlogDashboard({
         }}
       />
     </div>
+  );
+}
+
+
+/**
+ * The one decision turning a blog on actually requires.
+ *
+ * A format rather than a switch, because a blog that is merely "on" has nothing to show: it needs
+ * an index and an article page before either of the routes it publishes can answer. Choosing here
+ * creates both, which is also what stops an activated blog from blocking publication of the site.
+ *
+ * Three arrangements, not a layout editor. What an index has to decide is how much of each post to
+ * show and how many fit across; everything past that is a page somebody should be designing.
+ */
+function ChooseFormat({ onChoose }: { onChoose: (format: BlogFormat) => void }) {
+  const { t } = useTranslation(["blog", "common"]);
+  const [chosen, setChosen] = useState<BlogFormat>("list");
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <div className="rounded-xl border border-dashed border-ink-200 p-8 text-center">
+      <h2 className="font-display text-lg font-semibold text-ink-900">{t("blog:activate.title")}</h2>
+      <p className="mx-auto mt-2 max-w-md text-sm text-ink-600">{t("blog:activate.description")}</p>
+
+      <fieldset className="mx-auto mt-6 grid max-w-2xl gap-3 sm:grid-cols-3">
+        <legend className="sr-only">{t("blog:activate.formatLegend")}</legend>
+
+        {BLOG_FORMATS.map((format) => (
+          <label
+            key={format}
+            className={[
+              "cursor-pointer rounded-lg border p-4 text-left",
+              chosen === format ? "border-accent-500 ring-2 ring-accent-200" : "border-ink-200",
+            ].join(" ")}
+          >
+            <span className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="blog-format"
+                value={format}
+                checked={chosen === format}
+                onChange={() => setChosen(format)}
+              />
+              <span className="text-sm font-medium text-ink-900">
+                {t(`blog:activate.format.${format}.name` as "blog:activate.format.list.name")}
+              </span>
+            </span>
+            <span className="mt-1 block text-xs text-ink-600">
+              {t(`blog:activate.format.${format}.description` as "blog:activate.format.list.description")}
+            </span>
+            <FormatSketch format={format} />
+          </label>
+        ))}
+      </fieldset>
+
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          onChoose(chosen);
+        }}
+        className="mt-6 rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+      >
+        {t("blog:activate.action")}
+      </button>
+
+      <p className="mt-3 text-xs text-ink-500">{t("blog:activate.changeable")}</p>
+    </div>
+  );
+}
+
+/** A shape, not a screenshot: enough to tell three arrangements apart at a glance. */
+function FormatSketch({ format }: { format: BlogFormat }) {
+  const bars = format === "list" ? [1] : format === "grid" ? [3, 3] : [1, 2];
+
+  return (
+    <span aria-hidden className="mt-3 block space-y-1">
+      {bars.map((count, row) => (
+        <span key={row} className="flex gap-1">
+          {Array.from({ length: count }, (_, cell) => (
+            <span
+              key={cell}
+              className={`block rounded-sm bg-ink-200 ${row === 0 && format === "magazine" ? "h-6" : "h-3"}`}
+              style={{ flex: 1 }}
+            />
+          ))}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+
+/**
+ * What this blog currently is, before the list of what is in it.
+ *
+ * The three numbers somebody opening this screen actually came for — how much is live, how much is
+ * waiting, and where a reader finds it — plus the format, changeable from here because a decision
+ * made once at activation should not be locked by that.
+ */
+function BlogSummary({
+  settings,
+  counts,
+  onFormat,
+}: {
+  settings: BlogSettings;
+  counts: { published: number; drafts: number };
+  onFormat: (format: BlogFormat) => void;
+}) {
+  const { t } = useTranslation(["blog", "common"]);
+  const formatId = useId();
+  const { published, drafts } = counts;
+
+  return (
+    <section aria-labelledby="blog-summary" className="mt-6 rounded-xl border border-ink-200 bg-white p-4">
+      <h2 id="blog-summary" className="sr-only">
+        {t("blog:summary.title")}
+      </h2>
+
+      <dl className="grid gap-4 sm:grid-cols-4">
+        <div>
+          <dt className="text-xs text-ink-500">{t("blog:summary.published")}</dt>
+          <dd className="mt-1 font-display text-2xl font-semibold text-ink-900">{published}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-ink-500">{t("blog:summary.drafts")}</dt>
+          <dd className="mt-1 font-display text-2xl font-semibold text-ink-900">{drafts}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-ink-500">{t("blog:summary.address")}</dt>
+          <dd className="mt-1 font-mono text-sm text-ink-700">{settings.basePath}</dd>
+        </div>
+        <div>
+          <label htmlFor={formatId} className="text-xs text-ink-500">
+            {t("blog:activate.formatLegend")}
+          </label>
+          <select
+            id={formatId}
+            value={blogFormatOf(settings)}
+            onChange={(event) => onFormat(event.target.value as BlogFormat)}
+            className="mt-1 w-full rounded-md border border-ink-200 px-2 py-1.5 text-sm text-ink-900"
+          >
+            {BLOG_FORMATS.map((value) => (
+              <option key={value} value={value}>
+                {t(`blog:activate.format.${value}.name` as "blog:activate.format.list.name")}
+              </option>
+            ))}
+          </select>
+        </div>
+      </dl>
+    </section>
   );
 }

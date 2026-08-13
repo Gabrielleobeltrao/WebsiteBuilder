@@ -14,6 +14,7 @@ import { createAuth } from "./modules/auth/auth";
 import { PreferencesRepository } from "./modules/preferences/repository";
 import { createPreferencesRouter } from "./modules/preferences/routes";
 import { BlogRepository, ensureBlogIndexes } from "./modules/blog/repository";
+import { ensureTemplateIndexes, TemplateRepository } from "./modules/blog/templates";
 import { createBlogRouter, createPublicBlogRouter } from "./modules/blog/routes";
 import { MediaRepository } from "./modules/media/repository";
 import { createMediaRouter } from "./modules/media/routes";
@@ -22,7 +23,7 @@ import { ProjectRepository } from "./modules/projects/repository";
 import { createProjectsRouter } from "./modules/projects/routes";
 import { WorkspaceRepository } from "./modules/workspaces/repository";
 import { COLLECTIONS } from "./db/indexes";
-import { countUnboundFormBlocks, findFormUsages, hasPublishedTemplate, type BuilderProject } from "@websitebuilder/shared";
+import { blogSetupIssues, countUnboundFormBlocks, findFormUsages, hasPublishedTemplate, type BuilderProject } from "@websitebuilder/shared";
 import { CmsRepository, ensureCmsIndexes } from "./modules/cms/repository";
 import { createCmsRouter } from "./modules/cms/routes";
 import { CloudflareHostnameProvider } from "./modules/domains/cloudflare";
@@ -85,12 +86,14 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
   const preferences = new PreferencesRepository(database.db);
   const media = new MediaRepository(database.db, createGridFsStorage(database.db));
   const blog = new BlogRepository(database.db);
+  const blogTemplates = new TemplateRepository(database.db);
   const forms = new FormRepository(database.db);
   const cms = new CmsRepository(database.db);
   const publishing = new PublishingRepository(database.db, database.db.collection(COLLECTIONS.projects));
   const analytics = new AnalyticsRepository(database.db);
   const domains = new DomainService(database.db, createHostnameProvider(env, logger), env.PLATFORM_ROOT_DOMAIN);
   await ensureBlogIndexes(database.db);
+  await ensureTemplateIndexes(database.db);
   await ensureFormIndexes(database.db);
   await ensurePublishingIndexes(database.db);
   await ensureCmsIndexes(database.db);
@@ -132,8 +135,9 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
       blog: {
         hasRecords: posts.total > 0,
         explicitlyActivated: settings.enabled,
-        // A blog turned on with no article template yet cannot render its routes.
-        blockingIssueCount: settings.enabled && settings.articleTemplateId === undefined ? 1 : 0,
+        // A blog that cannot serve the routes it publishes. Counted from the shared rule so the
+        // activation screen, the status centre and publication all agree on what "ready" means.
+        blockingIssueCount: blogSetupIssues(settings).length,
         warningCount: 0,
       },
       forms: {
@@ -165,6 +169,7 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
       path: "/workspaces/:workspaceId/projects/:projectId/blog",
       router: createBlogRouter({
         repository: blog,
+        templates: blogTemplates,
         resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
       }),
     },
@@ -242,6 +247,22 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
           collectModuleFacts,
           // Exactly what a published page needs, and nothing operational: notification recipients
           // and retention are the customer's settings, not something public output should carry.
+          // The two pages the blog's routes render through, as the templates module stores them.
+          loadBlogTemplates: async (context, projectId) => {
+            const settings = await blog.loadSettings(context, projectId);
+            if (!settings.enabled) return {};
+
+            const [index, article] = await Promise.all([
+              blogTemplates.loadOrCreate(context, projectId, "index"),
+              blogTemplates.loadOrCreate(context, projectId, "article"),
+            ]);
+            // The published document, never the draft: editing a template changes the live site at
+            // the next publish and not before.
+            return {
+              ...(index.publishedDocument === undefined ? {} : { index: index.publishedDocument }),
+              ...(article.publishedDocument === undefined ? {} : { article: article.publishedDocument }),
+            };
+          },
           loadForms: async (context, projectId) =>
             (await forms.list(context, projectId)).map((form) => ({
               id: form.id,

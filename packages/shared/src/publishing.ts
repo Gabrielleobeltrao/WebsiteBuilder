@@ -1,4 +1,5 @@
 import type { PublishedForm } from "./forms";
+import type { PublishableBlog } from "./publication";
 import { z } from "zod";
 
 import { DEVICE_MODES } from "./devices";
@@ -60,6 +61,11 @@ export type PublishedSiteVersion = {
    * published before forms were carried, which is the same as none.
    */
   forms?: readonly PublishedForm[];
+  /**
+   * The blog as this version froze it: settings, published posts, and the two templates its routes
+   * render through. Absent means this version publishes no blog routes.
+   */
+  blog?: PublishableBlog;
   referencedMediaIds: string[];
   contentHash: string;
   createdByUserId: string;
@@ -306,12 +312,15 @@ export function contentHash(input: {
    * the live site went on asking the old questions with no way to ever reach the new ones.
    */
   forms?: readonly PublishedForm[];
+  /** The blog, for the same reason: an edited article is a change to what a visitor receives. */
+  blog?: PublishableBlog;
 }): string {
   const canonical = JSON.stringify({
     document: input.document,
     routes: [...input.routes].sort((a, b) => a.path.localeCompare(b.path)),
     redirects: [...input.redirects].sort((a, b) => a.sourcePath.localeCompare(b.sourcePath)),
     forms: [...(input.forms ?? [])].sort((a, b) => a.id.localeCompare(b.id)),
+    blog: input.blog === undefined ? null : { ...input.blog, posts: [...input.blog.posts].sort((a, b) => a.id.localeCompare(b.id)) },
   });
 
   // FNV-1a: short, dependency-free and stable across runtimes. This detects change, it is not a

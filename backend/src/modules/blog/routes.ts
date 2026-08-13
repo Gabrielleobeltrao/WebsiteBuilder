@@ -1,9 +1,14 @@
-import { blogPostInputSchema, blogSettingsSchema, resourceIdSchema } from "@websitebuilder/shared";
+import { BLOG_FORMATS, blogPostInputSchema, blogSettingsSchema, resourceIdSchema } from "@websitebuilder/shared";
 import { Router } from "express";
+import { z } from "zod";
 
 import { ApiProblem, zodProblem } from "../../middleware/errors";
 import type { WorkspaceResolver } from "../projects/routes";
 import { BlogRepository, SlugTakenError } from "./repository";
+import type { TemplateRepository } from "./templates";
+
+/** A blog is turned on with a format chosen, never without one. */
+const activationSchema = z.object({ format: z.enum(BLOG_FORMATS) }).strict();
 
 /**
  * Blog endpoints, mounted beneath `/workspaces/:workspaceId/projects/:projectId/blog`.
@@ -29,9 +34,69 @@ function parseProjectId(value: unknown): string {
 export function createBlogRouter(options: {
   repository: BlogRepository;
   resolveWorkspace: WorkspaceResolver;
+  /**
+   * The template store, so turning a blog on can create the pages its routes need.
+   *
+   * Injected rather than imported: templates are their own module, and the blog router's job is to
+   * make sure a blog that is on is a blog that can serve something.
+   */
+  templates?: TemplateRepository;
 }): Router {
-  const { repository, resolveWorkspace } = options;
+  const { repository, resolveWorkspace, templates } = options;
   const router = Router({ mergeParams: true });
+
+  /**
+   * Turns the blog on, with a format, in one step.
+   *
+   * The separate settings PUT could set `enabled` and leave both template ids undefined, and that is
+   * exactly what the product did: a blog turned on that way reported a blocking setup issue for the
+   * rest of the project's life, because nothing anywhere ever set those ids — and the issue blocks
+   * publication of the whole site, not just the blog.
+   *
+   * So activation creates both templates and points the settings at them. A blog that is on is a
+   * blog that can serve its own routes, by construction rather than by the operator remembering.
+   */
+  router.post("/activate", async (req, res, next) => {
+    try {
+      const context = await resolveWorkspace(req, "project:edit");
+      const projectId = parseProjectId(param(req, "projectId"));
+
+      const parsed = activationSchema.safeParse(req.body);
+      if (!parsed.success) throw zodProblem(parsed.error);
+      if (templates === undefined) throw new ApiProblem("SERVICE_UNAVAILABLE", "Templates are not available");
+
+      const current = await repository.loadSettings(context, projectId);
+      const [index, article] = await Promise.all([
+        templates.loadOrCreate(context, projectId, "index"),
+        templates.loadOrCreate(context, projectId, "article"),
+      ]);
+
+      /*
+       * The starters are published as well as created.
+       *
+       * A template that exists only as a draft renders nothing publicly, and until a template editor
+       * exists there is nowhere to press publish. Publishing a starter page nobody has edited yet
+       * carries no risk — there is no earlier version of it to overwrite — and it is what makes the
+       * blog's routes serve something the moment it is turned on.
+       */
+      await Promise.all([
+        templates.publish(context, projectId, "index", []),
+        templates.publish(context, projectId, "article", []),
+      ]);
+
+      const settings = await repository.saveSettings(context, projectId, {
+        ...current,
+        enabled: true,
+        format: parsed.data.format,
+        indexTemplateId: index.id,
+        articleTemplateId: article.id,
+      });
+
+      res.json({ data: settings });
+    } catch (error) {
+      next(error);
+    }
+  });
 
   router.get("/settings", async (req, res, next) => {
     try {

@@ -6,12 +6,19 @@ import {
   runtimeCapabilitiesFor,
   walkElements,
   type BuilderProject,
+  type PublishableBlog,
   type PublishedForm,
   type RouteManifestEntry,
   type SiteSeoSettings,
 } from "@websitebuilder/shared";
-import { ProjectPageRenderer, RendererContext, type FormStrings } from "@websitebuilder/frontend/renderer";
-import { createElement } from "react";
+import {
+  BlogIndexRenderer,
+  BlogPostRenderer,
+  ProjectPageRenderer,
+  RendererContext,
+  type FormStrings,
+} from "@websitebuilder/frontend/renderer";
+import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 /**
@@ -85,6 +92,8 @@ export function renderRouteHtml(input: {
    * preview renders the draft's copy and posts to a route that validates and stores nothing. Both
    * read from the same renderer, so a preview cannot look different from what a visitor receives.
    */
+  /** The blog this version froze, for the two routes it publishes. */
+  blog?: PublishableBlog;
   forms?: {
     byId: ReadonlyMap<string, PublishedForm>;
     mode: "preview" | "live";
@@ -100,49 +109,66 @@ export function renderRouteHtml(input: {
   // how a site with a shared header published without its header while the builder showed one.
   const page = found === null ? null : renderablePage(document, found);
 
+  /*
+   * The blog's own two routes.
+   *
+   * They are resolved before the page lookup above can fail, because they never could have
+   * succeeded: a blog route's `resourceId` is the literal "blog-index" or a post id, and neither is
+   * a page in this document. Both addresses were published and both answered with an empty body.
+   */
+  const blogBody = renderBlogRoute(route, input.blog);
+
   const href = input.pageHref ?? ((path: string) => path);
   const pathByPageId = new Map(
     document.pages.map((candidate) => [candidate.id, href(candidate.isHome ? "/" : `/${candidate.slug}`)]),
   );
 
+  /**
+   * Everything the renderer needs from this response, built once.
+   *
+   * The page body and the blog body render through the same value: a blog article that resolved
+   * media differently from the page around it would be two renderers again.
+   */
+  const rendererValue = {
+    resolvePagePath: (pageId: string) => pathByPageId.get(pageId) ?? null,
+    // A site with no home page has no home to link to. Saying so is better than sending a visitor
+    // to a path this document never published.
+    homePath: document.pages.some((candidate) => candidate.isHome) ? href("/") : null,
+    resolveMediaUrl: (mediaId: string) => `${input.mediaBaseUrl}/${encodeURIComponent(mediaId)}`,
+    // Home, then this page. The site's own structure is one level deep today; when sections of a
+    // site exist, this is the one place that changes.
+    resolveTrail: () => {
+      const home = document.pages.find((candidate) => candidate.isHome);
+      const trail: Array<{ label: string; href: string | null }> = [];
+      if (home !== undefined && home.id !== page?.id) {
+        trail.push({ label: home.name, href: href("/") });
+      }
+      if (page !== null) trail.push({ label: page.name, href: null });
+      return trail;
+    },
+    ...(input.forms === undefined
+      ? {}
+      : {
+          resolveForm: (formId: string) => input.forms?.byId.get(formId) ?? null,
+          formMode: input.forms.mode,
+          formAction: input.forms.action,
+          formResult: input.forms.result ?? null,
+          ...(input.forms.strings === undefined ? {} : { formStrings: input.forms.strings }),
+        }),
+  };
+
   const body =
-    page === null
-      ? ""
-      : renderToStaticMarkup(
-          createElement(
-            RendererContext.Provider,
-            {
-              value: {
-                resolvePagePath: (pageId: string) => pathByPageId.get(pageId) ?? null,
-                // A site with no home page has no home to link to. Saying so is better than sending
-                // a visitor to a path this document never published.
-                homePath: document.pages.some((candidate) => candidate.isHome) ? href("/") : null,
-                resolveMediaUrl: (mediaId: string) => `${input.mediaBaseUrl}/${encodeURIComponent(mediaId)}`,
-                // Home, then this page. The site's own structure is one level deep today; when
-                // sections of a site exist, this is the one place that changes.
-                resolveTrail: () => {
-                  const home = document.pages.find((candidate) => candidate.isHome);
-                  const trail: Array<{ label: string; href: string | null }> = [];
-                  if (home !== undefined && home.id !== page?.id) {
-                    trail.push({ label: home.name, href: href("/") });
-                  }
-                  if (page !== null) trail.push({ label: page.name, href: null });
-                  return trail;
-                },
-                ...(input.forms === undefined
-                  ? {}
-                  : {
-                      resolveForm: (formId: string) => input.forms?.byId.get(formId) ?? null,
-                      formMode: input.forms.mode,
-                      formAction: input.forms.action,
-                      formResult: input.forms.result ?? null,
-                      ...(input.forms.strings === undefined ? {} : { formStrings: input.forms.strings }),
-                    }),
-              },
-            },
-            createElement(ProjectPageRenderer, { page }),
-          ),
-        );
+    blogBody !== null
+      ? renderToStaticMarkup(createElement(RendererContext.Provider, { value: rendererValue }, blogBody))
+      : page === null
+        ? ""
+        : renderToStaticMarkup(
+            createElement(
+              RendererContext.Provider,
+              { value: rendererValue },
+              createElement(ProjectPageRenderer, { page }),
+            ),
+          );
 
   // Rendered by the server rather than injected by the tracker: a banner built in JavaScript
   // arrives after the page and pushes it, and layout shift caused by a consent prompt would be the
@@ -310,4 +336,35 @@ export function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+/**
+ * The body for a blog route, or null when this route is not one.
+ *
+ * A version published before its blog carried anything renders nothing rather than a broken page:
+ * the route exists in that snapshot, and answering it with an empty article is the honest outcome
+ * until the site is republished.
+ */
+function renderBlogRoute(route: RouteManifestEntry, blog: PublishableBlog | undefined): ReactElement | null {
+  if (blog === undefined) return null;
+
+  if (route.kind === "blogIndex") {
+    return createElement(BlogIndexRenderer, {
+      settings: blog.settings,
+      posts: blog.posts,
+      ...(blog.indexTemplate === undefined ? {} : { template: blog.indexTemplate }),
+    });
+  }
+
+  if (route.kind === "blogPost") {
+    const post = blog.posts.find((candidate) => candidate.id === route.resourceId);
+    if (post === undefined) return null;
+
+    return createElement(BlogPostRenderer, {
+      post,
+      ...(blog.articleTemplate === undefined ? {} : { template: blog.articleTemplate }),
+    });
+  }
+
+  return null;
 }

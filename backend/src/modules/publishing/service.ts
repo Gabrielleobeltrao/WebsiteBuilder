@@ -5,6 +5,7 @@ import {
   migrateDocumentResponsive,
   SCHEMA_VERSION,
   validateSubmission,
+  type BuilderPage,
   type BuilderProject,
   type CompileInput,
   type CompileResult,
@@ -78,6 +79,16 @@ export class PublishingService {
       loadRedirects?: (context: WorkspaceContext, projectId: string) => Promise<Redirect[]>;
       /** Form definitions, so a published page can render the fields its blocks reference. */
       loadForms?: (context: WorkspaceContext, projectId: string) => Promise<PublishableForm[]>;
+      /**
+       * The two pages the blog's own routes render through.
+       *
+       * Without them those routes publish and answer with an empty document, which is why a blog
+       * that has not chosen a format blocks publication rather than going live broken.
+       */
+      loadBlogTemplates?: (
+        context: WorkspaceContext,
+        projectId: string,
+      ) => Promise<{ index?: BuilderPage; article?: BuilderPage }>;
       collectModuleFacts?: (input: {
         workspaceId: string;
         projectId: string;
@@ -118,6 +129,7 @@ export class PublishingService {
         // reference; storing them is what makes a published page validate a submission against the
         // questions the visitor was actually shown.
         forms: snapshot.forms,
+        ...(snapshot.blog === undefined ? {} : { blog: snapshot.blog }),
         referencedMediaIds: snapshot.referencedMediaIds,
         contentHash: snapshot.contentHash,
       });
@@ -229,6 +241,18 @@ export class PublishingService {
           mode: "preview",
           action: input.formAction ?? (() => ""),
         },
+        // The draft's blog, so a preview of an article shows what is being written rather than what
+        // was last published.
+        ...(compileInput.blog.settings.enabled
+          ? {
+              blog: {
+                settings: compileInput.blog.settings,
+                posts: compileInput.blog.posts,
+                ...(compileInput.blog.indexTemplate === undefined ? {} : { indexTemplate: compileInput.blog.indexTemplate }),
+                ...(compileInput.blog.articleTemplate === undefined ? {} : { articleTemplate: compileInput.blog.articleTemplate }),
+              },
+            }
+          : {}),
         // The same runtime the published page gets, so a preview rehearses the behaviour rather
         // than a static approximation of it.
         ...(input.runtimeSrc === undefined ? {} : { runtimeSrc: input.runtimeSrc }),
@@ -271,7 +295,7 @@ export class PublishingService {
     const project = await this.deps.projects.findById(context, projectId);
     if (project === null) return null;
 
-    const [settings, posts, media, collections, items, redirects, facts] = await Promise.all([
+    const [settings, posts, media, collections, items, redirects, facts, blogTemplates] = await Promise.all([
       this.deps.blog.loadSettings(context, projectId),
       this.deps.blog.list(context, projectId, { perPage: 500 }),
       this.deps.media.list(context, 1000),
@@ -279,6 +303,8 @@ export class PublishingService {
       this.deps.loadCmsItems?.(context, projectId) ?? Promise.resolve([]),
       this.deps.loadRedirects?.(context, projectId) ?? Promise.resolve([]),
       this.deps.collectModuleFacts?.({ workspaceId: context.workspaceId, projectId }) ?? Promise.resolve({}),
+      this.deps.loadBlogTemplates?.(context, projectId) ??
+        Promise.resolve({} as { index?: BuilderPage; article?: BuilderPage }),
     ]);
 
     // Ownership comes from the workspace's own media list, so a snapshot can never reference an
@@ -311,9 +337,15 @@ export class PublishingService {
           excerpt: post.excerpt,
           status: post.status,
           coverMediaId: post.coverMediaId,
+          // The article itself. Without it a published post route renders a headline and nothing.
+          content: post.content,
+          authorName: post.authorName,
+          publishedAt: post.publishedAt,
           updatedAt: post.updatedAt,
           seo: { title: post.seoTitle, description: post.seoDescription },
         })),
+        ...(blogTemplates.index === undefined ? {} : { indexTemplate: blogTemplates.index }),
+        ...(blogTemplates.article === undefined ? {} : { articleTemplate: blogTemplates.article }),
       },
       cms: { collections, items },
       redirects,

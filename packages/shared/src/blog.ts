@@ -48,10 +48,35 @@ export const dynamicBindingSchema = z.discriminatedUnion("source", [
 
 export type DynamicBinding = z.infer<typeof dynamicBindingSchema>;
 
+/**
+ * How a blog presents itself to a reader.
+ *
+ * A format is a *choice*, made once when the blog is turned on and changeable afterwards. It is
+ * deliberately a small closed set rather than a layout editor: what a blog index needs to decide is
+ * how much of each post to show and how many fit across, and every answer beyond those three is a
+ * page somebody should be designing rather than configuring.
+ *
+ * The surrounding page — headings, spacing, anything the site puts around its articles — is the
+ * index and article *templates*, which are ordinary builder pages.
+ */
+export const BLOG_FORMATS = ["list", "grid", "magazine"] as const;
+export type BlogFormat = (typeof BLOG_FORMATS)[number];
+
+/** How many posts sit across one row, per format. One means a stack. */
+export const BLOG_FORMAT_COLUMNS: Record<BlogFormat, number> = { list: 1, grid: 3, magazine: 2 };
+
+/** Whether the format leads with one post shown larger than the rest. */
+export const BLOG_FORMAT_HAS_LEAD: Record<BlogFormat, boolean> = { list: false, grid: false, magazine: true };
+
 export const blogSettingsSchema = z
   .object({
     enabled: z.boolean(),
     basePath: z.string().regex(/^\/[a-z0-9]+(?:-[a-z0-9]+)*$/, "must be a lowercase path such as /blog"),
+    /**
+     * The reading format. Absent on a blog turned on before formats existed, which reads as `list`
+     * — the arrangement that assumes least about what the posts contain.
+     */
+    format: z.enum(BLOG_FORMATS).optional(),
     indexTemplateId: z.string().min(1).optional(),
     articleTemplateId: z.string().min(1).optional(),
     defaultAuthorName: z.string().max(120).optional(),
@@ -66,6 +91,26 @@ export const DEFAULT_BLOG_SETTINGS: BlogSettings = {
   basePath: "/blog",
   postsPerPage: 12,
 };
+
+export function blogFormatOf(settings: Pick<BlogSettings, "format">): BlogFormat {
+  return settings.format ?? "list";
+}
+
+/**
+ * Whether a blog can serve the routes it publishes.
+ *
+ * Both templates, because both routes exist: an index with no template and an article with no
+ * template are the same failure — a published address that answers with an empty page. This is the
+ * check publication gates on, and the one the activation screen exists to satisfy.
+ */
+export function blogSetupIssues(settings: BlogSettings): Array<"no-index-template" | "no-article-template"> {
+  if (!settings.enabled) return [];
+
+  const issues: Array<"no-index-template" | "no-article-template"> = [];
+  if (settings.indexTemplateId === undefined) issues.push("no-index-template");
+  if (settings.articleTemplateId === undefined) issues.push("no-article-template");
+  return issues;
+}
 
 /**
  * Tiptap document validation.

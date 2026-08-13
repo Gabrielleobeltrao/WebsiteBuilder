@@ -55,10 +55,20 @@ describe("activation", () => {
     expect(requests.every((request) => request.method === "GET")).toBe(true);
   });
 
-  it("states that nothing is published by turning the blog on", async () => {
+  it("states that nothing is public by turning the blog on", async () => {
     mockApi({ enabled: false });
     render();
-    expect(await screen.findByText(/Nothing is published until you publish a post/)).toBeInTheDocument();
+    expect(await screen.findByText(/nothing is public until you publish a post/)).toBeInTheDocument();
+  });
+
+  it("asks which format before turning it on, because a blog with neither page serves nothing", async () => {
+    mockApi({ enabled: false });
+    render();
+
+    // Turning the blog on used to set a flag and leave both templates unset, which blocked
+    // publication of the entire site with no way out through the interface.
+    const group = await screen.findByRole("group", { name: "Reading format" });
+    expect(within(group).getAllByRole("radio")).toHaveLength(3);
   });
 
   it("enables the blog when the user asks", async () => {
@@ -67,8 +77,11 @@ describe("activation", () => {
     const user = userEvent.setup();
     render();
 
-    await user.click(await screen.findByRole("button", { name: "Turn on the blog" }));
-    expect(requests.some((request) => request.method === "PUT" && request.url.includes("/settings"))).toBe(true);
+    await user.click(await screen.findByRole("radio", { name: /Grid/ }));
+    await user.click(screen.getByRole("button", { name: "Turn on the blog" }));
+
+    // One request that creates the templates too, not a settings PUT that leaves them unset.
+    expect(requests.some((request) => request.method === "POST" && request.url.includes("/activate"))).toBe(true);
   });
 });
 

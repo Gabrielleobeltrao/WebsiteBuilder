@@ -3,8 +3,21 @@ export default {
   description: "Escreva, publique e gerencie posts sem abrir o construtor visual.",
   activate: {
     title: "Este site ainda não tem blog",
-    description: "Ativar cria templates iniciais seguros. Nada vai ao ar até você publicar um post.",
-    action: "Ativar o blog",
+    description: "Escolha como a lista de posts é lida. Ao ligar, as páginas de índice e de artigo são criadas; nada fica público até você publicar um post.",
+    action: "Ligar o blog",
+    formatLegend: "Formato de leitura",
+    changeable: "Você pode trocar o formato depois sem mexer em nenhum post.",
+    format: {
+      list: { name: "Lista", description: "Um post por linha, com o resumo. Melhor para textos longos." },
+      grid: { name: "Grade", description: "Três por linha, capa primeiro. Melhor quando os posts têm imagem." },
+      magazine: { name: "Revista", description: "Um post em destaque grande e os demais aos pares abaixo." },
+    },
+  },
+  summary: {
+    title: "Este blog em resumo",
+    published: "Publicados",
+    drafts: "Rascunhos",
+    address: "Leitores encontram em",
   },
   settings: {
     title: "Configurações do blog",

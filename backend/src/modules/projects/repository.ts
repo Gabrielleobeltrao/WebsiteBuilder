@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   createProjectDocument,
   normalizeProjectSlug,
@@ -154,7 +155,15 @@ export class ProjectRepository {
     let lastSlug = "";
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const slug = await this.allocateSlug(input.name);
+      /*
+       * The tidy slug is contested once, then abandoned.
+       *
+       * Re-running the scan after a collision walks the same candidates in the same order, so every
+       * loser of one race enters the next one against the same rivals. A discriminator settles it in
+       * a single further attempt however many are creating "Portfolio" at that instant, and only the
+       * ones who actually collided pay for it — the first caller still gets the readable slug.
+       */
+      const slug = attempt === 0 ? await this.allocateSlug(input.name) : await this.discriminatedSlug(input.name);
       lastSlug = slug;
       const document = createProjectDocument({ name: input.name, slug });
 
@@ -245,6 +254,12 @@ export class ProjectRepository {
    * Project slugs become public hostnames, so they are unique across the whole platform. A
    * collision gets a numeric suffix rather than failing the user's first action.
    */
+  /** The base slug with a short random discriminator, for a caller that just lost a race for it. */
+  private async discriminatedSlug(name: string): Promise<string> {
+    const base = (normalizeProjectSlug(name) || "site").slice(0, 54).replace(/-+$/, "");
+    return `${base}-${randomUUID().slice(0, 8)}`;
+  }
+
   private async allocateSlug(name: string): Promise<string> {
     const base = normalizeProjectSlug(name) || "site";
     for (let attempt = 0; attempt < 50; attempt += 1) {

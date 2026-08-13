@@ -4,6 +4,7 @@ import {
   platformHostname,
   resolveHost,
   type PublishedRedirect,
+  type PublishableBlog,
   type PublishedForm,
   type PublishedSiteVersion,
   type RouteManifestEntry,
@@ -79,6 +80,8 @@ export class PublishingRepository {
       redirects: PublishedRedirect[];
       /** The definitions this version's pages reference, frozen at the revision that was live. */
       forms?: readonly PublishedForm[];
+      /** The blog this version publishes: settings, posts and the templates its routes render. */
+      blog?: PublishableBlog;
       referencedMediaIds: string[];
       /** Content identity from the compiler. Recomputing it here would use a different input. */
       contentHash: string;
@@ -102,6 +105,7 @@ export class PublishingRepository {
       document: input.document,
       routes: input.routes,
       forms: input.forms ?? [],
+      ...(input.blog === undefined ? {} : { blog: input.blog }),
       redirects: input.redirects,
       referencedMediaIds: input.referencedMediaIds,
       contentHash: input.contentHash,

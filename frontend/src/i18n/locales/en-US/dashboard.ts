@@ -139,7 +139,8 @@ export default {
       "modules": "Active modules",
       "lastUpdate": "Last update"
     },
-    "noOptionalModules": "No optional modules are in use yet. Add a block from the Elements panel to turn one on."
+    "startModule": "Not using yet:",
+    "noOptionalModules": "No optional modules are in use yet."
   },
 
   "seo": {

@@ -139,7 +139,8 @@ export default {
       "modules": "Módulos ativos",
       "lastUpdate": "Última atualização"
     },
-    "noOptionalModules": "Nenhum módulo opcional está em uso ainda. Adicione um bloco pelo painel Elementos para ativar um."
+    "startModule": "Ainda não usa:",
+    "noOptionalModules": "Nenhum módulo opcional está em uso ainda."
   },
 
   "seo": {

@@ -16,8 +16,11 @@ import { MODULE_ROUTES } from "@/features/sites/SiteDashboard";
  * pulls in every lazy chunk and its data loading, which is a slow and flaky way to answer a question
  * that is really about one file.
  */
-const declared = (feature: (typeof SITE_FEATURE_KEYS)[number]) =>
-  routes.includes(`path="sites/:projectId/${MODULE_ROUTES[feature]}"`);
+const declared = (feature: (typeof SITE_FEATURE_KEYS)[number]) => {
+  const path = MODULE_ROUTES[feature];
+  // A module with no destination declares none, and nothing renders a link to it.
+  return path !== null && routes.includes(`path="sites/:projectId/${path}"`);
+};
 
 describe("the site dashboard's module destinations", () => {
   for (const feature of SITE_FEATURE_KEYS) {
@@ -33,5 +36,17 @@ describe("the site dashboard's module destinations", () => {
   it("declares a route for every module a block can activate", () => {
     const activatable = SITE_FEATURE_KEYS.filter((feature) => featureElementTypes(feature).length > 0);
     expect(activatable.filter((feature) => !declared(feature))).toEqual([]);
+  });
+});
+
+describe("a module nobody has used yet", () => {
+  it("is either reachable or has no destination at all", () => {
+    // The blog was neither: its only switch lived inside a page nothing linked to, so turning it on
+    // required knowing the URL. A module with a route is offered from the site dashboard; one
+    // without a route is offered nowhere, which is the only other honest state.
+    for (const feature of SITE_FEATURE_KEYS) {
+      const path = MODULE_ROUTES[feature];
+      expect(path === null || declared(feature), feature).toBe(true);
+    }
   });
 });

@@ -1,4 +1,4 @@
-import type { BlogPost, BlogPostInput, BlogSettings } from "@websitebuilder/shared";
+import type { BlogFormat, BlogPost, BlogPostInput, BlogSettings } from "@websitebuilder/shared";
 
 import { apiRequest } from "./client";
 
@@ -11,6 +11,20 @@ export const blogApi = {
   loadSettings(workspaceId: string, projectId: string, options: { signal?: AbortSignal } = {}) {
     return apiRequest<BlogSettings>(`${scope(workspaceId, projectId)}/settings`, {
       ...(options.signal ? { signal: options.signal } : {}),
+    });
+  },
+
+  /**
+   * Turns the blog on with a format, in one request.
+   *
+   * Not `saveSettings({ enabled: true })`: that set a flag and left the blog unable to serve either
+   * of the routes it publishes, which blocked publication of the whole site with no way out through
+   * the interface. The server creates the templates and points the settings at them.
+   */
+  activate(workspaceId: string, projectId: string, format: BlogFormat) {
+    return apiRequest<BlogSettings>(`${scope(workspaceId, projectId)}/activate`, {
+      method: "POST",
+      body: { format },
     });
   },
 

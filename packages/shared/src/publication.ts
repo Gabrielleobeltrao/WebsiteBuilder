@@ -1,10 +1,10 @@
-import { postPath, type BlogSettings } from "./blog";
+import { postPath, type BlogSettings, type RichTextDocument } from "./blog";
 import type { PublishedForm } from "./forms";
 import { normalizeCollectionSlug, type CmsCollectionInput, type CmsItemStatus } from "./cms";
 import { auditPageBlocks, type BlockFinding } from "./block-readiness";
 import { diagnoseResponsive, type ResponsiveFinding } from "./diagnostics";
 import { walkElements } from "./elements";
-import { pagePath, type BuilderProject } from "./project";
+import { pagePath, type BuilderPage, type BuilderProject } from "./project";
 import {
   contentHash,
   preflight,
@@ -37,8 +37,32 @@ export type PublishablePost = {
   excerpt?: string;
   status: "draft" | "published";
   coverMediaId?: string;
+  /**
+   * The article itself.
+   *
+   * Carried into the snapshot for the same reason a form definition is: the published route for
+   * this post has to render something, and reading it live would mean a version was not immutable.
+   * Absent reads as an empty article rather than as a missing one.
+   */
+  content?: RichTextDocument;
+  authorName?: string;
+  publishedAt?: string;
   updatedAt: string;
   seo?: { title?: string; description?: string };
+};
+
+/**
+ * Everything a published site needs to serve its blog.
+ *
+ * The two templates are ordinary builder pages and are frozen here with the posts, so editing a
+ * template changes the live site at the next publish and not before — the same rule every other
+ * published thing follows.
+ */
+export type PublishableBlog = {
+  settings: BlogSettings;
+  posts: readonly PublishablePost[];
+  indexTemplate?: BuilderPage;
+  articleTemplate?: BuilderPage;
 };
 
 export type PublishableCmsItem = {
@@ -63,7 +87,13 @@ export type PublishableCollection = CmsCollectionInput & {
 
 export type CompileInput = {
   project: BuilderProject;
-  blog: { settings: BlogSettings; posts: readonly PublishablePost[] };
+  blog: {
+    settings: BlogSettings;
+    posts: readonly PublishablePost[];
+    /** The pages the blog's own routes render through. Without them those routes serve nothing. */
+    indexTemplate?: BuilderPage;
+    articleTemplate?: BuilderPage;
+  };
   cms: { collections: readonly PublishableCollection[]; items: readonly PublishableCmsItem[] };
   redirects: readonly Redirect[];
   /**
@@ -97,6 +127,8 @@ export type CompiledSnapshot = {
   routes: RouteManifestEntry[];
   redirects: PublishedRedirect[];
   forms: readonly PublishableForm[];
+  /** Present only for a site whose blog is on. Absent means the site publishes no blog routes. */
+  blog?: PublishableBlog;
   referencedMediaIds: string[];
   searchIndex: SearchDocument[];
   sitemapPaths: string[];
@@ -265,6 +297,17 @@ export function compileSite(input: CompileInput): CompileResult {
   // the project would publish drafts nobody placed.
   const forms = (input.forms ?? []).filter((form) => referencedFormIds(input.project).has(form.id));
 
+  // Only what the published routes need: the settings that shape them, the posts those routes point
+  // at, and the two pages they render through.
+  const blog: PublishableBlog | undefined = input.blog.settings.enabled
+    ? {
+        settings: input.blog.settings,
+        posts: input.blog.posts.filter((post) => post.status === "published"),
+        ...(input.blog.indexTemplate === undefined ? {} : { indexTemplate: input.blog.indexTemplate }),
+        ...(input.blog.articleTemplate === undefined ? {} : { articleTemplate: input.blog.articleTemplate }),
+      }
+    : undefined;
+
   const snapshot: CompiledSnapshot = {
     sourceRevision: input.project.revision,
     schemaVersion: input.project.schemaVersion,
@@ -272,6 +315,7 @@ export function compileSite(input: CompileInput): CompileResult {
     routes,
     redirects,
     forms,
+    ...(blog === undefined ? {} : { blog }),
     referencedMediaIds,
     searchIndex: buildSearchIndex(collectSearchSources(input, routes)),
     // Only indexable routes belong in a sitemap; a 404 route is not a destination.
@@ -284,7 +328,7 @@ export function compileSite(input: CompileInput): CompileResult {
      * questions — the edit could never reach production at all. A definition is part of the page in
      * every sense that matters to whoever fills it in.
      */
-    contentHash: contentHash({ document: normalizeForHash(document), routes, redirects, forms }),
+    contentHash: contentHash({ document: normalizeForHash(document), routes, redirects, forms, ...(blog === undefined ? {} : { blog }) }),
   };
 
   return { ok: true, snapshot, report };
