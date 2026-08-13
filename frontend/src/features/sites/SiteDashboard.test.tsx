@@ -204,3 +204,17 @@ describe("the site's own settings", () => {
     expect(screen.getByLabelText("Site name")).toHaveValue("Acme Studio");
   });
 });
+
+describe("a module that is on and healthy", () => {
+  it("says it is ready rather than demanding setup that does not exist", async () => {
+    // Turning the blog on used to land it in needs_setup whatever its state, so it read "Setup
+    // required" forever while naming no action — because there was none to name.
+    mockStatus([feature({ feature: "blog", lifecycle: "ready" })]);
+    render();
+
+    const optional = await screen.findByRole("navigation", { name: "Modules" });
+    const row = within(optional).getByRole("link", { name: /Blog/ });
+    expect(row).toHaveTextContent("Ready");
+    expect(row).not.toHaveTextContent("Setup required");
+  });
+});

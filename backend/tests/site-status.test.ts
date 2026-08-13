@@ -71,7 +71,17 @@ describe("reconcileSiteStatus", () => {
   });
 
   it("shows a module that was explicitly activated with nothing placed yet", () => {
+    // Visible, and reported as ready rather than as needing setup: nothing is missing, and a badge
+    // demanding an action that does not exist is worse than no badge.
     const status = reconcileSiteStatus({ project: project(), facts: { blog: facts({ explicitlyActivated: true }) } });
+    expect(state(status, "blog")?.lifecycle).toBe("ready");
+  });
+
+  it("asks for setup only when the module really is missing something", () => {
+    const status = reconcileSiteStatus({
+      project: project(),
+      facts: { blog: facts({ explicitlyActivated: true, blockingIssueCount: 1 }) },
+    });
     expect(state(status, "blog")?.lifecycle).toBe("needs_setup");
   });
 

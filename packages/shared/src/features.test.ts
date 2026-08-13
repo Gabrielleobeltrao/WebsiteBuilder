@@ -43,8 +43,18 @@ describe("resolveLifecycle", () => {
     expect(resolveLifecycle(source({ draftReferenceCount: 1, blockingIssueCount: 2 }))).toBe("needs_setup");
   });
 
-  it("is needs_setup when explicitly activated with nothing placed yet", () => {
-    expect(resolveLifecycle(source({ explicitlyActivated: true }))).toBe("needs_setup");
+  it("is ready when explicitly activated and nothing is wrong with it", () => {
+    // Activation used to fall through to needs_setup, so a blog with nothing whatsoever wrong
+    // reported "Setup required" for the rest of its life, naming no action because none existed.
+    expect(resolveLifecycle(source({ explicitlyActivated: true }))).toBe("ready");
+  });
+
+  it("is needs_setup when it was activated and something really is missing", () => {
+    expect(resolveLifecycle(source({ explicitlyActivated: true, blockingIssueCount: 1 }))).toBe("needs_setup");
+  });
+
+  it("says a published module with a real problem needs setup rather than only that it is live", () => {
+    expect(resolveLifecycle(source({ publishedReferenceCount: 2, blockingIssueCount: 1 }))).toBe("needs_setup");
   });
 
   it("is archived when records survive but no reference does", () => {

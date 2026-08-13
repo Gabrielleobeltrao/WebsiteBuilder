@@ -28,11 +28,20 @@ export const MODULE_ROUTES: Record<SiteFeatureKey, string | null> = {
   search: null,
 };
 
+/**
+ * What a module's row says about itself.
+ *
+ * `ready` is here because a module that is on and has nothing wrong with it used to say nothing at
+ * all — and, before the lifecycle was corrected, said "Setup required" instead, naming a task that
+ * did not exist. A row that reports a problem is a row somebody has to be able to act on, so the
+ * only red state is one with a real blocking issue behind it.
+ */
 function badgeFor(feature: SiteFeatureState): { key: string; tone: string } | null {
   if (feature.blockingIssueCount > 0) return { key: "needs_setup", tone: "bg-red-50 text-red-800 ring-red-200" };
   if (feature.lifecycle === "published") return { key: "published", tone: "bg-accent-50 text-accent-800 ring-accent-200" };
   if (feature.lifecycle === "draft") return { key: "draft", tone: "bg-ink-50 text-ink-700 ring-ink-200" };
   if (feature.lifecycle === "needs_setup") return { key: "needs_setup", tone: "bg-red-50 text-red-800 ring-red-200" };
+  if (feature.lifecycle === "ready") return { key: "ready", tone: "bg-ink-50 text-ink-700 ring-ink-200" };
   return null;
 }
 

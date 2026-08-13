@@ -32,10 +32,24 @@ export type FeatureSource = {
  * is precisely when they need to find it.
  */
 export function resolveLifecycle(source: FeatureSource): SiteFeatureLifecycle {
-  if (source.blockingIssueCount > 0 && source.draftReferenceCount > 0) return "needs_setup";
+  const inUse = source.draftReferenceCount > 0 || source.publishedReferenceCount > 0 || source.explicitlyActivated;
+
+  /*
+   * `needs_setup` means there is something to do, and only that.
+   *
+   * It used to mean "turned on by a switch rather than by a block" as well, because activation fell
+   * straight through to it — so a blog with nothing whatsoever wrong reported "Setup required" for
+   * the rest of its life, naming no action, since no action existed. `ready` was in the model the
+   * whole time and nothing ever returned it.
+   *
+   * The blocking check no longer requires a draft reference either: a module can be incomplete
+   * whether a block put it there or a person did, and a published one with a real problem should
+   * say so rather than only reporting that it is live.
+   */
+  if (inUse && source.blockingIssueCount > 0) return "needs_setup";
   if (source.publishedReferenceCount > 0) return "published";
   if (source.draftReferenceCount > 0) return "draft";
-  if (source.explicitlyActivated) return "needs_setup";
+  if (source.explicitlyActivated) return "ready";
   // Records with no live reference are archived, never deleted: hiding a module must never make
   // historical data unreachable.
   if (source.hasRetainedData) return "archived";
