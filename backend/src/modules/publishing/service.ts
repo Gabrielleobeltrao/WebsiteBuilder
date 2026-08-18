@@ -1,4 +1,5 @@
 import {
+  normalizePublishablePost,
   buildRouteManifest,
   compileSite,
   migrateDocumentElements,
@@ -333,7 +334,9 @@ export class PublishingService {
       project: migrated,
       blog: {
         settings,
-        posts: posts.items.map((post) => ({
+        // Normalised on the way in: an unset field arrives from Mongo as null, and every reader
+        // downstream was written against `undefined`.
+        posts: posts.items.map((post) => normalizePublishablePost({
           id: post.id,
           slug: post.slug,
           title: post.title,

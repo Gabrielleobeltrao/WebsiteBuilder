@@ -1,4 +1,7 @@
 import {
+  createPage,
+  elementDefinition,
+  normalizePublishablePost,
   buildRouteManifest,
   DEFAULT_BLOG_SETTINGS,
   type BlogSettings,
@@ -133,5 +136,93 @@ describe("a version published before its blog carried anything", () => {
     const html = render("blogIndex", undefined);
     expect(html).toContain("<!doctype html>");
     expect(html).not.toContain("Hello world");
+  });
+});
+
+/**
+ * What a post without every optional field produces.
+ *
+ * Mongo stores an unset optional as `null`, and these fields are declared `string | undefined`, so
+ * `coverMediaId !== undefined` was true for a post that has no cover. Every published card and
+ * article carried `<img src=".../null/content">` and a `preload` link in the head fetching that 404
+ * before anything else on the page, and the byline printed a bare separator with no name in front
+ * of it. Both are what a customer sees as "the blog is not working".
+ */
+/**
+ * The band of nothing above every article.
+ *
+ * Activating a blog seeds both templates from `createPage`, which arrives with one 480px section and
+ * nothing in it. Rendered above the article, that is half a screen of blank space before the first
+ * word — the reason a working blog reads as a broken one.
+ */
+describe("a template nobody has filled in", () => {
+  const emptyTemplate = () => createPage({ name: "Article" });
+
+  it("takes up no space at all", () => {
+    const html = render("blogPost", blog({ articleTemplate: emptyTemplate() }));
+
+    expect(html).not.toContain("min-height:480px");
+    expect(html).toContain("Hello world");
+  });
+
+  it("still renders a template that has something on it", () => {
+    const filled = createPage({ name: "Article" });
+    filled.sections[0]!.elements = [
+      {
+        ...(elementDefinition("text").defaults() as Record<string, unknown>),
+        id: "masthead",
+        name: "",
+        type: "text",
+        version: elementDefinition("text").schemaVersion,
+        content: "From the newsroom",
+        geometry: { x: 0, y: 0, width: 320, height: 64, rotation: 0 },
+        responsiveLayout: {
+          width: { value: 320, unit: "px" },
+          height: { value: 64, unit: "px" },
+          horizontalConstraint: "left",
+          verticalConstraint: "top",
+          visible: true,
+        },
+        zIndex: 1,
+        locked: false,
+        hidden: false,
+      } as never,
+    ];
+
+    expect(render("blogPost", blog({ articleTemplate: filled }))).toContain("From the newsroom");
+  });
+});
+
+describe("a post with nothing optional filled in", () => {
+  const bare = () =>
+    normalizePublishablePost({
+      ...post(),
+      // As Mongo hands them back, which is not what the type says.
+      coverMediaId: null,
+      authorName: null,
+      excerpt: null,
+    } as unknown as PublishablePost);
+
+  it("renders no image at all rather than one pointing at nothing", () => {
+    const html = render("blogPost", blog({ posts: [bare()] }));
+
+    expect(html).not.toContain("/null/");
+    expect(html).not.toContain("<img");
+    // And nothing in the head asking the browser to fetch it early.
+    expect(html).not.toContain('rel="preload"');
+  });
+
+  it("leaves out the byline instead of printing its punctuation", () => {
+    const html = render("blogPost", blog({ posts: [bare()] }));
+
+    expect(html).not.toContain(" · ");
+    expect(html).toContain("Hello world");
+  });
+
+  it("keeps the fields that are actually set", () => {
+    const html = render("blogPost", blog({ posts: [normalizePublishablePost(post())] }));
+
+    expect(html).toContain("Ana");
+    expect(html).toContain("The first thing we published.");
   });
 });

@@ -25,6 +25,21 @@ import { useRendererContext } from "./RendererContext";
  * set on purpose: those are the only two questions an index has, and everything past them is a page
  * somebody should be designing rather than configuring.
  */
+/**
+ * Whether a template has anything on it.
+ *
+ * Activating a blog seeds both templates from `createPage`, which comes with one section 480px tall
+ * and nothing in it. Rendered above every article and every index, that is half a screen of blank
+ * space before the first word — which reads as a blog that is not working rather than as a template
+ * nobody has filled in yet.
+ *
+ * Checked at display time rather than fixed in the seed, because the templates already out there
+ * carry that section and no migration is going to visit them.
+ */
+function hasContent(template: BuilderPage | undefined): template is BuilderPage {
+  return template !== undefined && template.sections.some((section) => section.elements.length > 0);
+}
+
 export function BlogIndexRenderer({
   template,
   settings,
@@ -41,7 +56,7 @@ export function BlogIndexRenderer({
 
   return (
     <div>
-      {template !== undefined && <ProjectPageRenderer page={template} />}
+      {hasContent(template) && <ProjectPageRenderer page={template} />}
 
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 20px", boxSizing: "border-box" }}>
         {lead !== undefined && <PostCard post={lead} settings={settings} lead />}
@@ -112,7 +127,7 @@ export function BlogPostRenderer({ template, post }: { template?: BuilderPage; p
 
   return (
     <div>
-      {template !== undefined && <ProjectPageRenderer page={template} />}
+      {hasContent(template) && <ProjectPageRenderer page={template} />}
 
       <article style={{ maxWidth: 720, margin: "0 auto", padding: "24px 20px", boxSizing: "border-box" }}>
         <h1 style={{ margin: 0 }}>{post.title}</h1>

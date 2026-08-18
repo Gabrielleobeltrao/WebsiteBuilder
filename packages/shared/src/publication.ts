@@ -266,6 +266,33 @@ function sweepPages(project: CompileInput["project"]): Array<ResponsiveFinding &
   );
 }
 
+/**
+ * A post as published output should carry it: absent fields absent, not null and not blank.
+ *
+ * Mongo stores an unset optional as `null`, and `PublishablePost` declares these as
+ * `string | undefined` — so `coverMediaId !== undefined` was true for a post with no cover, and
+ * every published card and article rendered `<img src=".../null/content">`, with a `preload` link
+ * in the head fetching that 404 eagerly. The byline did the same, printing a bare " · " separator
+ * with nobody's name in front of it.
+ *
+ * Normalised at the one place a post crosses into published output, rather than guarded again at
+ * each of the places that read it.
+ */
+export function normalizePublishablePost(post: PublishablePost): PublishablePost {
+  const text = (value: unknown): string | undefined => {
+    const trimmed = typeof value === "string" ? value.trim() : "";
+    return trimmed === "" ? undefined : trimmed;
+  };
+
+  const next: PublishablePost = { ...post };
+  for (const key of ["coverMediaId", "authorName", "excerpt", "publishedAt"] as const) {
+    const value = text(next[key]);
+    if (value === undefined) delete next[key];
+    else next[key] = value;
+  }
+  return next;
+}
+
 export function compileSite(input: CompileInput): CompileResult {
   const routes = buildRouteManifest(input);
   const referencedMediaIds = collectMediaIds(input);
