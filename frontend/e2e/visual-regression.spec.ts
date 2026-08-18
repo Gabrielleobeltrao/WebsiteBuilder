@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
 
@@ -14,6 +16,30 @@ import { expect, test, type Page } from "@playwright/test";
  * reasons that have nothing to do with layout.
  */
 test.use({ viewport: { width: 1440, height: 960 } });
+
+/*
+ * These run only where their baselines were made, and say so out loud when they do not.
+ *
+ * A reference screenshot is bound to the machine that produced it: macOS and Linux disagree about
+ * font hinting, antialiasing and scrollbar width, so a baseline from one can never match a run on
+ * the other. Only `-darwin` baselines are committed, so every push failed this job on the Linux
+ * runner — for a reason that is not a layout regression and that no local run could reproduce. A
+ * gate that fails for a reason nobody can act on is a gate people learn to ignore, and it took the
+ * rest of the pipeline's credibility with it.
+ *
+ * The skip is deliberately loud. Restoring the check on the runner means generating the baselines
+ * there and committing them; until somebody does that, this must read as "not checked here" rather
+ * than as a pass.
+ */
+const BASELINES = join(import.meta.dirname, "visual-regression.spec.ts-snapshots");
+const hasBaselines = existsSync(join(BASELINES, `builder-desktop-desktop-${process.platform}.png`));
+
+test.skip(
+  !hasBaselines,
+  `No ${process.platform} reference screenshots are committed, and a baseline from another platform ` +
+    `cannot match this one. Generate them here with ` +
+    `\`npx playwright test visual-regression --update-snapshots\` and commit the result.`,
+);
 
 /**
  * Unique across workers, not just within one.
