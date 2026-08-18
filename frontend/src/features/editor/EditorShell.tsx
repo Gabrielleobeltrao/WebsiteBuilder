@@ -221,6 +221,9 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
       case "elements":
         return (
           <ElementsPanel
+            /* Which blocks exist here at all. A blog template offers the bound ones and an
+               ordinary page does not, because a block with no record behind it renders nothing. */
+            context={store.target.kind === "blogTemplate" ? "blogTemplate" : "page"}
             onAdd={(type) => store.insertElement(type)}
             onInsertPattern={(patternId) =>
               store.insertPattern(patternId, (key) => t(`builder:patterns.${key}` as "builder:patterns.hero.name"))

@@ -265,6 +265,58 @@ export default {
 
   "fields": {
 
+    "postField": "Campo do post",
+
+    "limit": "Quantos posts",
+
+    "sort": "Ordem",
+
+    "emptyStateText": "Texto quando não há posts",
+
+    "postFields": {
+
+      "title": "Título",
+
+      "excerpt": "Resumo",
+
+      "cover": "Imagem de capa",
+
+      "content": "Conteúdo",
+
+      "author": "Autor",
+
+      "publishedAt": "Data de publicação",
+
+      "category": "Categoria",
+
+    },
+
+    "displays": {
+
+      "text": "Texto",
+
+      "heading": "Título",
+
+      "image": "Imagem",
+
+      "richText": "Texto formatado",
+
+      "date": "Data",
+
+      "link": "Link",
+
+    },
+
+    "sorts": {
+
+      "newest": "Mais recentes primeiro",
+
+      "oldest": "Mais antigos primeiro",
+
+      "title": "Por título",
+
+    },
+
     "clearColor": "Limpar cor",
 
     "appearanceHint": "Sem cor definida, o bloco usa o padrão do site.",

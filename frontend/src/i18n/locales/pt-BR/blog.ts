@@ -1,4 +1,8 @@
 export default {
+  templates: {
+    article: "Layout do post",
+    index: "Layout da lista",
+  },
   title: "Blog",
   description: "Escreva, publique e gerencie posts sem abrir o construtor visual.",
   activate: {

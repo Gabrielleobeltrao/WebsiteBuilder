@@ -265,6 +265,58 @@ export default {
 
   "fields": {
 
+    "postField": "Post field",
+
+    "limit": "How many posts",
+
+    "sort": "Order",
+
+    "emptyStateText": "Text when there are no posts",
+
+    "postFields": {
+
+      "title": "Title",
+
+      "excerpt": "Excerpt",
+
+      "cover": "Cover image",
+
+      "content": "Content",
+
+      "author": "Author",
+
+      "publishedAt": "Published date",
+
+      "category": "Category",
+
+    },
+
+    "displays": {
+
+      "text": "Text",
+
+      "heading": "Heading",
+
+      "image": "Image",
+
+      "richText": "Rich text",
+
+      "date": "Date",
+
+      "link": "Link",
+
+    },
+
+    "sorts": {
+
+      "newest": "Newest first",
+
+      "oldest": "Oldest first",
+
+      "title": "By title",
+
+    },
+
     "clearColor": "Clear colour",
 
     "appearanceHint": "With no colour set, the block uses the site's default.",

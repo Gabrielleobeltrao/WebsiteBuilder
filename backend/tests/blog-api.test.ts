@@ -201,3 +201,103 @@ describe("turning the blog on", () => {
     expect(again.body.data.format).toBe("magazine");
   });
 });
+
+/**
+ * The template a designer edits.
+ *
+ * The store could load, save and publish a template from the first commit; nothing exposed it, so
+ * there was no way to reach one from outside the process. A template nobody can open is a layout
+ * nobody can change, which is what a blog with a fixed article shape actually is.
+ */
+describe("editing a template", () => {
+  const path = (kind: string) => `${base}/templates/${kind}`;
+
+  it("creates the template on first read rather than answering 404", async () => {
+    // A blog turned on before templates existed should not have to be turned off and on again.
+    const response = await request(app).get(path("article"));
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.kind).toBe("article");
+    expect(response.body.data.draftDocument.sections.length).toBeGreaterThan(0);
+  });
+
+  it("accepts the template it seeded, which has no route and so no slug", async () => {
+    // The seed produces an empty slug, and the page schema requires a route-shaped one — so the
+    // first save of an untouched template was refused as invalid.
+    const created = await request(app).get(path("article"));
+    const saved = await request(app)
+      .put(path("article"))
+      .send({ draftDocument: created.body.data.draftDocument, fieldDefinitions: [] });
+
+    expect(saved.status).toBe(200);
+  });
+
+  it("refuses a kind that is not one of the two", async () => {
+    expect((await request(app).get(path("something-else"))).status).toBe(404);
+  });
+
+  it("saves a draft and hands back what it stored", async () => {
+    const created = await request(app).get(path("article"));
+    const page = created.body.data.draftDocument;
+    page.name = "Designed article";
+
+    const saved = await request(app)
+      .put(path("article"))
+      .send({ draftDocument: page, fieldDefinitions: [] });
+
+    expect(saved.status).toBe(200);
+    expect(saved.body.data.draftDocument.name).toBe("Designed article");
+    expect(saved.body.data.draftVersion).toBe(2);
+  });
+
+  it("refuses a draft carrying anything a page could not", async () => {
+    const created = await request(app).get(path("article"));
+    const page = created.body.data.draftDocument;
+    page.sections[0].elements = [{ type: "script", src: "https://evil.test/x.js" }];
+
+    // The same schema a site's own pages go through: a template is a page in every respect but
+    // where it is shown.
+    expect((await request(app).put(path("article")).send({ draftDocument: page, fieldDefinitions: [] })).status).toBe(
+      400,
+    );
+  });
+
+  it("refuses a save made against a version somebody else has replaced", async () => {
+    const created = await request(app).get(path("article"));
+    const page = created.body.data.draftDocument;
+    const staleVersion = created.body.data.draftVersion;
+
+    await request(app).put(path("article")).send({ draftDocument: page, fieldDefinitions: [], expectedVersion: staleVersion });
+
+    // Two tabs on one template. Without this the later save silently discarded the earlier work.
+    const late = await request(app)
+      .put(path("article"))
+      .send({ draftDocument: { ...page, name: "From the other tab" }, fieldDefinitions: [], expectedVersion: staleVersion });
+
+    expect(late.status).toBe(409);
+    expect(late.body.error.code).toBe("REVISION_CONFLICT");
+  });
+
+  it("publishes the draft, which is what reaches a reader", async () => {
+    const created = await request(app).get(path("article"));
+    const page = created.body.data.draftDocument;
+    page.name = "Live article";
+    await request(app).put(path("article")).send({ draftDocument: page, fieldDefinitions: [] });
+
+    const published = await request(app).post(`${path("article")}/publish`);
+
+    expect(published.status).toBe(200);
+    expect(published.body.data.published).toBe(true);
+    expect(published.body.data.template.publishedDocument.name).toBe("Live article");
+  });
+
+  it("keeps a draft out of published output until it is published", async () => {
+    const created = await request(app).get(path("article"));
+    const page = created.body.data.draftDocument;
+    page.name = "Only a draft";
+    await request(app).put(path("article")).send({ draftDocument: page, fieldDefinitions: [] });
+
+    const reread = await request(app).get(path("article"));
+    expect(reread.body.data.publishedDocument).toBeUndefined();
+  });
+});

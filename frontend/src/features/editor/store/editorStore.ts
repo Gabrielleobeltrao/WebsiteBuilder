@@ -24,6 +24,7 @@ import type {
 import { create } from "zustand";
 
 import { ApiError } from "@/api/client";
+import { blogTemplateApi } from "@/api/blog";
 import { projectsApi } from "@/api/projects";
 import * as clipboardOps from "./clipboard";
 import * as elementOps from "./elements";
@@ -91,7 +92,21 @@ export type EditorState = {
   };
   persistence: PersistenceState;
 
+  /**
+   * What this session is editing.
+   *
+   * A blog template is a page like any other and is edited by the same builder — the only things
+   * that differ are where it is read from and where a save goes. Carrying that as one field beats a
+   * second store that would have to re-implement history, autosave and every block behaviour.
+   */
+  target: { kind: "project" } | { kind: "blogTemplate"; templateKind: "index" | "article"; version: number };
   load: (workspaceId: string, projectId: string, signal?: AbortSignal) => Promise<void>;
+  loadBlogTemplate: (
+    workspaceId: string,
+    projectId: string,
+    templateKind: "index" | "article",
+    signal?: AbortSignal,
+  ) => Promise<void>;
   loadFromProject: (project: BuilderProject) => void;
 
   save: () => Promise<void>;
@@ -231,6 +246,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
     revision: 0,
     loadStatus: "idle",
     loadErrorCode: null,
+    target: { kind: "project" },
     history: history.createHistory(EMPTY_DOCUMENT),
     ui: {
       currentPageId: null,
@@ -250,6 +266,46 @@ export const useEditorStore = create<EditorState>((set, get) => {
       try {
         const project = await projectsApi.load(workspaceId, projectId, signal ? { signal } : {});
         get().loadFromProject(project);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        set({
+          loadStatus: "error",
+          loadErrorCode: error instanceof ApiError ? error.code : "INTERNAL_ERROR",
+        });
+      }
+    },
+
+    /**
+     * Opens a blog template in the builder.
+     *
+     * Wrapped as a one-page document so every block behaviour, the history and the autosave work
+     * unchanged: the builder does not need to know it is looking at a template, only that it has a
+     * page. The template's own version travels in `target`, so a save can refuse a stale write the
+     * way every other save in this product does.
+     */
+    async loadBlogTemplate(workspaceId, projectId, templateKind, signal) {
+      set({ loadStatus: "loading", loadErrorCode: null });
+      try {
+        const template = await blogTemplateApi.load(workspaceId, projectId, templateKind, signal ? { signal } : {});
+        const document: BuilderDocumentInput = {
+          ...EMPTY_DOCUMENT,
+          name: template.draftDocument.name,
+          pages: [template.draftDocument],
+        };
+        const { document: elementsMigrated } = migrateDocumentElements(document);
+        const { document: migrated } = migrateDocumentResponsive(elementsMigrated);
+
+        set((state) => ({
+          workspaceId,
+          projectId,
+          revision: 0,
+          target: { kind: "blogTemplate", templateKind, version: template.draftVersion },
+          loadStatus: "ready",
+          loadErrorCode: null,
+          history: history.reset(migrated),
+          persistence: { status: "clean" },
+          ui: { ...state.ui, currentPageId: migrated.pages[0]?.id ?? null, selection: null },
+        }));
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         set({
@@ -295,9 +351,31 @@ export const useEditorStore = create<EditorState>((set, get) => {
 
       const document = state.history.present;
       const revision = state.revision;
+      const target = state.target;
       set({ persistence: { status: "saving" } });
 
       try {
+        if (target.kind === "blogTemplate") {
+          const page = document.pages[0];
+          if (page === undefined) return;
+
+          const saved = await blogTemplateApi.save(workspaceId, projectId, target.templateKind, {
+            draftDocument: page,
+            fieldDefinitions: [],
+            expectedVersion: target.version,
+          });
+
+          set((current) => ({
+            target: { kind: "blogTemplate", templateKind: target.templateKind, version: saved.draftVersion },
+            persistence:
+              current.history.present === document
+                ? { status: "saved", at: saved.updatedAt }
+                : { status: "dirty" },
+          }));
+          if (get().persistence.status === "dirty") scheduleAutosave();
+          return;
+        }
+
         const saved = await projectsApi.saveDocument(workspaceId, projectId, revision, document);
         set((current) => ({
           revision: saved.revision,

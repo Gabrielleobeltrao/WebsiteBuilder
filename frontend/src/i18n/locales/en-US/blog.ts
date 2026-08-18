@@ -1,4 +1,8 @@
 export default {
+  templates: {
+    article: "Post layout",
+    index: "List layout",
+  },
   title: "Blog",
   description: "Write, publish and manage posts without opening the visual builder.",
   activate: {

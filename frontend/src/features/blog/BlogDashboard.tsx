@@ -133,12 +133,29 @@ export function BlogDashboard({
           <h1 className="font-display text-2xl font-semibold tracking-tight text-ink-950">{t("blog:title")}</h1>
           <p className="mt-1 text-sm text-ink-600">{t("blog:description")}</p>
         </div>
-        <Link
-          to={`${basePath}/posts/new`}
-          className="rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-700"
-        >
-          {t("blog:posts.create")}
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {/* The layout every article is drawn with, edited in the same builder as the site. Placed
+              beside "new post" because designing the shape and writing into it are the two things
+              somebody comes to this screen to do. */}
+          <Link
+            to={`${basePath}/templates/article`}
+            className="rounded-md border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50"
+          >
+            {t("blog:templates.article")}
+          </Link>
+          <Link
+            to={`${basePath}/templates/index`}
+            className="rounded-md border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50"
+          >
+            {t("blog:templates.index")}
+          </Link>
+          <Link
+            to={`${basePath}/posts/new`}
+            className="rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-700"
+          >
+            {t("blog:posts.create")}
+          </Link>
+        </div>
       </div>
 
       {settings !== null && (

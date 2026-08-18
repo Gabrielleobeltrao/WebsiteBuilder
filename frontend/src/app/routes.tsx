@@ -24,6 +24,9 @@ import { safeReturnPath } from "@/lib/return-path";
 const AnalyticsRoute = lazy(async () => ({ default: (await import("@/features/analytics/AnalyticsRoute")).AnalyticsRoute }));
 const BlogRoute = lazy(async () => ({ default: (await import("@/features/blog/BlogRoute")).BlogRoute }));
 const PostEditorRoute = lazy(async () => ({ default: (await import("@/features/blog/PostEditorRoute")).PostEditorRoute }));
+const TemplateEditorRoute = lazy(async () => ({
+  default: (await import("@/features/blog/TemplateEditorRoute")).TemplateEditorRoute,
+}));
 const EditorRoute = lazy(async () => ({ default: (await import("@/features/editor/EditorRoute")).EditorRoute }));
 const FormsRoute = lazy(async () => ({ default: (await import("@/features/forms/FormsRoute")).FormsRoute }));
 const FormEditorRoute = lazy(async () => ({ default: (await import("@/features/forms/FormsRoute")).FormEditorRoute }));
@@ -86,6 +89,11 @@ export function AppRoutes({ authenticated = false }: { authenticated?: boolean }
         <>
           <Route path="app/:workspaceId/sites/:projectId/builder" element={<EditorRoute />} />
           <Route path="app/:workspaceId/sites/:projectId/builder/:pageId" element={<EditorRoute />} />
+          {/* A template is edited by the same builder and owns the viewport for the same reason. */}
+          <Route
+            path="app/:workspaceId/sites/:projectId/blog/templates/:kind"
+            element={<TemplateEditorRoute />}
+          />
         </>
       )}
 

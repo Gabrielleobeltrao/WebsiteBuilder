@@ -1,4 +1,4 @@
-import type { BlogFormat, BlogPost, BlogPostInput, BlogSettings } from "@websitebuilder/shared";
+import type { BlogFieldDefinition, BlogFormat, BlogPost, BlogPostInput, BlogSettings, BuilderPage } from "@websitebuilder/shared";
 
 import { apiRequest } from "./client";
 
@@ -72,5 +72,49 @@ export const blogApi = {
 
   deletePost(workspaceId: string, projectId: string, postId: string) {
     return apiRequest<void>(`${scope(workspaceId, projectId)}/posts/${postId}`, { method: "DELETE" });
+  },
+};
+
+export type BlogTemplate = {
+  id: string;
+  kind: "index" | "article";
+  draftDocument: BuilderPage;
+  draftVersion: number;
+  publishedDocument?: BuilderPage;
+  publishedVersion?: number;
+  fieldDefinitions: BlogFieldDefinition[];
+  updatedAt: string;
+};
+
+/**
+ * The two layouts a blog renders through.
+ *
+ * Separate from the site's own pages on purpose: a template is not routed, and publishing it reaches
+ * every article at once rather than waiting for the site's next publish.
+ */
+export const blogTemplateApi = {
+  load(workspaceId: string, projectId: string, kind: "index" | "article", options: { signal?: AbortSignal } = {}) {
+    return apiRequest<BlogTemplate>(`${scope(workspaceId, projectId)}/templates/${kind}`, {
+      ...(options.signal ? { signal: options.signal } : {}),
+    });
+  },
+
+  save(
+    workspaceId: string,
+    projectId: string,
+    kind: "index" | "article",
+    input: { draftDocument: BuilderPage; fieldDefinitions: BlogFieldDefinition[]; expectedVersion: number },
+  ) {
+    return apiRequest<BlogTemplate>(`${scope(workspaceId, projectId)}/templates/${kind}`, {
+      method: "PUT",
+      body: input,
+    });
+  },
+
+  publish(workspaceId: string, projectId: string, kind: "index" | "article") {
+    return apiRequest<{ published: boolean; template?: BlogTemplate }>(
+      `${scope(workspaceId, projectId)}/templates/${kind}/publish`,
+      { method: "POST" },
+    );
   },
 };

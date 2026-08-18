@@ -1,4 +1,11 @@
-import { BLOG_FORMATS, blogPostInputSchema, blogSettingsSchema, resourceIdSchema } from "@websitebuilder/shared";
+import {
+  BLOG_FORMATS,
+  blogFieldDefinitionSchema,
+  blogPostInputSchema,
+  blogSettingsSchema,
+  builderPageSchema,
+  resourceIdSchema,
+} from "@websitebuilder/shared";
 import { Router } from "express";
 import { z } from "zod";
 
@@ -9,6 +16,33 @@ import type { TemplateRepository } from "./templates";
 
 /** A blog is turned on with a format chosen, never without one. */
 const activationSchema = z.object({ format: z.enum(BLOG_FORMATS) }).strict();
+
+/** Which of the two templates a request is about. Anything else is not a template. */
+const templateKindSchema = z.enum(["index", "article"]);
+
+/**
+ * A template draft, as the editor saves it.
+ *
+ * The page goes through the same schema a site's own pages do, so a template cannot carry anything
+ * a page could not — including, in particular, anything that is not a validated block.
+ */
+const templateDraftSchema = z
+  .object({
+    /*
+     * A page, minus the one thing a template does not have.
+     *
+     * `builderPageSchema` requires a route-shaped slug, because a site's pages are addressed by one.
+     * A template is not addressed at all — the blog's own routes render through it — so it is seeded
+     * with an empty slug, and validating it as an ordinary page asked a layout where it lives.
+     * Everything else is identical on purpose: a template must not be able to carry anything a page
+     * could not.
+     */
+    draftDocument: builderPageSchema.extend({ slug: z.union([z.literal(""), builderPageSchema.shape.slug]) }),
+    fieldDefinitions: z.array(blogFieldDefinitionSchema).max(40),
+    /** The version this edit started from. A save without it cannot detect a stale write. */
+    expectedVersion: z.number().int().positive().optional(),
+  })
+  .strict();
 
 /**
  * Blog endpoints, mounted beneath `/workspaces/:workspaceId/projects/:projectId/blog`.
@@ -93,6 +127,96 @@ export function createBlogRouter(options: {
       });
 
       res.json({ data: settings });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * The template a designer edits, created on first read.
+   *
+   * `loadOrCreate` rather than a 404: a blog that is on has both templates by construction, and a
+   * blog turned on before templates existed should not have to be turned off and on again to get
+   * one. Opening the editor is what most people will do first, so it is where the gap is closed.
+   */
+  router.get("/templates/:kind", async (req, res, next) => {
+    try {
+      const context = await resolveWorkspace(req, "project:edit");
+      const projectId = parseProjectId(param(req, "projectId"));
+      const kind = templateKindSchema.safeParse(param(req, "kind"));
+      if (!kind.success) throw new ApiProblem("NOT_FOUND", "Template not found");
+      if (templates === undefined) throw new ApiProblem("SERVICE_UNAVAILABLE", "Templates are not available");
+
+      res.json({ data: await templates.loadOrCreate(context, projectId, kind.data) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.put("/templates/:kind", async (req, res, next) => {
+    try {
+      const context = await resolveWorkspace(req, "project:edit");
+      const projectId = parseProjectId(param(req, "projectId"));
+      const kind = templateKindSchema.safeParse(param(req, "kind"));
+      if (!kind.success) throw new ApiProblem("NOT_FOUND", "Template not found");
+      if (templates === undefined) throw new ApiProblem("SERVICE_UNAVAILABLE", "Templates are not available");
+
+      const parsed = templateDraftSchema.safeParse(req.body);
+      if (!parsed.success) throw zodProblem(parsed.error);
+
+      const saved = await templates.saveDraft(
+        context,
+        projectId,
+        kind.data,
+        parsed.data,
+        parsed.data.expectedVersion,
+      );
+
+      if (saved === null) {
+        // The template exists; it moved on. Telling the two apart matters, because one means
+        // "somebody else saved" and the other means "this is not your template".
+        const current = await templates.loadOrCreate(context, projectId, kind.data);
+        if (parsed.data.expectedVersion !== undefined && current.draftVersion !== parsed.data.expectedVersion) {
+          throw new ApiProblem("REVISION_CONFLICT", "This template was saved somewhere else since you opened it");
+        }
+        throw new ApiProblem("NOT_FOUND", "Template not found");
+      }
+      res.json({ data: saved });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * Promotes the draft to what visitors see.
+   *
+   * Separate from publishing the site: a template change reaches every article at once, and the
+   * impact report names the posts a newly required field would leave incomplete. A blocked report is
+   * a 409 with the report in it, not a silent refusal.
+   */
+  router.post("/templates/:kind/publish", async (req, res, next) => {
+    try {
+      const context = await resolveWorkspace(req, "publish:execute");
+      const projectId = parseProjectId(param(req, "projectId"));
+      const kind = templateKindSchema.safeParse(param(req, "kind"));
+      if (!kind.success) throw new ApiProblem("NOT_FOUND", "Template not found");
+      if (templates === undefined) throw new ApiProblem("SERVICE_UNAVAILABLE", "Templates are not available");
+
+      const published = await repository.list(context, projectId, { status: "published", perPage: 500 });
+      const result = await templates.publish(
+        context,
+        projectId,
+        kind.data,
+        published.items.map((post) => ({ id: post.id, customFieldValues: post.customFieldValues })),
+      );
+
+      if (result === null) throw new ApiProblem("NOT_FOUND", "Template not found");
+      if ("impact" in result) {
+        res.status(409).json({ data: { published: false, impact: result.impact } });
+        return;
+      }
+
+      res.json({ data: { published: true, template: result.template } });
     } catch (error) {
       next(error);
     }

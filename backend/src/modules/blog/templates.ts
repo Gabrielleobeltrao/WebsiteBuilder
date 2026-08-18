@@ -78,14 +78,30 @@ export class TemplateRepository {
     return toTemplate({ ...document, _id: result.insertedId } as TemplateDocument);
   }
 
+  /**
+   * Saves the draft against the version it was edited from.
+   *
+   * Every other save in this product refuses a stale write; this one accepted any, so two tabs on
+   * the same template meant the later save silently discarded the earlier one's work. `draftVersion`
+   * already existed and already incremented — nothing was checking it.
+   *
+   * `expectedVersion` is optional so a caller with no version in hand can still save, which is what
+   * the seeding path and the tests that predate this do.
+   */
   async saveDraft(
     context: WorkspaceContext,
     projectId: string,
     kind: TemplateKind,
     input: { draftDocument: BuilderPage; fieldDefinitions: BlogFieldDefinition[] },
+    expectedVersion?: number,
   ): Promise<BlogTemplate | null> {
     const updated = await this.templates.findOneAndUpdate(
-      { workspaceId: context.workspaceId, projectId, kind },
+      {
+        workspaceId: context.workspaceId,
+        projectId,
+        kind,
+        ...(expectedVersion === undefined ? {} : { draftVersion: expectedVersion }),
+      },
       {
         $set: {
           draftDocument: input.draftDocument,

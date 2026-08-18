@@ -3,6 +3,8 @@ import {
   FORM_PRESETS,
   hasTimezone,
   ICON_NAMES,
+  POST_COLLECTION_SORTS,
+  SYSTEM_BINDING_FIELDS,
   SOCIAL_NETWORKS,
   socialUrlMatchesNetwork,
   VIDEO_PROVIDERS,
@@ -489,6 +491,84 @@ export function VisualElementInspector({
         </>
       );
     }
+
+    case "dynamicField": {
+      /*
+       * Which of the post's values this block shows, and how it is presented.
+       *
+       * The binding is the whole point of the block and the display is how the value is drawn — a
+       * title as a heading, a cover as an image, a date as a date. Kept as two fields rather than
+       * one combined choice because a designer can reasonably want the title as plain text.
+       */
+      const binding = element.binding;
+      return (
+        <InspectorGroup titleKey="content">
+          <SelectField
+            label={t("fields.postField")}
+            value={binding.source === "system" ? binding.field : ""}
+            options={SYSTEM_BINDING_FIELDS.map((field) => ({
+              value: field,
+              label: t(`fields.postFields.${field}` as "fields.postFields.title"),
+            }))}
+            onChange={(field) => set({ binding: { source: "system", field } })}
+          />
+          <SelectField
+            label={t("fields.display")}
+            value={element.display}
+            options={(["text", "heading", "image", "richText", "date", "link"] as const).map((display) => ({
+              value: display,
+              label: t(`fields.displays.${display}` as "fields.displays.text"),
+            }))}
+            onChange={(display) => set({ display })}
+          />
+        </InspectorGroup>
+      );
+    }
+
+    case "postCollection":
+      return (
+        <InspectorGroup titleKey="content">
+          <NumberField
+            label={t("fields.columns")}
+            value={element.columns}
+            min={1}
+            max={6}
+            transactionKey={`${key}:columns`}
+            onChange={(columns) => set({ columns })}
+          />
+          <NumberField
+            label={t("fields.limit")}
+            value={element.query.limit}
+            min={1}
+            max={48}
+            transactionKey={`${key}:limit`}
+            onChange={(limit) => set({ query: { ...element.query, limit } })}
+          />
+          <SelectField
+            label={t("fields.sort")}
+            value={element.query.sort}
+            options={POST_COLLECTION_SORTS.map((sort) => ({
+              value: sort,
+              label: t(`fields.sorts.${sort}` as "fields.sorts.newest"),
+            }))}
+            onChange={(sort) => set({ query: { ...element.query, sort } })}
+          />
+          <NumberField
+            label={t("fields.gap")}
+            value={element.gap}
+            min={0}
+            max={80}
+            transactionKey={`${key}:gap`}
+            onChange={(gap) => set({ gap })}
+          />
+          <TextField
+            label={t("fields.emptyStateText")}
+            value={element.emptyStateText}
+            transactionKey={`${key}:empty`}
+            onChange={(emptyStateText) => set({ emptyStateText })}
+          />
+        </InspectorGroup>
+      );
 
     case "richText":
       return (
