@@ -307,6 +307,15 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
           >
             {t("builder:topBar.save")}
           </button>
+          {/*
+            Named for where it goes, not for what it does.
+            
+            It was called "Publish", it is a link, and it publishes nothing — so pressing it, landing
+            on a screen also headed "Publish", and leaving reads as a site that went live. It does
+            not: the act is a separate button on that screen, behind a confirmation. Somebody spent a
+            day believing their page was published while the site served a snapshot from before they
+            wrote it.
+          */}
           <Link
             to={`/app/${workspaceId}/sites/${projectId}/publish`}
             className="flex items-center gap-1.5 rounded-md bg-accent-600 px-3 py-1.5 text-xs font-semibold

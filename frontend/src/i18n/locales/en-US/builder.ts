@@ -5,7 +5,7 @@ export default {
     redo: "Redo",
     save: "Save",
     preview: "Preview",
-    publish: "Publish",
+    publish: "Publishing",
     currentPage: "Current page",
     zoom: "Zoom",
     fit: "Fit",

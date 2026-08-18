@@ -5,7 +5,7 @@ export default {
     redo: "Refazer",
     save: "Salvar",
     preview: "Pré-visualizar",
-    publish: "Publicar",
+    publish: "Publicação",
     currentPage: "Página atual",
     zoom: "Zoom",
     fit: "Ajustar",

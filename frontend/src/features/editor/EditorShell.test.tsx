@@ -148,7 +148,7 @@ describe("top bar", () => {
       "Redo",
       "Preview",
       "Save",
-      "Publish",
+      "Publishing",
     ]);
   });
 
@@ -161,14 +161,19 @@ describe("top bar", () => {
     expect(previews[0]).toHaveAttribute("href", "/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa");
   });
 
-  it("links to the publish flow", () => {
+  it("names the publishing control for where it goes, because it does not publish", () => {
     useEditorStore.getState().loadFromProject(project());
     render();
 
-    expect(screen.getByRole("link", { name: "Publish" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Publishing" })).toHaveAttribute(
       "href",
       "/app/w1/sites/aaaaaaaaaaaaaaaaaaaaaaaa/publish",
     );
+
+    // Nothing in the builder may carry the label of the act itself. Calling a link "Publish" is how
+    // somebody left believing their site was live while it served a snapshot from before their edit.
+    expect(screen.queryByRole("button", { name: "Publish" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Publish" })).toBeNull();
   });
 
   it("switches page from the bar without leaving the builder", async () => {
