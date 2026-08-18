@@ -8,8 +8,11 @@ import { installGracefulShutdown } from "./lifecycle";
 import { AnalyticsRepository, ensureAnalyticsIndexes, SiteViewRepository } from "./modules/analytics/repository";
 import { ensurePublishingIndexes, PublishingRepository } from "./modules/publishing/repository";
 import { ensureFormIndexes, FormRepository } from "./modules/forms/repository";
+import { MediaRepository } from "./modules/media/repository";
+import { createGridFsStorage } from "./modules/media/storage";
 import { createAnalyticsRuntime } from "./renderer/analytics";
 import { createFormSubmissionRouter } from "./renderer/forms";
+import { createPublicMediaRouter } from "./renderer/media";
 import { createRendererApp, type ViewRecorder } from "./renderer/app";
 import { SiteResolver } from "./renderer/resolver";
 
@@ -33,6 +36,7 @@ async function start(): Promise<void> {
   let recordView: ViewRecorder | undefined;
   let analytics: ReturnType<typeof createAnalyticsRuntime> | undefined;
   let formSubmissions: Router | undefined;
+  let publicMedia: Router | undefined;
   if (env.MONGODB_URI && env.MONGODB_DB_NAME) {
     const database = await connectDatabase(env, logger);
     await ensurePublishingIndexes(database.db);
@@ -78,6 +82,11 @@ async function start(): Promise<void> {
       trustsProxy: env.trustedProxyCidrs.length > 0,
     });
 
+    publicMedia = createPublicMediaRouter({
+      resolver,
+      media: new MediaRepository(database.db, createGridFsStorage(database.db)),
+    });
+
     // Counting must never delay or fail a page. The response has already been decided by the time
     // this runs, and a failed counter is a logged warning — a site that stops rendering because its
     // statistics could not be written would be a bad trade for any customer.
@@ -91,7 +100,7 @@ async function start(): Promise<void> {
     logger.warn("MONGODB_URI is not set; the renderer cannot serve sites");
   }
 
-  const app = createRendererApp({ env, logger, resolver, recordView, analytics, forms: formSubmissions });
+  const app = createRendererApp({ env, logger, resolver, recordView, analytics, forms: formSubmissions, media: publicMedia });
   const server = app.listen(env.PUBLIC_RENDERER_PORT, () => {
     logger.info({ port: env.PUBLIC_RENDERER_PORT, env: env.NODE_ENV }, "public renderer listening");
   });

@@ -8,6 +8,7 @@ import { ANALYTICS_EVENTS_PATH, type AnalyticsRuntime } from "./analytics";
 import { readFormResult } from "@websitebuilder/frontend/renderer";
 
 import { formSubmissionPath } from "./forms";
+import { MEDIA_PATH } from "./media";
 import { pageRuntimeCapabilities, renderRouteHtml, type AnalyticsScript } from "./html";
 import { RUNTIME_SOURCE, RUNTIME_VERSION } from "./runtime.generated";
 import { normalizePath, resolveRoute, SiteResolver } from "./resolver";
@@ -110,8 +111,15 @@ export function createRendererApp(options: {
    * a test can serve pages without accepting writes.
    */
   forms?: Router;
+  /**
+   * Images for published pages, on the site's own hostname.
+   *
+   * Injected for the same reason as forms: this module reads no database of its own, and a test that
+   * only renders markup should not have to stand up storage.
+   */
+  media?: Router;
 }): Express {
-  const { env, logger, resolver, recordView, analytics, forms } = options;
+  const { env, logger, resolver, recordView, analytics, forms, media } = options;
 
   const app = express();
   app.disable("x-powered-by");
@@ -150,6 +158,8 @@ export function createRendererApp(options: {
   // the same address.
   if (analytics !== undefined) app.use(analytics.router);
   if (forms !== undefined) app.use(forms);
+  // Before the page catch-all, like every other `/__wb` route.
+  if (media !== undefined) app.use(MEDIA_PATH, media);
 
   /**
    * The interaction runtime.
@@ -254,7 +264,10 @@ export function createRendererApp(options: {
         canonicalUrl: `https://${site.domain.hostname}${normalizePath(req.path)}`,
         // Same origin as the application: the API has no public hostname of its own, and a
         // published page must not reference one that does not exist.
-        mediaBaseUrl: `${env.PLATFORM_PUBLIC_ORIGIN}/api/v1/public/media`,
+        // The site's own hostname, not the application's. Same origin as the page, so the policy
+        // above admits it without naming another host — and served by this process, which already
+        // knows which site the request is for.
+        mediaBaseUrl: MEDIA_PATH,
         ...(tracker === undefined ? {} : { analytics: tracker }),
       });
 
@@ -298,6 +311,6 @@ export function createRendererApp(options: {
  * where the platform's own proxy set it. The Host header is the fallback, and no query parameter or
  * custom header is ever consulted.
  */
-function hostnameOf(req: Request): string {
+export function hostnameOf(req: Request): string {
   return (req.hostname || req.headers.host || "").split(":")[0]?.toLowerCase() ?? "";
 }

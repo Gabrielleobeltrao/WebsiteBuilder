@@ -1,11 +1,13 @@
 import { createProjectDocument, elementDefinition } from "@websitebuilder/shared";
 import { fixtureButton } from "@websitebuilder/shared/responsive-fixtures";
+import sharp from "sharp";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { COLLECTIONS } from "../src/db/indexes";
 import { BlogRepository } from "../src/modules/blog/repository";
 import { MediaRepository } from "../src/modules/media/repository";
+import { createPublicMediaRouter } from "../src/renderer/media";
 import { createGridFsStorage } from "../src/modules/media/storage";
 import { ProjectRepository, type WorkspaceContext } from "../src/modules/projects/repository";
 import { ensurePublishingIndexes, PublishingRepository } from "../src/modules/publishing/repository";
@@ -24,12 +26,18 @@ let projects: ProjectRepository;
 let publishing: PublishingRepository;
 let service: PublishingService;
 let resolver: SiteResolver;
+let media: MediaRepository;
 
 const A: WorkspaceContext = { workspaceId: "workspace-a", userId: "user-a" };
 const B: WorkspaceContext = { workspaceId: "workspace-b", userId: "user-b" };
 
 const renderer = (overrides: Partial<ReturnType<typeof testEnv>> = {}) =>
-  createRendererApp({ env: { ...testEnv(), ...overrides }, logger: testLogger(), resolver });
+  createRendererApp({
+    env: { ...testEnv(), ...overrides },
+    logger: testLogger(),
+    resolver,
+    media: createPublicMediaRouter({ resolver, media }),
+  });
 
 /** Creates a project, names its home page, publishes it and gives it a live hostname. */
 async function liveSite(context: WorkspaceContext, name: string, hostname: string) {
@@ -70,11 +78,12 @@ beforeAll(async () => {
   database = await startTestDatabase();
   projects = new ProjectRepository(database.db);
   publishing = new PublishingRepository(database.db, database.db.collection(COLLECTIONS.projects));
+  media = new MediaRepository(database.db, createGridFsStorage(database.db));
   service = new PublishingService({
     projects,
     publishing,
     blog: new BlogRepository(database.db),
-    media: new MediaRepository(database.db, createGridFsStorage(database.db)),
+    media,
   });
   resolver = new SiteResolver(publishing, 60);
 }, 120_000);
@@ -151,6 +160,93 @@ describe("what a visitor actually reads", () => {
       expect(response.text).toContain(`Read me in a ${layoutMode} section`);
     });
   }
+});
+
+describe("images on a published page", () => {
+  /**
+   * The half nobody checked: that the URL a page emits leads somewhere.
+   *
+   * Published pages pointed every image at `/api/v1/public/media/<id>` on the application origin,
+   * and no router was ever mounted there — so every image on every published site answered 404 while
+   * the builder, which resolves media through the authenticated workspace route, showed them all.
+   * The render tests passed the base URL in as a fixture string, which is how a broken address
+   * survived a suite that asserted the markup around it in detail.
+   */
+  const png = async () =>
+    sharp({ create: { width: 1200, height: 800, channels: 3, background: { r: 10, g: 90, b: 200 } } })
+      .png()
+      .toBuffer();
+
+  /** Publishes a site whose home page shows one uploaded image. */
+  async function siteShowingAnImage(context: WorkspaceContext, name: string, hostname: string) {
+    const projectId = await liveSite(context, name, hostname);
+    const asset = await media.upload(context, { data: await png(), filename: "hero.png", projectId });
+
+    const current = await projects.findById(context, projectId);
+    const { id, workspaceId, createdByUserId, revision, createdAt, updatedAt, ...document } = current!;
+    const typed = document as ReturnType<typeof createProjectDocument>;
+    typed.pages[0]!.sections[0]!.elements = [
+      {
+        ...(elementDefinition("image").defaults() as Record<string, unknown>),
+        id: "the-image",
+        name: "",
+        type: "image",
+        version: elementDefinition("image").schemaVersion,
+        source: { kind: "media", mediaId: asset.id },
+        alt: "A hero",
+        decorative: false,
+        geometry: { x: 0, y: 0, width: 320, height: 200, rotation: 0 },
+        responsiveLayout: {
+          width: { value: 320, unit: "px" },
+          height: { value: 200, unit: "px" },
+          horizontalConstraint: "left",
+          verticalConstraint: "top",
+          visible: true,
+        },
+        zIndex: 1,
+        locked: false,
+        hidden: false,
+      } as never,
+    ];
+
+    expect(await projects.saveDocument(context, projectId, revision, typed)).not.toBeNull();
+    expect((await service.publish(context, projectId)).status).toBe("published");
+    return asset.id;
+  }
+
+  it("serves the bytes the page asks for", async () => {
+    const mediaId = await siteShowingAnImage(A, "alpha", "alpha.example.test");
+
+    const page = await request(renderer()).get("/").set("host", "alpha.example.test");
+    const src = /src="([^"]*media[^"]*)"/.exec(page.text)?.[1];
+    expect(src, "the page should carry an image URL").toBeDefined();
+
+    // Followed rather than pattern-matched: an address that looks right and answers 404 is the
+    // whole failure this covers.
+    const image = await request(renderer()).get(src!).set("host", "alpha.example.test");
+    expect(image.status).toBe(200);
+    expect(image.headers["content-type"]).toContain("image/webp");
+    expect(image.headers["cache-control"]).toContain("immutable");
+    expect(src).toContain(mediaId);
+  });
+
+  it("refuses an asset this site's pages do not show", async () => {
+    await siteShowingAnImage(A, "alpha", "alpha.example.test");
+    const unused = await media.upload(A, { data: await png(), filename: "private.png" });
+
+    // In the same workspace, and still not reachable: a published page serves the bytes it shows and
+    // nothing else, so an id nobody can see cannot be pulled out by guessing one.
+    const response = await request(renderer()).get(`/__wb/media/${unused.id}/content`).set("host", "alpha.example.test");
+    expect(response.status).toBe(404);
+  });
+
+  it("refuses another tenant's asset through this site's hostname", async () => {
+    await siteShowingAnImage(A, "alpha", "alpha.example.test");
+    const theirs = await siteShowingAnImage(B, "beta", "beta.example.test");
+
+    const response = await request(renderer()).get(`/__wb/media/${theirs}/content`).set("host", "alpha.example.test");
+    expect(response.status).toBe(404);
+  });
 });
 
 describe("republishing", () => {

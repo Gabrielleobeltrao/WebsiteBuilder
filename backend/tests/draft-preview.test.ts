@@ -1,5 +1,6 @@
 import { createPage, createProjectDocument, elementDefinition } from "@websitebuilder/shared";
 import type { Express } from "express";
+import sharp from "sharp";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -9,6 +10,7 @@ import { createSeededWorkspaceResolver } from "../src/middleware/workspace";
 import { BlogRepository, ensureBlogIndexes } from "../src/modules/blog/repository";
 import { ensureFormIndexes, FORM_COLLECTIONS, FormRepository } from "../src/modules/forms/repository";
 import { MediaRepository } from "../src/modules/media/repository";
+import { createMediaRouter } from "../src/modules/media/routes";
 import { createGridFsStorage } from "../src/modules/media/storage";
 import { ProjectRepository, type WorkspaceContext } from "../src/modules/projects/repository";
 import { ensurePublishingIndexes, PUBLISHING_COLLECTIONS, PublishingRepository } from "../src/modules/publishing/repository";
@@ -35,6 +37,7 @@ const B: WorkspaceContext = { workspaceId: OTHER, userId: "user-b" };
 let database: TestDatabase;
 let projects: ProjectRepository;
 let forms: FormRepository;
+let media: MediaRepository;
 let app: Express;
 
 const previewPath = (workspaceId: string, projectId: string) =>
@@ -47,11 +50,21 @@ beforeAll(async () => {
   const blog = new BlogRepository(database.db);
   forms = new FormRepository(database.db);
   const domains = new DomainService(database.db, new UnconfiguredHostnameProvider(), "example.test");
+  media = new MediaRepository(database.db, createGridFsStorage(database.db));
 
   app = createApp({
     env: testEnv(),
     logger: testLogger(),
     routers: [
+      {
+        // Mounted so a preview's image URL can be followed rather than pattern-matched: the address
+        // looking right while leading nowhere is the failure this covers.
+        path: "/workspaces/:workspaceId/media",
+        router: createMediaRouter({
+          repository: media,
+          resolveWorkspace: createSeededWorkspaceResolver({ workspaceId: WORKSPACE, userId: "user-a" }),
+        }),
+      },
       {
         path: "/workspaces/:workspaceId/projects/:projectId/publishing",
         router: createPublishingRouter({
@@ -59,7 +72,7 @@ beforeAll(async () => {
             projects,
             publishing,
             blog,
-            media: new MediaRepository(database.db, createGridFsStorage(database.db)),
+            media,
             loadForms: async (context, projectId) =>
               (await forms.list(context, projectId)).map((form) => ({
                 id: form.id,
@@ -131,6 +144,55 @@ describe("GET publishing/preview", () => {
     const response = await request(app).get(previewPath(WORKSPACE, projectId));
     expect(response.status).toBe(200);
     expect(response.text).toContain("Renamed before publishing");
+  });
+
+  it("emits an image URL that leads to the bytes", async () => {
+    const { projectId, revision } = await seedProject();
+    const asset = await media.upload(A, {
+      data: await sharp({ create: { width: 800, height: 600, channels: 3, background: { r: 1, g: 2, b: 3 } } })
+        .png()
+        .toBuffer(),
+      filename: "hero.png",
+      projectId,
+    });
+
+    const loaded = await projects.findById(A, projectId);
+    const { id, workspaceId, createdByUserId, revision: _r, createdAt, updatedAt, ...document } = loaded!;
+    const typed = document as ReturnType<typeof createProjectDocument>;
+    typed.pages[0]!.sections[0]!.elements = [
+      {
+        ...(elementDefinition("image").defaults() as Record<string, unknown>),
+        id: "the-image",
+        name: "",
+        type: "image",
+        version: elementDefinition("image").schemaVersion,
+        source: { kind: "media", mediaId: asset.id },
+        alt: "A hero",
+        decorative: false,
+        geometry: { x: 0, y: 0, width: 320, height: 200, rotation: 0 },
+        responsiveLayout: {
+          width: { value: 320, unit: "px" },
+          height: { value: 200, unit: "px" },
+          horizontalConstraint: "left",
+          verticalConstraint: "top",
+          visible: true,
+        },
+        zIndex: 1,
+        locked: false,
+        hidden: false,
+      } as never,
+    ];
+    await projects.saveDocument(A, projectId, revision, typed);
+
+    const preview = await request(app).get(previewPath(WORKSPACE, projectId));
+    const src = /src="([^"]*media[^"]*)"/.exec(preview.text)?.[1];
+    expect(src, "the preview should carry an image URL").toBeDefined();
+
+    // It used to be `<base>/<id>`, and the media API serves `/:mediaId/content` — so the address
+    // looked right, matched no route, and every image in a preview was a 404.
+    const image = await request(app).get(src!);
+    expect(image.status).toBe(200);
+    expect(image.headers["content-type"]).toContain("image/webp");
   });
 
   it("keeps internal links inside the preview", async () => {

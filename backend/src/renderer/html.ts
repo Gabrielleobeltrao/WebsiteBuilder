@@ -134,7 +134,16 @@ export function renderRouteHtml(input: {
     // A site with no home page has no home to link to. Saying so is better than sending a visitor
     // to a path this document never published.
     homePath: document.pages.some((candidate) => candidate.isHome) ? href("/") : null,
-    resolveMediaUrl: (mediaId: string) => `${input.mediaBaseUrl}/${encodeURIComponent(mediaId)}`,
+    /*
+     * `/content` is part of the address, not an implementation detail of one caller.
+     *
+     * This built `<base>/<id>`, which matched no route anywhere: the workspace media API serves
+     * `/:mediaId/content`, so the draft preview asked for a path that does not exist, and the
+     * published site asked a host that had no media router at all. Both rendered every image as a
+     * 404 while the builder — which builds its URLs through the API client, with the suffix — showed
+     * them, which is exactly the "preview differs from the site" a customer reports.
+     */
+    resolveMediaUrl: (mediaId: string) => `${input.mediaBaseUrl}/${encodeURIComponent(mediaId)}/content`,
     // Home, then this page. The site's own structure is one level deep today; when sections of a
     // site exist, this is the one place that changes.
     resolveTrail: () => {
