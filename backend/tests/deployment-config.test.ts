@@ -20,6 +20,9 @@ const compose = parse(readFileSync(join(ROOT, "docker-compose.production.yml"), 
 
 const dockerfile = (name: string) => readFileSync(join(ROOT, name), "utf8");
 
+const composeSource = readFileSync(join(ROOT, "docker-compose.production.yml"), "utf8");
+const workflow = readFileSync(join(ROOT, ".github/workflows/quality.yml"), "utf8");
+
 describe("services", () => {
   it("defines exactly the three services the architecture describes", () => {
     expect(Object.keys(compose.services).sort()).toEqual(["backend", "frontend", "renderer"]);
@@ -325,5 +328,50 @@ describe("renderer routing", () => {
   it("attaches to the proxy network Traefik is on", () => {
     // A router that points at a container it cannot reach produces a 502 with no obvious cause.
     expect(label("traefik.docker.network")).toBeTruthy();
+  });
+});
+
+/**
+ * The compose file and the workflow that renders it, kept in step.
+ *
+ * `${VAR:?message}` makes a variable mandatory, and `docker compose config` refuses outright when
+ * one is missing. The workflow was setting `PUBLIC_RENDERER_ORIGIN` — a name that appears nowhere
+ * else in this repository — while the compose file demanded `PUBLIC_RENDERER_HOST`, so the step
+ * failed on every push for as long as the mismatch existed and the failure was invisible to anyone
+ * running the gates locally, because nothing local renders the compose file.
+ */
+describe("rendering the production compose", () => {
+  /**
+   * Names the compose file will refuse to render without.
+   *
+   * Comment lines are dropped first: the file explains the `${VAR:?message}` form in prose, and a
+   * scan that reads its own documentation as a requirement would demand a variable called VAR.
+   */
+  const required = [
+    ...composeSource
+      .split("\n")
+      .filter((line) => !line.trimStart().startsWith("#"))
+      .join("\n")
+      .matchAll(/\$\{([A-Z0-9_]+):\?/g),
+  ].map((match) => match[1]!);
+
+  /** Values the workflow's own Compose-renders step supplies. */
+  const supplied = (() => {
+    const step = workflow.split("name: Compose renders")[1]?.split("run:")[0] ?? "";
+    return [...step.matchAll(/^\s+([A-Z0-9_]+):/gm)].map((match) => match[1]!);
+  })();
+
+  it("asks for at least one variable, so this test cannot pass by reading nothing", () => {
+    expect(required.length).toBeGreaterThan(0);
+    expect(supplied.length).toBeGreaterThan(0);
+  });
+
+  it("supplies every variable the compose file makes mandatory", () => {
+    expect([...new Set(required)].filter((name) => !supplied.includes(name))).toEqual([]);
+  });
+
+  it("sets nothing the compose file never reads", () => {
+    // A leftover name is how the mismatch survived: it looked like the variable was being set.
+    expect(supplied.filter((name) => !composeSource.includes(`\${${name}`))).toEqual([]);
   });
 });

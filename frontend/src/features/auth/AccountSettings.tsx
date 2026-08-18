@@ -80,12 +80,16 @@ function ProfileSection() {
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     setStatus({ kind: "saving" });
-    const result = await authClient.updateUser({ name: name.trim() });
-    setStatus(
-      result.error === null || result.error === undefined
-        ? { kind: "saved" }
-        : { kind: "error", message: result.error.message ?? t("errors:INTERNAL_ERROR") },
-    );
+    try {
+      const result = await authClient.updateUser({ name: name.trim() });
+      setStatus(
+        result.error === null || result.error === undefined
+          ? { kind: "saved" }
+          : { kind: "error", message: result.error.message ?? t("errors:INTERNAL_ERROR") },
+      );
+    } catch {
+      setStatus({ kind: "error", message: t("errors:INTERNAL_ERROR") });
+    }
   };
 
   return (
@@ -130,21 +134,25 @@ function PasswordSection() {
     event.preventDefault();
     setStatus({ kind: "saving" });
 
-    const result = await authClient.changePassword({
-      currentPassword: current,
-      newPassword: next,
-      // Everything else signed in with the old password stops being signed in. Someone changing
-      // their password is usually doing it because of something they want to end.
-      revokeOtherSessions: true,
-    });
+    try {
+      const result = await authClient.changePassword({
+        currentPassword: current,
+        newPassword: next,
+        // Everything else signed in with the old password stops being signed in. Someone changing
+        // their password is usually doing it because of something they want to end.
+        revokeOtherSessions: true,
+      });
 
-    if (result.error === null || result.error === undefined) {
-      setCurrent("");
-      setNext("");
-      setStatus({ kind: "saved" });
-      return;
+      if (result.error === null || result.error === undefined) {
+        setCurrent("");
+        setNext("");
+        setStatus({ kind: "saved" });
+        return;
+      }
+      setStatus({ kind: "error", message: result.error.message ?? t("errors:INTERNAL_ERROR") });
+    } catch {
+      setStatus({ kind: "error", message: t("errors:INTERNAL_ERROR") });
     }
-    setStatus({ kind: "error", message: result.error.message ?? t("errors:INTERNAL_ERROR") });
   };
 
   return (
@@ -200,9 +208,20 @@ function SessionsSection() {
   const [sessions, setSessions] = useState<ActiveSession[] | null>(null);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
+  /*
+   * A rejected call is an empty list, never an exception that escapes.
+   *
+   * This ran unguarded and took the whole Settings screen down with it — so a person whose network
+   * blinked, or whose session had just expired, lost their language setting and their password form
+   * as well as the device list. One section failing to load is one section's problem.
+   */
   const load = useCallback(async () => {
-    const result = await authClient.listSessions();
-    setSessions(result.error ? [] : ((result.data ?? []) as ActiveSession[]));
+    try {
+      const result = await authClient.listSessions();
+      setSessions(result.error ? [] : ((result.data ?? []) as ActiveSession[]));
+    } catch {
+      setSessions([]);
+    }
   }, []);
 
   useEffect(() => {
@@ -211,13 +230,17 @@ function SessionsSection() {
 
   const revokeOthers = async () => {
     setStatus({ kind: "saving" });
-    const result = await authClient.revokeOtherSessions();
-    if (result.error === null || result.error === undefined) {
-      setStatus({ kind: "saved" });
-      await load();
-      return;
+    try {
+      const result = await authClient.revokeOtherSessions();
+      if (result.error === null || result.error === undefined) {
+        setStatus({ kind: "saved" });
+        await load();
+        return;
+      }
+      setStatus({ kind: "error", message: result.error.message ?? t("errors:INTERNAL_ERROR") });
+    } catch {
+      setStatus({ kind: "error", message: t("errors:INTERNAL_ERROR") });
     }
-    setStatus({ kind: "error", message: result.error.message ?? t("errors:INTERNAL_ERROR") });
   };
 
   const formatDate = (value: Date | string) =>

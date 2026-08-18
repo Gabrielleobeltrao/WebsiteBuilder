@@ -90,7 +90,7 @@ jobs:
       - name: Compose renders
         env:
           PLATFORM_PUBLIC_ORIGIN: http://localhost:8080
-          PUBLIC_RENDERER_ORIGIN: http://localhost:3001
+          PUBLIC_RENDERER_HOST: origin.localhost
           PLATFORM_ROOT_DOMAIN: localhost
           MONGODB_URI: mongodb://127.0.0.1:27017
           MONGODB_DB_NAME: ci

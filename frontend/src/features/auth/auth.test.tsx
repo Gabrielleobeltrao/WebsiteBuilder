@@ -14,7 +14,14 @@ vi.mock("@/features/auth/authClient", () => ({
   signUp: { email: signUp },
   signOut: vi.fn(),
   useSession: () => ({ data: null, isPending: false }),
-  authClient: {},
+  // Every call the settings screen makes, because it makes them on mount. A partial stub here
+  // reported a green suite while the real screen was one rejected promise from blanking itself.
+  authClient: {
+    updateUser: vi.fn(async () => ({ error: null })),
+    changePassword: vi.fn(async () => ({ error: null })),
+    listSessions: vi.fn(async () => ({ error: null, data: [] })),
+    revokeOtherSessions: vi.fn(async () => ({ error: null })),
+  },
 }));
 
 beforeEach(() => {
