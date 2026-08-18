@@ -97,6 +97,34 @@ describe("health", () => {
   });
 });
 
+describe("republishing", () => {
+  /**
+   * The question a customer actually asks: I changed the page and pressed Publish, why is the site
+   * the same? Nothing invalidates the resolver here on purpose — the renderer runs in its own
+   * process and the API that publishes has no channel to reach it, so if this only passes with a
+   * manual cache drop it does not pass in production.
+   */
+  it("serves the edit after a second publish", async () => {
+    const projectId = await liveSite(A, "alpha", "alpha.example.test");
+
+    const before = await request(renderer()).get("/").set("host", "alpha.example.test");
+    expect(before.text).toContain("alpha home");
+
+    const current = await projects.findById(A, projectId);
+    const { id, workspaceId, createdByUserId, revision, createdAt, updatedAt, ...document } = current!;
+    const edited = document as ReturnType<typeof createProjectDocument>;
+    edited.pages[0]!.seo.title = "alpha home, edited";
+    expect(await projects.saveDocument(A, projectId, revision, edited)).not.toBeNull();
+
+    const published = await service.publish(A, projectId);
+    expect(published.status).toBe("published");
+    expect(published.status === "published" && published.unchanged).toBeFalsy();
+
+    const after = await request(renderer()).get("/").set("host", "alpha.example.test");
+    expect(after.text).toContain("alpha home, edited");
+  });
+});
+
 describe("host resolution", () => {
   it("serves each tenant its own site from one process", async () => {
     await liveSite(A, "Alpha", "alpha.example.test");
