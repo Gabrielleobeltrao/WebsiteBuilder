@@ -130,6 +130,22 @@ describe("SitesPage localization", () => {
 });
 
 describe("finding a site from the list", () => {
+  it("offers the site's own page as a button, not only as its name", async () => {
+    mockFetch(() => ok([summary()]));
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+
+    // Everything that is not a page — the blog, forms, the CMS — is reached through here, and an
+    // underlined title was a link people looked straight past while asking where the blog was.
+    const panel = await screen.findByRole("link", { name: "Dashboard" });
+    expect(panel).toHaveAttribute("href", "/app/w1/sites/aaaaaaaaaaaaaaaaaaaaaaaa/dashboard");
+
+    // The name keeps working: this adds a way in rather than moving the one that existed.
+    expect(screen.getByRole("link", { name: "Acme Studio" })).toHaveAttribute(
+      "href",
+      "/app/w1/sites/aaaaaaaaaaaaaaaaaaaaaaaa/dashboard",
+    );
+  });
+
   it("opens the published address in one tap", async () => {
     mockFetch(() => ok([summary({ liveUrl: "https://acme-studio.example.com" })]));
     renderWithProviders(<SitesPage workspaceId="w1" />);

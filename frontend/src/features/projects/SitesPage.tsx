@@ -185,6 +185,16 @@ export function SitesPage({ workspaceId }: { workspaceId: string }) {
                         {t("dashboard:sites.visit")}
                       </a>
                     )}
+                    {/* The site's own page, as a button rather than only as the name above it.
+                        Everything that is not a page lives behind it — the blog, forms, the CMS,
+                        what each module still needs — and a link whose only form is an underlined
+                        title is a link people look straight past while asking where the blog is. */}
+                    <Link
+                      to={`/app/${workspaceId}/sites/${project.id}/dashboard`}
+                      className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
+                    >
+                      {t("dashboard:sites.panel")}
+                    </Link>
                     <Link
                       to={`/app/${workspaceId}/sites/${project.id}/builder`}
                       className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"

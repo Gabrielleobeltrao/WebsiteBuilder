@@ -48,6 +48,7 @@ export default {
     confirmCreate: "Create site",
     cancel: "Cancel",
     open: "Open",
+    panel: "Dashboard",
     visit: "Visit site",
     notPublished: "Not published yet",
     noAddress: "Published, but has no address yet",
