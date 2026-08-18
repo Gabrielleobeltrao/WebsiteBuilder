@@ -136,3 +136,23 @@ export function sectionStyle(
 export function isRenderable(element: BuilderElement): boolean {
   return !element.hidden;
 }
+
+/**
+ * The colours a block was given, as a style object.
+ *
+ * Applied by each renderer to the box it actually draws, never to the generic element wrapper: a
+ * background on the wrapper would paint a full-width band behind an inline control like the download
+ * button, which is not what anyone choosing "background" is asking for.
+ *
+ * Absent keys are omitted rather than set to a default, so a block with no appearance produces an
+ * empty object and renders exactly as it did before this existed.
+ */
+export function appearanceStyle(element: BuilderElement): CSSProperties {
+  const appearance = element.appearance;
+  if (appearance === undefined) return {};
+
+  return {
+    ...(appearance.textColor === undefined ? {} : { color: appearance.textColor }),
+    ...(appearance.backgroundColor === undefined ? {} : { backgroundColor: appearance.backgroundColor }),
+  };
+}

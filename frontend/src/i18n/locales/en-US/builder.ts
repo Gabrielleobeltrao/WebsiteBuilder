@@ -218,6 +218,7 @@ export default {
     announcementBar: "Announcement bar",
   },
   inspector: {
+    "appearance": "Colours",
     tabs: "Element settings",
     content: "Content",
     style: "Style",
@@ -261,6 +262,10 @@ export default {
   },
 
   "fields": {
+
+    "clearColor": "Clear colour",
+
+    "appearanceHint": "With no colour set, the block uses the site's default.",
     richText: "Text",
     richTextLoading: "Loading the editor…",
     richTextHint: "Formatting is limited to what a published page can carry safely: headings, lists, quotes, bold, italic and links.",

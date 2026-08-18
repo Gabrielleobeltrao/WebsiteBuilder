@@ -9,7 +9,16 @@ import { useTranslation } from "react-i18next";
 
 import { selectEditingDevice, useEditorStore } from "@/features/editor/store/editorStore";
 import { DeviceValue } from "./DeviceValue";
-import { ColorField, InspectorGroup, LengthField, NumberField, SelectField, TextField, ToggleField } from "./controls";
+import {
+  ColorField,
+  InspectorGroup,
+  LengthField,
+  NumberField,
+  OptionalColorField,
+  SelectField,
+  TextField,
+  ToggleField,
+} from "./controls";
 import { LinkEditor } from "./LinkEditor";
 import { MediaPickerField } from "./MediaPickerField";
 import { VisualElementInspector } from "./VisualElementInspector";
@@ -54,6 +63,28 @@ export function ElementInspector({ element, pages }: { element: BuilderElement; 
     });
 
   const structured = !["text", "image", "button", "container"].includes(element.type);
+
+  /*
+   * Blocks whose colours are already theirs, and which therefore do not get the shared pair.
+   *
+   * Text and the button own a full set; the icon and the divider are a single stroke whose colour is
+   * the whole of their styling; the announcement bar and the form each carry their own palette. Two
+   * controls writing one property is worse than one control, so these keep what they have.
+   */
+  const ownsColours = ["text", "button", "icon", "divider", "announcementBar", "form"].includes(element.type);
+
+  const setAppearance = (values: Partial<NonNullable<BuilderElement["appearance"]>>) =>
+    patch((current) => {
+      const next = { ...current.appearance, ...values };
+      // An appearance with nothing in it is stored as nothing, so clearing both colours leaves the
+      // document exactly as it was before anyone opened this group.
+      const cleaned = Object.fromEntries(Object.entries(next).filter(([, value]) => value !== undefined));
+      return (
+        Object.keys(cleaned).length === 0
+          ? (({ appearance: _dropped, ...rest }) => rest)(current)
+          : { ...current, appearance: cleaned }
+      ) as BuilderElement;
+    });
 
   return (
     <>
@@ -360,6 +391,24 @@ export function ElementInspector({ element, pages }: { element: BuilderElement; 
           </>
         )}
       </InspectorGroup>
+      )}
+
+      {!ownsColours && (
+        <InspectorGroup titleKey="appearance">
+          <OptionalColorField
+            label={t("fields.textColor")}
+            value={element.appearance?.textColor}
+            transactionKey={`${key}:appearanceText`}
+            onChange={(textColor) => setAppearance({ textColor })}
+          />
+          <OptionalColorField
+            label={t("fields.backgroundColor")}
+            value={element.appearance?.backgroundColor}
+            transactionKey={`${key}:appearanceBackground`}
+            onChange={(backgroundColor) => setAppearance({ backgroundColor })}
+          />
+          <p className="text-[11px] text-ink-500">{t("fields.appearanceHint")}</p>
+        </InspectorGroup>
       )}
 
       <InspectorGroup titleKey="layout">

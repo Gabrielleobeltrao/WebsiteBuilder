@@ -9,6 +9,7 @@ import { Fragment, type ReactNode } from "react";
 
 import { BlockIcon } from "./BlockIcon";
 import { useRendererContext } from "./RendererContext";
+import { withAppearance } from "./withAppearance";
 
 /**
  * The blocks that carry their own meaning: prose, navigation, identity, a value, a moment.
@@ -19,6 +20,10 @@ import { useRendererContext } from "./RendererContext";
  * that is the line this file does not cross.
  */
 export function ContentElementRenderer({ element }: { element: ContentElement }) {
+  return withAppearance(element, ContentElementBody({ element }));
+}
+
+function ContentElementBody({ element }: { element: ContentElement }) {
   const { resolveMediaUrl, resolvePagePath, homePath, allowHttp } = useRendererContext();
   const link = (value: unknown) =>
     resolveSafeLinkHref(value as Parameters<typeof resolveSafeLinkHref>[0], {

@@ -200,6 +200,24 @@ export const useEditorStore = create<EditorState>((set, get) => {
     }, AUTOSAVE_DELAY_MS);
   }
 
+  /**
+   * Changes the width being authored, and drops the selection when it actually changes.
+   *
+   * The selection outlives a device switch by default, and what outlives it is stale: the transform
+   * handles are positioned from the element as it was measured at the old width, so after the canvas
+   * re-renders they sit somewhere the element no longer is. The box is still live — dragging it
+   * moves the real element — which makes it worse than a cosmetic glitch.
+   *
+   * Both callers route through here because both write the same value, and a fix in only one of them
+   * would leave the other still able to produce the same stale box.
+   */
+  function editingWidthOf(state: EditorState, width: number): Partial<EditorState> {
+    const editingWidth = Math.max(320, Math.min(1920, Math.round(width)));
+    // Pressing the device you are already on is not a change, and should not take your selection.
+    if (editingWidth === state.ui.editingWidth) return {};
+    return { ui: { ...state.ui, editingWidth, selection: null } };
+  }
+
   function applyDocument(next: BuilderDocumentInput) {
     // commit() knows whether a transaction is open and whether it has already contributed a step,
     // so the store no longer needs a parallel notion of "transactional".
@@ -365,14 +383,14 @@ export const useEditorStore = create<EditorState>((set, get) => {
     },
 
     setEditingWidth(width) {
-      set((state) => ({ ui: { ...state.ui, editingWidth: Math.max(320, Math.min(1920, Math.round(width))) } }));
+      set((state) => editingWidthOf(state, width));
     },
 
     setEditingDevice(device) {
       // Stored as a width because the canvas renders at one, and derived back to a device wherever
       // a write needs to know which override it belongs to. One value, so the two can never
       // disagree about which device is on screen.
-      set((state) => ({ ui: { ...state.ui, editingWidth: deviceReferenceWidth(device) } }));
+      set((state) => editingWidthOf(state, deviceReferenceWidth(device)));
     },
 
     autoFitCurrentPage() {

@@ -1,10 +1,11 @@
 import { createProjectDocument, type BuilderProject } from "@websitebuilder/shared";
-import { act, cleanup, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EditorShell } from "@/features/editor/EditorShell";
 import { findElement } from "@/features/editor/store/elements";
+import type { ElementType } from "@websitebuilder/shared";
 import { cancelPendingAutosave, useEditorStore } from "@/features/editor/store/editorStore";
 import { createHistory } from "@/features/editor/store/history";
 import { renderWithProviders } from "@/test/render";
@@ -51,7 +52,7 @@ afterEach(() => {
 });
 
 /** Loads a project, adds one element of the given type and selects it. */
-async function setupWithElement(type: "text" | "image" | "button") {
+async function setupWithElement(type: ElementType) {
   useEditorStore.getState().loadFromProject(project());
   const sectionId = useEditorStore.getState().history.present.pages[0]?.sections[0]?.id;
   if (!sectionId) throw new Error("fixture is missing its section");
@@ -279,5 +280,48 @@ describe("localization", () => {
     const panel = screen.getByRole("complementary", { name: "Controles do construtor" });
     expect(within(panel).getByLabelText("Conteúdo")).toBeInTheDocument();
     expect(within(panel).getByLabelText("Tag")).toBeInTheDocument();
+  });
+});
+
+/**
+ * The colour pair, for the twenty-two block types that had none.
+ *
+ * A download button was a browser-default link and a table was browser-default text: no way to set
+ * either colour, on any of them. What is checked here is that the group appears exactly where it is
+ * needed and nowhere it would compete with a control that already exists.
+ */
+describe("shared colours", () => {
+  it("offers text and background to a block that owns neither", async () => {
+    const user = userEvent.setup();
+    const id = await setupWithElement("downloadButton");
+    await openTab(user, "Style");
+
+    expect(headingsInPanel()).toContain("Colours");
+
+    await user.click(screen.getByLabelText("Background"));
+    fireEvent.change(screen.getByLabelText("Background"), { target: { value: "#123456" } });
+
+    expect(currentElement(id)?.appearance?.backgroundColor).toBe("#123456");
+  });
+
+  it("gives the colour back, because a picker has no empty state of its own", async () => {
+    const user = userEvent.setup();
+    const id = await setupWithElement("downloadButton");
+    await openTab(user, "Style");
+
+    fireEvent.change(screen.getByLabelText("Background"), { target: { value: "#123456" } });
+    await user.click(screen.getByRole("button", { name: "Clear colour" }));
+
+    // Cleared back to nothing at all, not to a black that only looks like a choice.
+    expect(currentElement(id)?.appearance).toBeUndefined();
+  });
+
+  it("stays away from blocks that already own their colours", async () => {
+    const user = userEvent.setup();
+    await setupWithElement("text");
+    await openTab(user, "Style");
+
+    // Text has a colour field of its own. Two controls writing one property is worse than one.
+    expect(headingsInPanel()).not.toContain("Colours");
   });
 });

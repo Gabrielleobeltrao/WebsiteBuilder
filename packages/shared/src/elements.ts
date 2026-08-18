@@ -12,8 +12,10 @@ import {
 
 import { safeLinkSchema, type SafeLink } from "./links";
 import {
+  colorSchema,
   elementBaseShape,
   responsiveLengthSchema,
+  type ElementAppearance,
   type Geometry,
   type ResponsiveElementLayout,
   type ResponsiveLength,
@@ -65,11 +67,6 @@ export type SectionLayoutMode = (typeof SECTION_LAYOUT_MODES)[number];
 /** Deep nesting produces documents that are slow to render and impossible to reason about. */
 export const MAX_CONTAINER_DEPTH = 5;
 
-const colorSchema = z
-  .string()
-  .regex(/^#[0-9a-fA-F]{6}$|^#[0-9a-fA-F]{8}$|^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(?:,\s*(?:0|1|0?\.\d+)\s*)?\)$/, {
-    message: "must be a hex or rgb/rgba colour",
-  });
 
 /**
  * The fields every element carries.
@@ -83,6 +80,8 @@ const baseElementShape = elementBaseShape;
 export type BaseElement = {
   id: string;
   name: string;
+  /** Text and background, for blocks that do not already own their colours. Absent means unstyled. */
+  appearance?: ElementAppearance;
   version?: number;
   geometry: Geometry;
   responsiveLayout: ResponsiveElementLayout;

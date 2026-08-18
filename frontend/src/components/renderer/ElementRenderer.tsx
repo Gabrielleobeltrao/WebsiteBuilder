@@ -27,6 +27,7 @@ import { BlockIcon } from "./BlockIcon";
 import { ContentElementRenderer } from "./ContentElementRenderer";
 import { FormRenderer } from "./FormRenderer";
 import { buttonStyle, containerStyle, imageStyle, isRenderable, textStyle } from "./styles";
+import { withAppearance } from "./withAppearance";
 
 /**
  * Pure presentational renderers. No selection logic, no store access, no editor chrome — the editor
@@ -196,11 +197,11 @@ export function ElementRenderer({ element, positioned = true }: { element: Build
     element.type === "text" ? (
       <TextRenderer element={element} />
     ) : element.type === "image" ? (
-      <ImageRenderer element={element} />
+      withAppearance(element, <ImageRenderer element={element} />)
     ) : element.type === "button" ? (
       <ButtonRenderer element={element} />
     ) : element.type === "container" ? (
-      <ContainerRenderer element={element} />
+      withAppearance(element, <ContainerRenderer element={element} />)
     ) : element.type === "form" ? (
       // Dispatched here rather than inside the visual renderer: a form needs the definition it
       // references, which only the host can resolve.
@@ -223,3 +224,4 @@ export function ElementRenderer({ element, positioned = true }: { element: Build
     </div>
   );
 }
+

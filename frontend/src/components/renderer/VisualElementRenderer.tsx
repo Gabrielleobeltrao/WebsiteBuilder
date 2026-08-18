@@ -8,6 +8,7 @@ import {
 
 import { BlockIcon } from "./BlockIcon";
 import { useRendererContext } from "./RendererContext";
+import { withAppearance } from "./withAppearance";
 
 /**
  * The visual elements, rendered from the document.
@@ -18,6 +19,12 @@ import { useRendererContext } from "./RendererContext";
  * browser upgrades them in place.
  */
 export function VisualElementRenderer({ element }: { element: VisualElement }) {
+  // Wrapped here rather than in `ElementRenderer`, which only ever sees this component and so could
+  // never reach the tag each branch below actually returns.
+  return withAppearance(element, VisualElementBody({ element }));
+}
+
+function VisualElementBody({ element }: { element: VisualElement }) {
   const { resolveMediaUrl, resolvePagePath, resolveTrail, allowHttp } = useRendererContext();
 
   // Resolved before the switch, because hooks and helpers cannot be called inside one branch only.

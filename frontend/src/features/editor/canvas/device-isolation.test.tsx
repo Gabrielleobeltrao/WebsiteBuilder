@@ -155,3 +155,33 @@ describe("fitting the page to a device", () => {
     expect(changed).toBe(0);
   });
 });
+
+describe("switching device", () => {
+  it("drops the selection, because the handles were measured at the old width", () => {
+    const id = addElement();
+    expect(useEditorStore.getState().ui.selection).toEqual({ kind: "element", elementId: id });
+
+    act(() => useEditorStore.getState().setEditingDevice("mobile"));
+
+    // The transform box is positioned from the element as it was at 1440. Kept across the switch it
+    // sits where the element no longer is, and it is still live: dragging it moves the real element.
+    expect(useEditorStore.getState().ui.selection).toBeNull();
+  });
+
+  it("keeps the selection when the device does not actually change", () => {
+    const id = addElement();
+
+    act(() => useEditorStore.getState().setEditingDevice("desktop"));
+
+    // Pressing the device you are already on is not a change, and should not cost you your work.
+    expect(useEditorStore.getState().ui.selection).toEqual({ kind: "element", elementId: id });
+  });
+
+  it("drops it for a raw width change too, which is the same canvas re-render", () => {
+    addElement();
+
+    act(() => useEditorStore.getState().setEditingWidth(768));
+
+    expect(useEditorStore.getState().ui.selection).toBeNull();
+  });
+});

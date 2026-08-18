@@ -310,9 +310,38 @@ export function breakpointInheritanceChain(
  * without importing the union it is about to be part of. Every element gets breakpoint overrides
  * for the same reason: responsiveness is not a property of some element types.
  */
+/**
+ * A colour a document may store.
+ *
+ * Hex or rgb/rgba only, never an arbitrary CSS string: a value that reaches a `style` attribute is
+ * a value that must not be able to carry anything but a colour.
+ */
+export const colorSchema = z
+  .string()
+  .regex(/^#[0-9a-fA-F]{6}$|^#[0-9a-fA-F]{8}$|^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(?:,\s*(?:0|1|0?\.\d+)\s*)?\)$/, {
+    message: "must be a hex or rgb/rgba colour",
+  });
+
+/**
+ * Text and background, for any block that does not already own its colours.
+ *
+ * Both optional, and the whole object optional: absent means the block draws exactly as it always
+ * has. That is what lets this reach twenty-three block types without a migration and without
+ * changing a single published page.
+ *
+ * Blocks that already carry their own colours — text, button, icon, divider, the announcement bar —
+ * keep them and do not get this as well. Two controls for one colour is worse than one.
+ */
+export const appearanceSchema = z
+  .object({ textColor: colorSchema.optional(), backgroundColor: colorSchema.optional() })
+  .strict();
+
+export type ElementAppearance = z.infer<typeof appearanceSchema>;
+
 export const elementBaseShape = {
   id: z.string().min(1),
   name: z.string().max(120),
+  appearance: appearanceSchema.optional(),
   /**
    * The payload version this element was written as. Absent means 1, which is what every document
    * written before element versioning existed means. Migration is a pure function on read; nothing

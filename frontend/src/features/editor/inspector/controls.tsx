@@ -17,7 +17,15 @@ import { useEditorStore } from "@/features/editor/store/editorStore";
  *    not end up persisted in the builder document.
  */
 
-export type InspectorGroupKey = "content" | "style" | "layout" | "responsive" | "advanced" | "canvas" | "seo";
+export type InspectorGroupKey =
+  | "content"
+  | "style"
+  | "appearance"
+  | "layout"
+  | "responsive"
+  | "advanced"
+  | "canvas"
+  | "seo";
 
 /** The three tabs an inspector offers, stable for every element type. */
 export type InspectorTab = "content" | "style" | "advanced";
@@ -32,6 +40,8 @@ export type InspectorTab = "content" | "style" | "advanced";
 export const GROUP_TAB: Record<InspectorGroupKey, InspectorTab> = {
   content: "content",
   style: "style",
+  // Colours are a style decision, so the shared pair sits beside the styling a block owns itself.
+  appearance: "style",
   layout: "style",
   responsive: "style",
   advanced: "advanced",
@@ -212,6 +222,47 @@ export function SelectField<T extends string>({
           </option>
         ))}
       </select>
+    </div>
+  );
+}
+
+/**
+ * A colour that may also be nothing.
+ *
+ * `<input type="color">` has no empty state — it always reports something — so a block whose colour
+ * is optional needs a way back. Without one, choosing a background once is permanent, and "I want
+ * the default again" becomes a question with no answer in the interface.
+ */
+export function OptionalColorField({
+  label,
+  value,
+  transactionKey,
+  onChange,
+}: {
+  label: string;
+  value: string | undefined;
+  transactionKey: string;
+  onChange: (value: string | undefined) => void;
+}) {
+  const { t } = useTranslation("builder");
+
+  return (
+    <div>
+      <ColorField
+        label={label}
+        value={value ?? "#000000"}
+        transactionKey={transactionKey}
+        onChange={onChange}
+      />
+      {value !== undefined && (
+        <button
+          type="button"
+          onClick={() => onChange(undefined)}
+          className="mt-1 text-[11px] text-ink-500 underline underline-offset-2 hover:text-ink-800"
+        >
+          {t("fields.clearColor")}
+        </button>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   accordionElementSchema,
+  downloadButtonElementSchema,
   socialUrlMatchesNetwork,
   tableElementSchema,
   videoElementSchema,
@@ -108,5 +109,36 @@ describe("bounds", () => {
   it("rejects an unknown property instead of storing it", () => {
     const spacer = { ...base, type: "spacer", surprise: true };
     expect(visualElementSchema.safeParse(spacer).success).toBe(false);
+  });
+});
+
+describe("the shared colour pair", () => {
+  const button = (appearance?: unknown) => ({
+    ...base,
+    type: "downloadButton" as const,
+    mediaId: "",
+    label: "Baixar",
+    ...(appearance === undefined ? {} : { appearance }),
+  });
+
+  it("is optional, so no stored document had to change to gain it", () => {
+    expect(downloadButtonElementSchema.safeParse(button()).success).toBe(true);
+    expect(downloadButtonElementSchema.safeParse(button({ backgroundColor: "#123456" })).success).toBe(true);
+    expect(downloadButtonElementSchema.safeParse(button({})).success).toBe(true);
+  });
+
+  it("takes a colour and nothing else", () => {
+    // What reaches a `style` attribute must not be able to carry anything but a colour.
+    for (const value of ["red", "url(javascript:alert(1))", "#fff", "expression(1)", ""]) {
+      expect(downloadButtonElementSchema.safeParse(button({ textColor: value })).success, value).toBe(false);
+    }
+
+    for (const value of ["#123456", "#12345678", "rgb(1, 2, 3)", "rgba(1, 2, 3, 0.5)"]) {
+      expect(downloadButtonElementSchema.safeParse(button({ textColor: value })).success, value).toBe(true);
+    }
+  });
+
+  it("refuses a property nobody declared", () => {
+    expect(downloadButtonElementSchema.safeParse(button({ borderColor: "#123456" })).success).toBe(false);
   });
 });

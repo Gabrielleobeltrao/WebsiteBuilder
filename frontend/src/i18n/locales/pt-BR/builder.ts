@@ -218,6 +218,7 @@ export default {
     announcementBar: "Barra de aviso",
   },
   inspector: {
+    "appearance": "Cores",
     tabs: "Configurações do elemento",
     content: "Conteúdo",
     style: "Estilo",
@@ -261,6 +262,10 @@ export default {
   },
 
   "fields": {
+
+    "clearColor": "Limpar cor",
+
+    "appearanceHint": "Sem cor definida, o bloco usa o padrão do site.",
     richText: "Texto",
     richTextLoading: "Carregando o editor…",
     richTextHint: "A formatação se limita ao que uma página publicada carrega com segurança: títulos, listas, citações, negrito, itálico e links.",

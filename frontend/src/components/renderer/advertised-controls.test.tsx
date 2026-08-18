@@ -124,3 +124,50 @@ describe("a site logo that links home", () => {
     expect(screen.getByText("Acme")).toBeInTheDocument();
   });
 });
+
+/**
+ * The colours the inspector offers for blocks that own none of their own.
+ *
+ * Twenty-two of the twenty-eight block types had no colour control at all — a download button was a
+ * browser-default link, a table was browser-default text — so the pair is shared rather than written
+ * out per block. What is asserted here is the part that could quietly not happen: the colour landing
+ * on the box the block actually draws.
+ */
+describe("a block's own colours", () => {
+  it("paints the control itself, not a band across the row", () => {
+    const { container } = draw(
+      block("downloadButton", {
+        label: "Baixar",
+        mediaId: "",
+        appearance: { textColor: "#ffffff", backgroundColor: "#123456" },
+      }),
+    );
+
+    // The wrapper stays untouched: a background there would be a full-width strip behind an inline
+    // control, which is not what choosing "background" asks for.
+    const wrapper = container.querySelector("[data-element-id]") as HTMLElement;
+    expect(wrapper.style.backgroundColor).toBe("");
+
+    const control = screen.getByRole("button", { name: "Baixar" });
+    expect(control.style.backgroundColor).toBe("rgb(18, 52, 86)");
+    expect(control.style.color).toBe("rgb(255, 255, 255)");
+  });
+
+  it("reaches a block whose root is a component rather than a tag", () => {
+    const { container } = draw(
+      block("richText", { appearance: { backgroundColor: "#00ff00" } }),
+    );
+
+    // No style prop to merge into, so it gets a box of its own — never a setting silently dropped.
+    const painted = container.querySelector('[style*="background"]') as HTMLElement | null;
+    expect(painted?.style.backgroundColor).toBe("rgb(0, 255, 0)");
+  });
+
+  it("changes nothing for a block that was never given colours", () => {
+    const { container } = draw(block("downloadButton", { label: "Baixar", mediaId: "" }));
+
+    const control = screen.getByRole("button", { name: "Baixar" });
+    expect(control.style.backgroundColor).toBe("");
+    expect(container.querySelector('[style*="background"]')).toBeNull();
+  });
+});
