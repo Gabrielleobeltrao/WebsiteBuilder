@@ -1,5 +1,10 @@
 export default {
   topBar: {
+    "publishTemplate": "Publicar layout",
+    "publishing": "Publicando…",
+    "templatePublished": "Layout no ar. Todos os posts já usam ele.",
+    "templateBlocked": "Não deu para publicar: um campo novo deixaria posts incompletos.",
+    "templateFailed": "Não conseguimos publicar o layout.",
     backToSites: "Voltar para sites",
     undo: "Desfazer",
     redo: "Refazer",

@@ -1,5 +1,10 @@
 export default {
   topBar: {
+    "publishTemplate": "Publish layout",
+    "publishing": "Publishing…",
+    "templatePublished": "The layout is live. Every post uses it now.",
+    "templateBlocked": "Not published: a newly required field would leave posts incomplete.",
+    "templateFailed": "We could not publish the layout.",
     backToSites: "Back to sites",
     undo: "Undo",
     redo: "Redo",

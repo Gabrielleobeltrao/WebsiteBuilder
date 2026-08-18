@@ -256,3 +256,35 @@ describe("seeing a post's own page", () => {
     expect(await screen.findByText("Release notes")).toBeInTheDocument();
   });
 });
+
+/**
+ * Reaching the layouts.
+ *
+ * The templates existed in the store from the first commit with nothing exposing them, so the shape
+ * of every article was fixed for every blog on the platform. These are the two links that make them
+ * openable at all.
+ */
+describe("designing the blog's layouts", () => {
+  it("offers both layouts beside writing a post", async () => {
+    mockApi({ posts: [] });
+    render();
+
+    expect(await screen.findByRole("link", { name: "Post layout" })).toHaveAttribute(
+      "href",
+      "/app/w1/sites/p1/blog/templates/article",
+    );
+    expect(screen.getByRole("link", { name: "List layout" })).toHaveAttribute(
+      "href",
+      "/app/w1/sites/p1/blog/templates/index",
+    );
+  });
+
+  it("keeps them out of the way until the blog is on", async () => {
+    mockApi({ enabled: false });
+    render();
+
+    // The activation screen asks one question. A layout to design is not an answer to it.
+    await screen.findByRole("heading", { level: 2, name: "This site has no blog yet" });
+    expect(screen.queryByRole("link", { name: "Post layout" })).toBeNull();
+  });
+});

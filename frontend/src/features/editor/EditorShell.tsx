@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
+import { blogTemplateApi } from "@/api/blog";
 import { mediaUrl } from "@/api/media";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { RendererContext, type RendererContextValue } from "@/components/renderer/RendererContext";
@@ -105,6 +106,29 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
     }),
     [workspaceId, projectId, projectForms.forms, projectForms.loading, projectForms.reload],
   );
+
+  /**
+   * Publishing a template, which the site's own publish does not do.
+   *
+   * The draft is saved first: pressing publish means "what I am looking at", and autosave may not
+   * have fired yet — publishing the last autosaved state instead would put a version live that the
+   * person never saw.
+   */
+  const [templateState, setTemplateState] = useState<"idle" | "publishing" | "done" | "blocked" | "error">("idle");
+
+  const publishTemplate = async () => {
+    const target = store.target;
+    if (target.kind !== "blogTemplate") return;
+
+    setTemplateState("publishing");
+    try {
+      await store.save();
+      const result = await blogTemplateApi.publish(workspaceId, projectId, target.templateKind);
+      setTemplateState(result.published ? "done" : "blocked");
+    } catch {
+      setTemplateState("error");
+    }
+  };
 
   useUnsavedChangesWarning(hasUnsaved);
   // Shortcuts are mounted only where authoring is allowed, never in the preview-only shell.
@@ -311,6 +335,27 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
             {t("builder:topBar.save")}
           </button>
           {/*
+            A template publishes itself, and does so from here.
+
+            Publishing a site does not carry a template: the two are stored apart because a layout
+            change reaches every article at once, rather than waiting for whenever somebody next
+            publishes the site. Without this button a designed layout could be saved forever and seen
+            by nobody, which is the state the whole feature was in before it existed.
+          */}
+          {store.target.kind === "blogTemplate" ? (
+            <button
+              type="button"
+              onClick={() => void publishTemplate()}
+              disabled={templateState === "publishing"}
+              className="flex items-center gap-1.5 rounded-md bg-accent-600 px-3 py-1.5 text-xs font-semibold
+                text-white hover:bg-accent-700 disabled:opacity-50"
+            >
+              <Rocket aria-hidden className="size-3.5" />
+              {t(templateState === "publishing" ? "builder:topBar.publishing" : "builder:topBar.publishTemplate")}
+            </button>
+          ) : (
+          <>
+          {/*
             Named for where it goes, not for what it does.
             
             It was called "Publish", it is a link, and it publishes nothing — so pressing it, landing
@@ -327,8 +372,30 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
             <Rocket aria-hidden className="size-3.5" />
             {t("builder:topBar.publish")}
           </Link>
+          </>
+          )}
         </div>
       </header>
+
+      {templateState !== "idle" && templateState !== "publishing" && (
+        <p
+          role={templateState === "done" ? "status" : "alert"}
+          className={[
+            "border-b px-4 py-2 text-xs",
+            templateState === "done"
+              ? "border-accent-200 bg-accent-50 text-accent-900"
+              : "border-red-200 bg-red-50 text-red-900",
+          ].join(" ")}
+        >
+          {t(
+            templateState === "done"
+              ? "builder:topBar.templatePublished"
+              : templateState === "blocked"
+                ? "builder:topBar.templateBlocked"
+                : "builder:topBar.templateFailed",
+          )}
+        </p>
+      )}
 
       <div className="flex min-h-0 flex-1">
         <main className="min-w-0 flex-1">
