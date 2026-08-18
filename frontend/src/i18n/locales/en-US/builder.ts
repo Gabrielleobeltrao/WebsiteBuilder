@@ -184,6 +184,8 @@ export default {
     rename: "Rename",
   },
   elements: {
+    dynamicField: "Post field",
+    postCollection: "Post list",
     title: "Elements",
     destination: "Clicking a block adds it to {{destination}}.",
     newSection: "a new section at the end of the page",

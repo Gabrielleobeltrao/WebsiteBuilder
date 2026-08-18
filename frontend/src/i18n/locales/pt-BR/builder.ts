@@ -184,6 +184,8 @@ export default {
     rename: "Renomear",
   },
   elements: {
+    dynamicField: "Campo do post",
+    postCollection: "Lista de posts",
     title: "Elementos",
     destination: "Clicar em um bloco o adiciona em {{destination}}.",
     newSection: "uma nova seção no fim da página",

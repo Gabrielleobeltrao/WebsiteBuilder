@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { dynamicBindingSchema, type DynamicBinding } from "./blog";
-import { geometrySchema, responsiveElementLayoutSchema } from "./responsive";
+import { elementBaseShape } from "./responsive";
 
 /**
  * Elements that exist only inside a template.
@@ -12,15 +12,14 @@ import { geometrySchema, responsiveElementLayoutSchema } from "./responsive";
  * without inspecting their contents.
  */
 
-const templateElementBase = {
-  id: z.string().min(1),
-  name: z.string().max(120),
-  geometry: geometrySchema,
-  responsiveLayout: responsiveElementLayoutSchema,
-  zIndex: z.number().int(),
-  locked: z.boolean(),
-  hidden: z.boolean(),
-};
+/*
+ * The same base every other element carries.
+ *
+ * These declared a parallel one — no payload version, no breakpoint overrides, no appearance — which
+ * is part of why they never joined the document union and stayed unbuildable. A block that cannot be
+ * migrated, cannot be sized per device and cannot be coloured is not a block anyone can design with.
+ */
+const templateElementBase = elementBaseShape;
 
 export const dynamicFieldElementSchema = z
   .object({
@@ -108,3 +107,10 @@ export function applyPostQuery<T extends { publishedAt?: string; title: string; 
     hasMore: sorted.length > query.limit,
   };
 }
+
+/** The members, exported so the document union can spread them in. */
+export const DYNAMIC_ELEMENT_SCHEMAS = [dynamicFieldElementSchema, postCollectionElementSchema] as const;
+
+export const dynamicElementSchema = z.discriminatedUnion("type", [...DYNAMIC_ELEMENT_SCHEMAS]);
+
+export type DynamicElement = z.infer<typeof dynamicElementSchema>;

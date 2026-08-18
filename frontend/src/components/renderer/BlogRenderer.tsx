@@ -4,6 +4,7 @@ import {
   BLOG_FORMAT_HAS_LEAD,
   postPath,
   type BlogSettings,
+  walkElements,
   type BuilderPage,
   type PublishablePost,
   type RichTextNode,
@@ -12,7 +13,7 @@ import type { CSSProperties } from "react";
 
 import { RichText } from "./ContentElementRenderer";
 import { ProjectPageRenderer } from "./ProjectPageRenderer";
-import { useRendererContext } from "./RendererContext";
+import { RendererContext, useRendererContext } from "./RendererContext";
 
 /**
  * A site's blog, on the two routes it publishes.
@@ -36,6 +37,13 @@ import { useRendererContext } from "./RendererContext";
  * Checked at display time rather than fixed in the seed, because the templates already out there
  * carry that section and no migration is going to visit them.
  */
+/** Whether a template shows any of the post's own values, rather than only decoration. */
+function bindsSomething(template: BuilderPage): boolean {
+  return [...walkElements(template.sections.flatMap((section) => section.elements))].some(
+    (element) => element.type === "dynamicField" || element.type === "postCollection",
+  );
+}
+
 function hasContent(template: BuilderPage | undefined): template is BuilderPage {
   return template !== undefined && template.sections.some((section) => section.elements.length > 0);
 }
@@ -49,10 +57,21 @@ export function BlogIndexRenderer({
   settings: BlogSettings;
   posts: readonly PublishablePost[];
 }) {
+  const indexContext = useRendererContext();
   const format = blogFormatOf(settings);
   const columns = BLOG_FORMAT_COLUMNS[format];
   const lead = BLOG_FORMAT_HAS_LEAD[format] ? posts[0] : undefined;
   const rest = lead === undefined ? posts : posts.slice(1);
+
+  // A template that lists posts itself replaces the built-in grid; rendering both would print
+  // every post twice. The grid stays for every blog that has not designed one.
+  if (hasContent(template) && bindsSomething(template)) {
+    return (
+      <RendererContext.Provider value={{ ...indexContext, posts }}>
+        <ProjectPageRenderer page={template} />
+      </RendererContext.Provider>
+    );
+  }
 
   return (
     <div>
@@ -121,9 +140,26 @@ function PostCard({ post, settings, lead = false }: { post: PublishablePost; set
  * still mean trusting stored data at display time.
  */
 export function BlogPostRenderer({ template, post }: { template?: BuilderPage; post: PublishablePost }) {
-  const { resolveMediaUrl } = useRendererContext();
+  const context = useRendererContext();
+  const { resolveMediaUrl } = context;
   const cover = post.coverMediaId === undefined ? null : resolveMediaUrl(post.coverMediaId);
   const body = (post.content?.content ?? []) as readonly RichTextNode[];
+
+  /*
+   * A template that binds its own fields replaces the fixed article below it.
+   *
+   * The fixed layout stays for every blog that has not designed one — which is every blog today, and
+   * every blog on the day it is turned on. Rendering both would print the title twice.
+   */
+  const designed = hasContent(template) && bindsSomething(template);
+
+  if (designed) {
+    return (
+      <RendererContext.Provider value={{ ...context, post }}>
+        <ProjectPageRenderer page={template} />
+      </RendererContext.Provider>
+    );
+  }
 
   return (
     <div>

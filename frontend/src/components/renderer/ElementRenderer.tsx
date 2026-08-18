@@ -1,6 +1,8 @@
 import {
   CONTENT_ELEMENT_SCHEMAS,
+  DYNAMIC_ELEMENT_SCHEMAS,
   type ContentElement,
+  type DynamicElement,
   type VisualElement,
   buildSizes,
   buildSrcSet,
@@ -21,10 +23,14 @@ import { createElement } from "react";
  */
 const CONTENT_TYPES = new Set<string>(CONTENT_ELEMENT_SCHEMAS.map((schema) => schema.shape.type.value));
 
+/** Template-only blocks, dispatched the same way and for the same reason. */
+const DYNAMIC_TYPES = new Set<string>(DYNAMIC_ELEMENT_SCHEMAS.map((schema) => schema.shape.type.value));
+
 import { useRendererContext } from "./RendererContext";
 import { VisualElementRenderer } from "./VisualElementRenderer";
 import { BlockIcon } from "./BlockIcon";
 import { ContentElementRenderer } from "./ContentElementRenderer";
+import { DynamicElementRenderer } from "./DynamicElementRenderer";
 import { FormRenderer } from "./FormRenderer";
 import { buttonStyle, containerStyle, imageStyle, isRenderable, textStyle } from "./styles";
 import { withAppearance } from "./withAppearance";
@@ -206,6 +212,8 @@ export function ElementRenderer({ element, positioned = true }: { element: Build
       // Dispatched here rather than inside the visual renderer: a form needs the definition it
       // references, which only the host can resolve.
       <FormRenderer elementId={element.id} formId={element.formId} presentation={element.presentation} />
+    ) : DYNAMIC_TYPES.has(element.type) ? (
+      withAppearance(element, <DynamicElementRenderer element={element as DynamicElement} />)
     ) : CONTENT_TYPES.has(element.type) ? (
       <ContentElementRenderer element={element as ContentElement} />
     ) : (

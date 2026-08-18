@@ -155,6 +155,81 @@ describe("a version published before its blog carried anything", () => {
  * nothing in it. Rendered above the article, that is half a screen of blank space before the first
  * word — the reason a working blog reads as a broken one.
  */
+/**
+ * A template that shows the post's own values.
+ *
+ * `dynamicField` and `postCollection` had schemas from the first commit and were never registered,
+ * so neither could be placed on anything — which left a blog template as a decorative band above an
+ * article whose layout nobody could change. This is the property that makes them worth having: one
+ * layout, every article, the values arriving from the route rather than from the block.
+ */
+describe("a template that binds the post's fields", () => {
+  const bound = (binding: unknown, display: string, id: string) => ({
+    ...(elementDefinition("dynamicField").defaults() as Record<string, unknown>),
+    id,
+    name: "",
+    type: "dynamicField",
+    version: elementDefinition("dynamicField").schemaVersion,
+    binding,
+    display,
+    geometry: { x: 0, y: 0, width: 480, height: 64, rotation: 0 },
+    responsiveLayout: {
+      width: { value: 480, unit: "px" },
+      height: { value: 64, unit: "px" },
+      horizontalConstraint: "left",
+      verticalConstraint: "top",
+      visible: true,
+    },
+    zIndex: 1,
+    locked: false,
+    hidden: false,
+  });
+
+  const designed = () => {
+    const template = createPage({ name: "Article" });
+    template.sections[0]!.elements = [
+      bound({ source: "system", field: "title" }, "heading", "the-title") as never,
+      bound({ source: "system", field: "author" }, "text", "the-author") as never,
+      bound({ source: "system", field: "content" }, "richText", "the-body") as never,
+    ];
+    return template;
+  };
+
+  it("draws the article from the blocks the designer placed", () => {
+    const html = render("blogPost", blog({ articleTemplate: designed() }));
+
+    expect(html).toContain("Hello world");
+    expect(html).toContain("Ana");
+    expect(html).toContain("The body of the article.");
+  });
+
+  it("replaces the built-in article rather than adding to it", () => {
+    const body = render("blogPost", blog({ articleTemplate: designed() })).split("<body>")[1] ?? "";
+
+    // The fixed layout is the fallback for a blog that has not designed one. Drawing both would
+    // print the title, the byline and the whole body twice.
+    expect(body).not.toContain("max-width:720px");
+    expect(body.split("Hello world").length - 1).toBe(1);
+  });
+
+  it("leaves a bound field out when the post has no value for it", () => {
+    const template = createPage({ name: "Article" });
+    template.sections[0]!.elements = [
+      bound({ source: "system", field: "title" }, "heading", "the-title") as never,
+      bound({ source: "system", field: "author" }, "text", "the-author") as never,
+    ];
+    const html = render(
+      "blogPost",
+      blog({ articleTemplate: template, posts: [normalizePublishablePost({ ...post(), authorName: null } as never)] }),
+    );
+
+    // A published page shows what the post has. The placeholder belongs on a canvas, where there is
+    // no post to read and a blank box would tell a designer nothing.
+    expect(html).toContain("Hello world");
+    expect(html).not.toContain("{author}");
+  });
+});
+
 describe("a template nobody has filled in", () => {
   const emptyTemplate = () => createPage({ name: "Article" });
 

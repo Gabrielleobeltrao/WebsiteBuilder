@@ -93,6 +93,54 @@ const EMPTY_LINK = { kind: "none" } as const;
  * than one more list to remember.
  */
 export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
+  /*
+   * The two blocks that make a template a template.
+   *
+   * Their schemas existed from the start and neither was ever registered, so neither could be placed
+   * on anything — which left a blog template as a decorative band above an article whose layout
+   * nobody could change. `dynamicField` shows one of the post's own values; `postCollection` lists
+   * posts. Everything else on a template is ordinary decoration.
+   *
+   * Deliberately absent from `page`: bound to a post, they have nothing to resolve against on an
+   * ordinary page, and offering them there would be a block that renders blank wherever it is put.
+   */
+  dynamicField: {
+    type: "dynamicField",
+    schemaVersion: 1,
+    category: "basic",
+    labelKey: "dynamicField",
+    keywords: ["field", "post", "title", "cover", "author"],
+    icon: "type",
+    defaultSize: { width: 480, height: 64 },
+    contexts: ["blogTemplate", "cmsTemplate"],
+    acceptsChildren: false,
+    freePositionable: true,
+    defaults: () => ({ binding: { source: "system", field: "title" }, display: "heading" }),
+  },
+  postCollection: {
+    type: "postCollection",
+    schemaVersion: 1,
+    category: "marketing",
+    labelKey: "postCollection",
+    keywords: ["posts", "blog", "list", "articles"],
+    icon: "list",
+    defaultSize: { width: 960, height: 400 },
+    contexts: ["blogTemplate"],
+    acceptsChildren: false,
+    freePositionable: false,
+    feature: "blog",
+    defaults: () => ({
+      query: { sort: "newest", limit: 12, paginate: false },
+      columns: 3,
+      gap: 24,
+      cardFields: [
+        { source: "system", field: "cover" },
+        { source: "system", field: "title" },
+        { source: "system", field: "excerpt" },
+      ],
+      emptyStateText: "",
+    }),
+  },
   container: {
     type: "container",
     schemaVersion: 1,

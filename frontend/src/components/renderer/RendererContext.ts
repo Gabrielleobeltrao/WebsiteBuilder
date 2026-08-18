@@ -1,4 +1,4 @@
-import type { PublishedForm } from "@websitebuilder/shared";
+import type { DynamicBinding, PublishablePost, PublishedForm } from "@websitebuilder/shared";
 import { createContext, useContext } from "react";
 
 /**
@@ -54,6 +54,25 @@ export type RendererContextValue = {
   formAction?: (formId: string) => string;
   /** What a visitor without JavaScript was sent back with after posting. */
   formResult?: { formId: string; state: "ok" | "error" } | null;
+  /**
+   * The record a template is being rendered for, if any.
+   *
+   * A template is a page whose blocks show somebody else's values, so the values have to arrive from
+   * outside: the article route supplies the post, the index route supplies none. Absent means this
+   * is not a template rendering — which is the honest state inside the builder, where a bound block
+   * shows the name of the field it is bound to rather than a value it does not have.
+   */
+  post?: PublishablePost;
+  /**
+   * What a binding resolves to right now.
+   *
+   * A function rather than a bag of values, because a custom field is looked up by id and the set of
+   * them belongs to the site, not to this interface.
+   */
+  resolveBinding?: (binding: DynamicBinding) => string | undefined;
+  /** The posts a list block shows. Supplied by whoever ran the query; the block never runs one. */
+  posts?: readonly PublishablePost[];
+
   /** Copy for the states a form has that its own definition does not describe. */
   formStrings?: {
     unbound: string;

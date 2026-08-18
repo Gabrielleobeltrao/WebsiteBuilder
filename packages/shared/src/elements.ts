@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { CONTENT_ELEMENT_SCHEMAS, type ContentElement } from "./content-elements";
+import { DYNAMIC_ELEMENT_SCHEMAS, type DynamicElement } from "./dynamic-elements";
 import { VISUAL_ELEMENT_SCHEMAS, type VisualElement } from "./visual-elements";
 
 import {
@@ -58,6 +59,9 @@ export const ELEMENT_TYPES = [
   "counter",
   "countdown",
   "tableOfContents",
+  // Template-only: these show a post's own values, and mean nothing on an ordinary page.
+  "dynamicField",
+  "postCollection",
 ] as const;
 export type ElementType = (typeof ELEMENT_TYPES)[number];
 
@@ -163,7 +167,8 @@ export type BuilderElement =
   | ButtonElement
   | ContainerElement
   | VisualElement
-  | ContentElement;
+  | ContentElement
+  | DynamicElement;
 
 export const textElementSchema = z
   .object({
@@ -273,6 +278,9 @@ export const builderElementSchema: z.ZodType<BuilderElement> = z.discriminatedUn
   // reloaded, validated and rendered through exactly the same path as a text box.
   ...VISUAL_ELEMENT_SCHEMAS,
   ...CONTENT_ELEMENT_SCHEMAS,
+  // A template is a page in every respect but where it is shown, so its own blocks are saved,
+  // validated and rendered by the same path as everything else rather than a parallel one.
+  ...DYNAMIC_ELEMENT_SCHEMAS,
 ]) as unknown as z.ZodType<BuilderElement>;
 
 /** Returns the nesting depth of an element tree, where a leaf element is depth 1. */
