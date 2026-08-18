@@ -25,6 +25,8 @@ export default {
     unsavedWarning: "You have unsaved changes. Leave anyway?",
   },
   panel: {
+    collapse: "Collapse the panel",
+    expand: "Expand the panel",
     label: "Builder controls",
     destinations: "Builder destinations",
     pages: "Pages",
@@ -166,6 +168,8 @@ export default {
     elementActions: "Selected element",
   },
   layers: {
+    deleteSection: "Delete section",
+    deleteElement: "Delete element",
     title: "Layers",
     empty: "Nothing on this page yet.",
     locked: "Locked",

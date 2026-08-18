@@ -1,5 +1,5 @@
 import type { BuilderElement, BuilderSection } from "@websitebuilder/shared";
-import { ChevronDown, ChevronRight, Eye, EyeOff, MoveDown, MoveUp, PencilLine } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, EyeOff, MoveDown, MoveUp, PencilLine, Trash2 } from "lucide-react";
 import { useState, type DragEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -15,7 +15,18 @@ import { selectCurrentPage, useEditorStore } from "@/features/editor/store/edito
  * is a feature some people simply do not have.
  */
 
-function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+function IconButton({
+  label,
+  onClick,
+  danger = false,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  /** Destructive actions read as destructive on hover. Undo covers the mistake; nothing warns. */
+  danger?: boolean;
+  children: ReactNode;
+}) {
   return (
     <button
       type="button"
@@ -25,7 +36,10 @@ function IconButton({ label, onClick, children }: { label: string; onClick: () =
         event.stopPropagation();
         onClick();
       }}
-      className="rounded p-1 text-ink-500 hover:bg-ink-100 hover:text-ink-800"
+      className={[
+        "rounded p-1 text-ink-500",
+        danger ? "hover:bg-red-50 hover:text-red-700" : "hover:bg-ink-100 hover:text-ink-800",
+      ].join(" ")}
     >
       {children}
     </button>
@@ -176,6 +190,10 @@ function ElementRow({
             <MoveDown aria-hidden className="size-3.5" />
           </IconButton>
         )}
+
+        <IconButton danger label={t("layers.deleteElement")} onClick={() => store.deleteElement(element.id)}>
+          <Trash2 aria-hidden className="size-3.5" />
+        </IconButton>
       </li>
 
       {element.type === "container" &&
@@ -256,6 +274,10 @@ function SectionRow({ section, index, total }: { section: BuilderSection; index:
             <MoveDown aria-hidden className="size-3.5" />
           </IconButton>
         )}
+
+        <IconButton danger label={t("layers.deleteSection")} onClick={() => store.deleteSection(section.id)}>
+          <Trash2 aria-hidden className="size-3.5" />
+        </IconButton>
       </div>
 
       {!collapsed && (

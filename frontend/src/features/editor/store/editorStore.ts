@@ -12,6 +12,7 @@ import {
   resolveBreakpointAt,
   type BreakpointDefinition,
 } from "@websitebuilder/shared";
+import { clampZoom } from "@/features/editor/canvas/coordinates";
 import type {
   BuilderDocumentInput,
   BuilderPage,
@@ -75,6 +76,14 @@ export type EditorState = {
     panelIntent: "destination" | "inspector";
     zoom: number;
     /**
+     * Whether the zoom is the person's choice rather than the editor's fit.
+     *
+     * The canvas fits the page to the space it has until somebody sets a zoom themselves; after
+     * that their number stands, and re-fitting under them when a panel opened would be the editor
+     * overruling a decision they had just made.
+     */
+    zoomChosen: boolean;
+    /**
      * Width the canvas is being authored at. It selects which breakpoint's overrides are edited
      * and previewed; it is display state and never part of the document or of history.
      */
@@ -97,7 +106,7 @@ export type EditorState = {
   setCurrentPage: (pageId: string) => void;
   select: (target: InspectorTarget | null) => void;
   setPanelMode: (mode: PanelMode) => void;
-  setZoom: (zoom: number) => void;
+  setZoom: (zoom: number, options?: { chosen?: boolean }) => void;
   setEditingWidth: (width: number) => void;
   /** The device being authored. Every geometry and style write lands on this one. */
   setEditingDevice: (device: DeviceMode) => void;
@@ -212,6 +221,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
       panelIntent: "destination",
       panelMode: "pages",
       zoom: 1,
+      zoomChosen: false,
       editingWidth: DESIGN_WIDTH,
     },
     persistence: { status: "clean" },
@@ -344,8 +354,14 @@ export const useEditorStore = create<EditorState>((set, get) => {
       set((state) => ({ ui: { ...state.ui, panelMode: mode, lastPanelMode: mode, panelIntent: "destination" } }));
     },
 
-    setZoom(zoom) {
-      set((state) => ({ ui: { ...state.ui, zoom: Math.max(0.1, Math.min(4, zoom)) } }));
+    setZoom(zoom, options = {}) {
+      set((state) => ({
+        ui: {
+          ...state.ui,
+          zoom: clampZoom(zoom),
+          zoomChosen: options.chosen ?? true,
+        },
+      }));
     },
 
     setEditingWidth(width) {

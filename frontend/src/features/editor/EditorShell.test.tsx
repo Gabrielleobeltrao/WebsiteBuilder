@@ -47,7 +47,7 @@ beforeEach(() => {
     loadErrorCode: null,
     history: createHistory(createProjectDocument({ name: "", slug: "empty-site" })),
     persistence: { status: "clean" },
-    ui: { currentPageId: null, selection: null, lastPanelMode: "pages", panelMode: "pages", panelIntent: "destination", zoom: 1, editingWidth: 1440 },
+    ui: { currentPageId: null, selection: null, lastPanelMode: "pages", panelMode: "pages", panelIntent: "destination", zoom: 1, zoomChosen: false, editingWidth: 1440 },
   });
   vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("no network in this test"))));
 });
@@ -58,6 +58,44 @@ afterEach(() => {
 });
 
 const render = () => renderWithProviders(<EditorShell workspaceId="w1" projectId="aaaaaaaaaaaaaaaaaaaaaaaa" />);
+
+/** The rail is the panel's own tablist, present in every mode — so it stands for "the panel is there". */
+const PANEL_RAIL = "Builder destinations";
+
+describe("the right panel", () => {
+  it("collapses so the canvas can have the width back, and comes back", async () => {
+    const user = userEvent.setup();
+    useEditorStore.getState().loadFromProject(project());
+    render();
+
+    const panel = screen.getByRole("complementary", { name: "Builder controls" });
+    expect(within(panel).getByRole("button", { name: "Collapse the panel" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("tablist", { name: PANEL_RAIL })).toBeInTheDocument();
+
+    await user.click(within(panel).getByRole("button", { name: "Collapse the panel" }));
+
+    // Gone rather than hidden: a collapsed panel must not keep a control the keyboard can still reach.
+    expect(screen.queryByRole("tablist", { name: PANEL_RAIL })).not.toBeInTheDocument();
+    const expand = within(panel).getByRole("button", { name: "Expand the panel" });
+    expect(expand).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(expand);
+    expect(screen.getByRole("tablist", { name: PANEL_RAIL })).toBeInTheDocument();
+  });
+
+  it("remembers the choice for the next session", async () => {
+    const user = userEvent.setup();
+    useEditorStore.getState().loadFromProject(project());
+    const first = render();
+
+    await user.click(screen.getByRole("button", { name: "Collapse the panel" }));
+    first.unmount();
+    render();
+
+    // Someone who works on a laptop should not have to say this again every time they open a site.
+    expect(screen.getByRole("button", { name: "Expand the panel" })).toBeInTheDocument();
+  });
+});
 
 describe("EditorShell layout", () => {
   it("keeps the canvas in the centre and builder controls on the right", () => {

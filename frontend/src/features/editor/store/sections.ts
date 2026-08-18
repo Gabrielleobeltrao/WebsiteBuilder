@@ -116,10 +116,18 @@ export function deleteSection(document: BuilderDocumentInput, sectionId: string)
   return {
     ...document,
     pages: document.pages.map((page) =>
-      // A page with no sections has nowhere to place an element, so the last one stays.
-      page.sections.length <= 1 || !page.sections.some((section) => section.id === sectionId)
-        ? page
-        : { ...page, sections: page.sections.filter((section) => section.id !== sectionId) },
+      /*
+       * The last section goes too.
+       *
+       * This used to keep it, on the reasoning that a page with no sections has nowhere to place an
+       * element. That was never true: the canvas renders its add-section row after the list whether
+       * the list is empty or not, so an emptied page is one click from having a section again. What
+       * the guard actually produced was a Delete button that did nothing at all on a one-section
+       * page, gave no reason, and left the person clicking it convinced the editor was broken.
+       */
+      page.sections.some((section) => section.id === sectionId)
+        ? { ...page, sections: page.sections.filter((section) => section.id !== sectionId) }
+        : page,
     ),
   };
 }

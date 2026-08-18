@@ -75,9 +75,18 @@ describe("section operations", () => {
     expect(new Set(allIds).size).toBe(allIds.length);
   });
 
-  it("refuses to delete the last section, so a page always has somewhere to place an element", () => {
+  it("deletes the last section, leaving a page the canvas can still add to", () => {
     const { document, sectionId } = fixture();
-    expect(deleteSection(document, sectionId)).toEqual(document);
+    const emptied = deleteSection(document, sectionId);
+
+    expect(emptied.pages[0]?.sections).toHaveLength(0);
+    // Recoverable, which is what makes emptying it acceptable rather than a trap.
+    expect(addSection(emptied, emptied.pages[0]!.id, "free").document.pages[0]?.sections).toHaveLength(1);
+  });
+
+  it("leaves every other page alone", () => {
+    const { document, sectionId } = fixture();
+    expect(deleteSection(document, `${sectionId}-nope`)).toEqual(document);
   });
 
   it("deletes a section when another remains", () => {

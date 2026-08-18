@@ -36,6 +36,13 @@ describe("zoom", () => {
     expect(fitZoom(784)).toBeCloseTo(720 / DESIGN_WIDTH, 5);
     expect(fitZoom(0)).toBe(MIN_ZOOM);
   });
+
+  it("fits the width actually being drawn, not always the design width", () => {
+    // Editing a phone layout draws 390px. Fitting that against 1440 would shrink a page that
+    // already fits, and magnifying it to fill the window would show a size no browser renders.
+    expect(fitZoom(1000, 64, 390)).toBe(1);
+    expect(fitZoom(500, 64, 872)).toBeCloseTo(436 / 872, 5);
+  });
 });
 
 describe("coordinate conversion", () => {

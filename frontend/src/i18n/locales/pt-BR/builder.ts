@@ -25,6 +25,8 @@ export default {
     unsavedWarning: "Você tem alterações não salvas. Sair mesmo assim?",
   },
   panel: {
+    collapse: "Recolher o painel",
+    expand: "Expandir o painel",
     label: "Controles do construtor",
     destinations: "Destinos do construtor",
     pages: "Páginas",
@@ -166,6 +168,8 @@ export default {
     elementActions: "Elemento selecionado",
   },
   layers: {
+    deleteSection: "Apagar seção",
+    deleteElement: "Apagar elemento",
     title: "Camadas",
     empty: "Nada nesta página ainda.",
     locked: "Bloqueado",

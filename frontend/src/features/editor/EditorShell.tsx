@@ -1,5 +1,5 @@
-import { Eye, Redo2, Rocket, Undo2 } from "lucide-react";
-import { useMemo } from "react";
+import { Eye, PanelLeftOpen, PanelRightOpen, Redo2, Rocket, Undo2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
@@ -39,6 +39,17 @@ import { useUnsavedChangesWarning } from "@/hooks/useUnsavedChangesWarning";
  * the canvas occupies the centre, and every builder control lives in the fixed right panel. There
  * is deliberately no second builder-specific left sidebar.
  */
+const PANEL_ID = "builder-right-panel";
+const PANEL_COLLAPSED_KEY = "wb.builder.panelCollapsed";
+
+function readPanelCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(PANEL_COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function EditorShell({ workspaceId, projectId }: { workspaceId: string; projectId: string }) {
   const { t } = useTranslation(["builder", "errors", "common"]);
   // Loaded only when the document actually holds a form block, so the majority of sites that have
@@ -98,6 +109,24 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
   useUnsavedChangesWarning(hasUnsaved);
   // Shortcuts are mounted only where authoring is allowed, never in the preview-only shell.
   useKeyboardShortcuts(capability.canAuthor);
+
+  /*
+   * Whether the right panel is collapsed, remembered across sessions.
+   *
+   * Someone who works on a laptop collapses it for the same reason every time they open the builder,
+   * and an editor that forgets makes them say it again every time. `localStorage` matches how the
+   * element catalog already keeps its recents and favourites; a rejected read (private mode, a
+   * blocked origin) falls back to expanded rather than failing the render.
+   */
+  const [panelCollapsed, setPanelCollapsed] = useState(readPanelCollapsed);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(PANEL_COLLAPSED_KEY, panelCollapsed ? "1" : "0");
+    } catch {
+      // A preference that cannot be stored is still a preference for this session.
+    }
+  }, [panelCollapsed]);
 
   if (store.loadStatus === "loading" || store.loadStatus === "idle") {
     return (
@@ -296,17 +325,56 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
           </RendererContext.Provider>
         </main>
 
-        {/* Fixed width: changing panel modes must never resize or jump the canvas. */}
-        <aside aria-label={t("builder:panel.label")} className="w-80 shrink-0 border-l border-ink-100 bg-white">
-          <RightPanel
-            view={view}
-            page={page}
-            pages={store.history.present.pages}
-            panelMode={store.ui.panelMode}
-            onPanelMode={store.setPanelMode}
-            onBack={() => store.select(null)}
-            renderMode={renderMode}
-          />
+        {/*
+          * One fixed width, or none at all.
+          *
+          * The width never varies with the panel *mode* — switching from Structure to the inspector
+          * must not resize or jump the canvas underneath the person's pointer. Collapsing is a
+          * different thing entirely: it is a deliberate request for the 320px back, and on a laptop
+          * that is the difference between seeing the page and seeing two thirds of it.
+          */}
+        <aside
+          aria-label={t("builder:panel.label")}
+          className={[
+            "flex min-h-0 shrink-0 flex-col border-l border-ink-100 bg-white",
+            panelCollapsed ? "w-10" : "w-80",
+          ].join(" ")}
+        >
+          {/* In the flow rather than floating over the panel: an overlaid toggle sat on top of the
+              rail's first tab and swallowed the clicks meant for it. */}
+          <div className="flex shrink-0 justify-end border-b border-ink-100 p-1">
+            <button
+              type="button"
+              onClick={() => setPanelCollapsed((collapsed) => !collapsed)}
+              aria-expanded={!panelCollapsed}
+              aria-controls={PANEL_ID}
+              aria-label={t(panelCollapsed ? "builder:panel.expand" : "builder:panel.collapse")}
+              title={t(panelCollapsed ? "builder:panel.expand" : "builder:panel.collapse")}
+              className="rounded p-1 text-ink-500 hover:bg-ink-100 hover:text-ink-900"
+            >
+              {panelCollapsed ? (
+                <PanelLeftOpen aria-hidden className="size-4" />
+              ) : (
+                <PanelRightOpen aria-hidden className="size-4" />
+              )}
+            </button>
+          </div>
+
+          {/* Unmounted rather than hidden: a collapsed panel keeps no focusable control, and the
+              inspector stops re-rendering on every canvas change nobody is looking at. */}
+          <div id={PANEL_ID} hidden={panelCollapsed} className="min-h-0 flex-1 overflow-auto">
+            {!panelCollapsed && (
+              <RightPanel
+                view={view}
+                page={page}
+                pages={store.history.present.pages}
+                panelMode={store.ui.panelMode}
+                onPanelMode={store.setPanelMode}
+                onBack={() => store.select(null)}
+                renderMode={renderMode}
+              />
+            )}
+          </div>
         </aside>
       </div>
 

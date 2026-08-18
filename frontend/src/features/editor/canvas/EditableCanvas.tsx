@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import Moveable from "react-moveable";
 
 import { ElementRenderer } from "@/components/renderer/ElementRenderer";
+import { useFitToWidth } from "@/features/editor/canvas/useFitToWidth";
 import { containerStyle, sectionStyle } from "@/components/renderer/styles";
 import { constrainGeometry, pointToLogical, RESIZE_HANDLES } from "@/features/editor/canvas/coordinates";
 import { dragKindOf, readDragPayload, MOVE_MIME, type DragKind } from "@/features/editor/canvas/dnd";
@@ -379,6 +380,21 @@ export function EditableCanvas({ page }: { page: BuilderPage | null }) {
   const [target, setTarget] = useState<HTMLElement | null>(null);
   const [dragKind, setDragKind] = useState<DragKind | null>(null);
 
+  /*
+   * The zoom that brings the whole page into view, kept current as the window and the panel change.
+   *
+   * Applied while the person has not chosen a zoom themselves. Once they have, their choice stands:
+   * re-fitting under them every time the panel opened would be the editor overruling a decision
+   * they just made.
+   */
+  const fit = useFitToWidth(editingWidth);
+  const zoomChosen = useEditorStore((state) => state.ui.zoomChosen);
+
+  useEffect(() => {
+    if (zoomChosen || fit.available === null) return;
+    if (Math.abs(fit.zoom - zoom) > 0.005) store.setZoom(fit.zoom, { chosen: false });
+  }, [fit.zoom, fit.available, zoomChosen, zoom, store]);
+
   const selectedElementId = selection?.kind === "element" ? selection.elementId : null;
 
   useEffect(() => {
@@ -446,6 +462,7 @@ export function EditableCanvas({ page }: { page: BuilderPage | null }) {
 
   return (
     <div
+      ref={fit.ref}
       className="h-full overflow-auto bg-ink-100 p-8"
       onDragEnter={(event) => setDragKind(dragKindOf(event.dataTransfer))}
       onDragOver={(event) => {

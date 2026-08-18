@@ -32,6 +32,7 @@ beforeEach(() => {
       lastPanelMode: "pages",
       panelMode: "pages", panelIntent: "destination",
       zoom: 1,
+      zoomChosen: false,
       // The device the author is looking at. Every assertion below is about what a write does
       // while this is not desktop.
       editingWidth: 390,

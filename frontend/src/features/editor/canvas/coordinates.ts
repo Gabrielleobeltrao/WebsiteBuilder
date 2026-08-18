@@ -29,11 +29,18 @@ export function clampZoom(zoom: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
 }
 
-/** Zoom that fits the design width into the available workspace, never enlarging beyond 1:1. */
-export function fitZoom(availableWidth: number, padding = 64): number {
+/**
+ * Zoom that fits the canvas into the available workspace, never enlarging beyond 1:1.
+ *
+ * `designWidth` is the width actually being drawn, which is the design width only while editing at
+ * desktop — a phone layout is 390 wide, and fitting it against 1440 would shrink a page that already
+ * fits. Never magnifies either: blowing a phone layout up to fill a desktop window shows the page at
+ * a size nobody's browser will ever render it.
+ */
+export function fitZoom(availableWidth: number, padding = 64, designWidth = DESIGN_WIDTH): number {
   const usable = availableWidth - padding;
-  if (usable <= 0) return MIN_ZOOM;
-  return clampZoom(Math.min(1, usable / DESIGN_WIDTH));
+  if (usable <= 0 || designWidth <= 0) return MIN_ZOOM;
+  return clampZoom(Math.min(1, usable / designWidth));
 }
 
 export function screenToLogical(value: number, zoom: number): number {
