@@ -16,6 +16,14 @@ export type MediaVariant = {
 export type MediaAsset = {
   id: string;
   workspaceId: string;
+  /**
+   * The site this image belongs to.
+   *
+   * Absent on everything uploaded before the library moved inside a site, and absent means shared:
+   * those images are already on pages across the workspace, and scoping them to one site
+   * retroactively would take them out of the library of every site actually using them.
+   */
+  projectId?: string;
   uploadedByUserId: string;
   originalFilename: string;
   contentHash: string;
@@ -51,9 +59,21 @@ export class MediaRepository {
     this.collection = db.collection<MediaDocument>(COLLECTIONS.media);
   }
 
-  async list(context: WorkspaceContext, limit = 200): Promise<MediaAsset[]> {
+  /**
+   * One site's library: what it uploaded, plus everything from before sites owned their images.
+   *
+   * Workspace first and always, so a project id from a URL can only ever narrow a set already
+   * confined to the caller's tenant — it can never widen it.
+   */
+  async list(context: WorkspaceContext, projectId: string | undefined, limit = 200): Promise<MediaAsset[]> {
     const documents = await this.collection
-      .find({ workspaceId: context.workspaceId }, { sort: { createdAt: -1 }, limit })
+      .find(
+        {
+          workspaceId: context.workspaceId,
+          ...(projectId === undefined ? {} : { $or: [{ projectId }, { projectId: { $exists: false } }] }),
+        },
+        { sort: { createdAt: -1 }, limit },
+      )
       .toArray();
     return documents.map(toAsset);
   }
@@ -77,7 +97,7 @@ export class MediaRepository {
    */
   async upload(
     context: WorkspaceContext,
-    input: { data: Buffer; filename: string; defaultAlt?: string },
+    input: { data: Buffer; filename: string; defaultAlt?: string; projectId?: string },
   ): Promise<MediaAsset> {
     const processed = await processImage(input.data);
 
@@ -98,6 +118,7 @@ export class MediaRepository {
 
       const document: Omit<MediaDocument, "_id"> = {
         workspaceId: context.workspaceId,
+        ...(input.projectId === undefined ? {} : { projectId: input.projectId }),
         uploadedByUserId: context.userId,
         originalFilename: sanitizeFilename(input.filename),
         contentHash: processed.contentHash,

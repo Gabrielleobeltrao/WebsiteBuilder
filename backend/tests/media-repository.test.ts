@@ -71,7 +71,7 @@ describe("upload", () => {
       repository.upload(tenantA, { data: Buffer.from("<svg onload=alert(1)></svg>"), filename: "x.png" }),
     ).rejects.toMatchObject({ name: "UnsupportedImageError" });
 
-    expect(await repository.list(tenantA)).toHaveLength(0);
+    expect(await repository.list(tenantA, undefined)).toHaveLength(0);
   });
 
   it("leaves no orphaned bytes behind when storing a variant fails", async () => {
@@ -101,7 +101,7 @@ describe("upload", () => {
     ).rejects.toThrow("storage unavailable");
 
     // No metadata record, and every byte already written was cleaned up.
-    expect(await flakyRepository.list(tenantA)).toHaveLength(0);
+    expect(await flakyRepository.list(tenantA, undefined)).toHaveLength(0);
     expect(deleted).toEqual(written);
     for (const key of written) expect(await storage.exists(key)).toBe(false);
   }, 30_000);
@@ -111,7 +111,7 @@ describe("tenant isolation", () => {
   it("does not list or read another workspace's media", async () => {
     const asset = await repository.upload(tenantA, { data: await png(), filename: "photo.png" });
 
-    expect(await repository.list(tenantB)).toHaveLength(0);
+    expect(await repository.list(tenantB, undefined)).toHaveLength(0);
     expect(await repository.findById(tenantB, asset.id)).toBeNull();
     expect(await repository.openVariant(tenantB, asset.id)).toBeNull();
   }, 30_000);
@@ -156,4 +156,35 @@ describe("delete", () => {
     expect(await repository.findById(tenantA, asset.id)).toBeNull();
     for (const key of keys) expect(await storage.exists(key)).toBe(false);
   }, 30_000);
+});
+
+/**
+ * One library per site, without stranding what was uploaded before there were any.
+ *
+ * The workspace-wide library said images belonged to the account rather than to a site, so one grid
+ * held every site's pictures mixed together. Scoping it retroactively would have been worse than
+ * leaving it: those images are on live pages, and removing them from the library of the site using
+ * them would look exactly like data loss.
+ */
+describe("a site's own library", () => {
+  it("shows what this site uploaded and hides what another one did", async () => {
+    const mine = await repository.upload(tenantA, { data: await png(), filename: "mine.png", projectId: "site-1" });
+    await repository.upload(tenantA, { data: await png(800, 600), filename: "theirs.png", projectId: "site-2" });
+
+    expect((await repository.list(tenantA, "site-1")).map((asset) => asset.id)).toEqual([mine.id]);
+  });
+
+  it("keeps images from before sites had libraries visible in every one of them", async () => {
+    const legacy = await repository.upload(tenantA, { data: await png(), filename: "legacy.png" });
+
+    expect((await repository.list(tenantA, "site-1")).map((asset) => asset.id)).toEqual([legacy.id]);
+    expect((await repository.list(tenantA, "site-2")).map((asset) => asset.id)).toEqual([legacy.id]);
+  });
+
+  it("cannot be widened by a project id from another tenant's site", async () => {
+    await repository.upload(tenantA, { data: await png(), filename: "a.png", projectId: "site-1" });
+
+    // Workspace first and always: the project id narrows a set already confined to the caller.
+    expect(await repository.list(tenantB, "site-1")).toEqual([]);
+  });
 });

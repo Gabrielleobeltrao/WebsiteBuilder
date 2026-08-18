@@ -197,6 +197,14 @@ export function SiteDashboard({
               </li>
               <li>
                 <Link
+                  to={`${base}/media`}
+                  className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
+                >
+                  {t("dashboard:media.title")}
+                </Link>
+              </li>
+              <li>
+                <Link
                   to={`${base}/cms`}
                   className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
                 >

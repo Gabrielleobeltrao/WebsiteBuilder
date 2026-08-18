@@ -24,7 +24,7 @@ export function MediaPickerField({
   onClear?: () => void;
 }) {
   const { t } = useTranslation("builder");
-  const { workspaceId = "" } = useParams();
+  const { workspaceId = "", projectId = "" } = useParams();
   const [open, setOpen] = useState(false);
   const id = useId();
 
@@ -62,6 +62,7 @@ export function MediaPickerField({
         <div className="mt-2 max-h-72 overflow-y-auto rounded-md border border-ink-200 p-2">
           <MediaLibrary
             workspaceId={workspaceId}
+            projectId={projectId}
             onSelect={(asset) => {
               onChange(asset.id);
               setOpen(false);

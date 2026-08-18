@@ -114,10 +114,10 @@ export function AppRoutes({ authenticated = false }: { authenticated?: boolean }
           <Route path="sites/:projectId/forms/new" element={<FormEditorRoute />} />
           <Route path="sites/:projectId/forms/submissions" element={<SubmissionsRoute />} />
           <Route path="sites/:projectId/forms/:formId/edit" element={<FormEditorRoute />} />
+          <Route path="sites/:projectId/media" element={<MediaRoute />} />
           <Route path="sites/:projectId/blog" element={<BlogRoute />} />
           <Route path="sites/:projectId/blog/posts/new" element={<PostEditorRoute />} />
           <Route path="sites/:projectId/blog/posts/:postId/edit" element={<PostEditorRoute />} />
-          <Route path="media" element={<MediaRoute />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
         </>

@@ -174,6 +174,20 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
       }),
     },
     {
+      /*
+       * Mounted under a project, because a library belongs to the site it is for.
+       *
+       * The workspace-level path stays as well, and returns everything: publishing and any tool
+       * that reasons about a tenant's bytes still needs the whole set, and an address that used to
+       * work must not start answering with a subset of what it used to.
+       */
+      path: "/workspaces/:workspaceId/projects/:projectId/media",
+      router: createMediaRouter({
+        repository: media,
+        resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "media:read" }),
+      }),
+    },
+    {
       path: "/workspaces/:workspaceId/media",
       router: createMediaRouter({
         repository: media,

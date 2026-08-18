@@ -20,9 +20,12 @@ type LoadState =
  */
 export function MediaLibrary({
   workspaceId,
+  projectId,
   onSelect,
 }: {
   workspaceId: string;
+  /** The site this library belongs to. Uploads land here and the listing is confined to it. */
+  projectId: string;
   onSelect?: (asset: MediaAsset) => void;
 }) {
   const { t } = useTranslation(["dashboard", "errors", "common"]);
@@ -38,14 +41,14 @@ export function MediaLibrary({
     async (signal?: AbortSignal) => {
       setState({ status: "loading" });
       try {
-        const assets = await mediaApi.list(workspaceId, signal ? { signal } : {});
+        const assets = await mediaApi.list(workspaceId, projectId, signal ? { signal } : {});
         setState({ status: "ready", assets });
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         setState({ status: "error", code: error instanceof ApiError ? error.code : "INTERNAL_ERROR" });
       }
     },
-    [workspaceId],
+    [workspaceId, projectId],
   );
 
   useEffect(() => {
@@ -58,7 +61,7 @@ export function MediaLibrary({
     setUploading(true);
     setUploadError(null);
     try {
-      await mediaApi.upload(workspaceId, file);
+      await mediaApi.upload(workspaceId, projectId, file);
       await load();
     } catch (error) {
       // The server decides what is acceptable; the client only translates its answer.

@@ -77,7 +77,7 @@ export default {
 
   "media": {
     "title": "Mídia",
-    "description": "Imagens disponíveis para todos os sites deste espaço de trabalho.",
+    "description": "As imagens deste site. Envios anteriores à separação por site aparecem em todos.",
     "upload": "Enviar imagem",
     "uploading": "Enviando…",
     "select": "Usar esta imagem",

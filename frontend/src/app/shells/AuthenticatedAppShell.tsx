@@ -30,10 +30,16 @@ function Brand({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+/*
+ * Workspace-level destinations only.
+ *
+ * Media used to sit here, which said images belonged to the account rather than to a site — so one
+ * library held every site's pictures mixed together and grew unusable as soon as a customer had a
+ * second site. It lives inside a site now, beside the other things a site owns.
+ */
 const NAV_ITEMS = [
   { segment: "overview", labelKey: "dashboard:overview.title" },
   { segment: "sites", labelKey: "dashboard:sites.title" },
-  { segment: "media", labelKey: "dashboard:media.title" },
   { segment: "settings", labelKey: "auth:settings" },
 ] as const;
 

@@ -4,15 +4,16 @@ import { useTranslation } from "react-i18next";
 
 import { preferencesApi } from "@/api/preferences";
 import { PageMetadata } from "@/components/common/PageMetadata";
+import { AccountSettings } from "@/features/auth/AccountSettings";
 import { changeLocale } from "@/i18n";
 import { isSupportedLocale } from "@/i18n/locale";
 
 /**
- * Settings → Language.
+ * Settings: the account, then the interface language.
  *
- * The interface changes immediately and the preference is persisted afterwards. If persistence
- * fails the user is told plainly that the change is local only, rather than the app pretending it
- * saved or refusing to switch at all.
+ * The language changes immediately and the preference is persisted afterwards. If persistence fails
+ * the user is told plainly that the change is local only, rather than the app pretending it saved or
+ * refusing to switch at all.
  */
 export function SettingsPage() {
   const { t, i18n } = useTranslation(["auth", "common"]);
@@ -36,7 +37,9 @@ export function SettingsPage() {
       <div className="mx-auto max-w-2xl">
         <h1 className="font-display text-2xl font-semibold tracking-tight text-ink-950">{t("auth:settings")}</h1>
 
-        <section aria-labelledby="language-heading" className="mt-8 rounded-xl border border-ink-200 p-6">
+        <AccountSettings />
+
+        <section aria-labelledby="language-heading" className="mt-6 rounded-xl border border-ink-200 p-6">
           <h2 id="language-heading" className="font-display text-lg font-semibold text-ink-900">
             {t("auth:language")}
           </h2>

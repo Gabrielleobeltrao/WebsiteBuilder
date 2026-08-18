@@ -20,10 +20,22 @@ export function createMediaRouter(options: {
   const { repository, resolveWorkspace } = options;
   const router = Router({ mergeParams: true });
 
+  /**
+   * The site whose library this is.
+   *
+   * The router is mounted under a project, so this is always present in practice; it is read rather
+   * than required so the same router keeps working if it is ever mounted without one. It only ever
+   * narrows a query the workspace has already confined.
+   */
+  const projectOf = (req: Parameters<WorkspaceResolver>[0]): string | undefined => {
+    const value = (req.params as Record<string, string | undefined>).projectId;
+    return typeof value === "string" && value.length > 0 ? value : undefined;
+  };
+
   router.get("/", async (req, res, next) => {
     try {
       const context = await resolveWorkspace(req);
-      res.json({ data: await repository.list(context) });
+      res.json({ data: await repository.list(context, projectOf(req)) });
     } catch (error) {
       next(error);
     }
@@ -49,6 +61,7 @@ export function createMediaRouter(options: {
           data,
           filename,
           ...(alt ? { defaultAlt: alt.slice(0, 500) } : {}),
+          ...(projectOf(req) === undefined ? {} : { projectId: projectOf(req)! }),
         });
         res.status(201).json({ data: asset });
       } catch (error) {

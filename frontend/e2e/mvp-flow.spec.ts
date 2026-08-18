@@ -425,8 +425,8 @@ test.describe("dashboard on a phone", () => {
     const drawer = page.getByRole("dialog", { name: "Website Builder" });
     await expect(drawer).toBeVisible();
 
-    await drawer.getByRole("link", { name: "Media" }).click();
-    await expect(page).toHaveURL(/\/media$/);
+    await drawer.getByRole("link", { name: "Sites" }).click();
+    await expect(page).toHaveURL(/\/sites$/);
     await expect(drawer).toBeHidden();
 
     await page.setViewportSize({ width: 320, height: 800 });

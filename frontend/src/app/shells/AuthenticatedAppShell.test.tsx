@@ -17,7 +17,7 @@ function renderShell() {
     <Routes>
       <Route path="/app/:workspaceId" element={<AuthenticatedAppShell />}>
         <Route path="sites" element={<h1>Sites page</h1>} />
-        <Route path="media" element={<h1>Media page</h1>} />
+        <Route path="settings" element={<h1>Settings page</h1>} />
       </Route>
     </Routes>,
     { route: "/app/w1/sites" },
@@ -38,7 +38,6 @@ describe("AuthenticatedAppShell mobile drawer", () => {
     expect(within(drawer).getAllByRole("link").map((link) => link.textContent)).toEqual([
       "Overview",
       "Sites",
-      "Media",
       "Settings",
     ]);
 
@@ -53,9 +52,9 @@ describe("AuthenticatedAppShell mobile drawer", () => {
 
     await user.click(screen.getByRole("button", { name: "Open menu" }));
     const drawer = screen.getByRole("dialog", { name: "Website Builder" });
-    await user.click(within(drawer).getByRole("link", { name: "Media" }));
+    await user.click(within(drawer).getByRole("link", { name: "Settings" }));
 
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(screen.getByRole("heading", { level: 1, name: "Media page" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Settings page" })).toBeInTheDocument();
   });
 });

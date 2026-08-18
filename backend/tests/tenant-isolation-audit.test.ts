@@ -123,9 +123,9 @@ beforeEach(async () => {
 describe("reads", () => {
   it("returns nothing from another workspace in any listing", async () => {
     expect(await projects.listSummaries(A)).toEqual([]);
-    expect(await clients.list(A)).toEqual([]);
-    expect(await campaigns.list(A)).toEqual([]);
-    expect(await media.list(A)).toEqual([]);
+    expect(await clients.list(A, undefined)).toEqual([]);
+    expect(await campaigns.list(A, undefined)).toEqual([]);
+    expect(await media.list(A, undefined)).toEqual([]);
     expect((await blog.list(A, PROJECT_B)).total).toBe(0);
   });
 

@@ -42,7 +42,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe("MediaLibrary states", () => {
   it("shows loading, then the grid", async () => {
     mockFetch(() => ok([asset()]));
-    renderWithProviders(<MediaLibrary workspaceId="w1" />);
+    renderWithProviders(<MediaLibrary workspaceId="w1" projectId="p1" />);
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading media…");
     expect(await screen.findByRole("img", { name: "beach.png" })).toBeInTheDocument();
@@ -52,7 +52,7 @@ describe("MediaLibrary states", () => {
 
   it("shows an empty state rather than a blank grid", async () => {
     mockFetch(() => ok([]));
-    renderWithProviders(<MediaLibrary workspaceId="w1" />);
+    renderWithProviders(<MediaLibrary workspaceId="w1" projectId="p1" />);
     expect(await screen.findByRole("heading", { level: 3, name: "No images yet" })).toBeInTheDocument();
   });
 
@@ -63,7 +63,7 @@ describe("MediaLibrary states", () => {
       return calls === 1 ? fail("SERVICE_UNAVAILABLE", 503) : ok([asset()]);
     });
     const user = userEvent.setup();
-    renderWithProviders(<MediaLibrary workspaceId="w1" />);
+    renderWithProviders(<MediaLibrary workspaceId="w1" projectId="p1" />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("temporarily unavailable");
     await user.click(screen.getByRole("button", { name: "Try again" }));
@@ -74,7 +74,7 @@ describe("MediaLibrary states", () => {
 describe("responsive delivery", () => {
   it("requests the smallest variant for a thumbnail and offers the rest through srcset", async () => {
     mockFetch(() => ok([asset()]));
-    renderWithProviders(<MediaLibrary workspaceId="w1" />);
+    renderWithProviders(<MediaLibrary workspaceId="w1" projectId="p1" />);
 
     const image = await screen.findByRole("img", { name: "beach.png" });
     expect(image).toHaveAttribute("src", expect.stringContaining("w=320"));
@@ -84,7 +84,7 @@ describe("responsive delivery", () => {
 
   it("states explicit dimensions so the grid does not shift while loading", async () => {
     mockFetch(() => ok([asset()]));
-    renderWithProviders(<MediaLibrary workspaceId="w1" />);
+    renderWithProviders(<MediaLibrary workspaceId="w1" projectId="p1" />);
 
     const image = await screen.findByRole("img", { name: "beach.png" });
     expect(image).toHaveAttribute("width", "1600");
@@ -97,7 +97,7 @@ describe("upload", () => {
   it("uploads raw bytes with the filename in a header", async () => {
     const spy = mockFetch((_url, init) => (init?.method === "POST" ? ok(asset(), 201) : ok([])));
     const user = userEvent.setup();
-    renderWithProviders(<MediaLibrary workspaceId="w1" />);
+    renderWithProviders(<MediaLibrary workspaceId="w1" projectId="p1" />);
     await screen.findByRole("heading", { level: 3, name: "No images yet" });
 
     const file = new File([new Uint8Array([1, 2, 3])], "férias.png", { type: "image/png" });
@@ -115,7 +115,7 @@ describe("upload", () => {
   it("explains a rejected file in the user's language", async () => {
     mockFetch((_url, init) => (init?.method === "POST" ? fail("UNSUPPORTED_MEDIA_TYPE", 415) : ok([])));
     const user = userEvent.setup();
-    renderWithProviders(<MediaLibrary workspaceId="w1" />);
+    renderWithProviders(<MediaLibrary workspaceId="w1" projectId="p1" />);
     await screen.findByRole("heading", { level: 3, name: "No images yet" });
 
     // The real case is a file that claims to be an image: the browser's accept filter lets it
@@ -131,7 +131,7 @@ describe("upload", () => {
   it("explains an oversized file distinctly from an unsupported one", async () => {
     mockFetch((_url, init) => (init?.method === "POST" ? fail("PAYLOAD_TOO_LARGE", 413) : ok([])));
     const user = userEvent.setup();
-    renderWithProviders(<MediaLibrary workspaceId="w1" />);
+    renderWithProviders(<MediaLibrary workspaceId="w1" projectId="p1" />);
     await screen.findByRole("heading", { level: 3, name: "No images yet" });
 
     await user.upload(
@@ -146,13 +146,13 @@ describe("upload", () => {
 describe("selection and deletion", () => {
   it("offers selection only when the caller wants it", async () => {
     mockFetch(() => ok([asset()]));
-    const { unmount } = renderWithProviders(<MediaLibrary workspaceId="w1" />);
+    const { unmount } = renderWithProviders(<MediaLibrary workspaceId="w1" projectId="p1" />);
     await screen.findByText("beach.png");
     expect(screen.queryByRole("button", { name: "Use this image" })).toBeNull();
     unmount();
 
     const onSelect = vi.fn();
-    renderWithProviders(<MediaLibrary workspaceId="w1" onSelect={onSelect} />);
+    renderWithProviders(<MediaLibrary workspaceId="w1" projectId="p1" onSelect={onSelect} />);
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Use this image" }));
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: asset().id }));
@@ -167,7 +167,7 @@ describe("selection and deletion", () => {
     });
 
     const user = userEvent.setup();
-    renderWithProviders(<MediaLibrary workspaceId="w1" />);
+    renderWithProviders(<MediaLibrary workspaceId="w1" projectId="p1" />);
     await screen.findByText("beach.png");
 
     await user.click(screen.getByRole("button", { name: "Delete" }));
@@ -184,7 +184,7 @@ describe("search and localization", () => {
   it("filters by filename and reports no matches", async () => {
     mockFetch(() => ok([asset(), asset({ id: "b", originalFilename: "mountain.png" })]));
     const user = userEvent.setup();
-    renderWithProviders(<MediaLibrary workspaceId="w1" />);
+    renderWithProviders(<MediaLibrary workspaceId="w1" projectId="p1" />);
     await screen.findByText("beach.png");
 
     await user.type(screen.getByLabelText("Search by filename"), "mount");
@@ -198,7 +198,7 @@ describe("search and localization", () => {
 
   it("renders in Portuguese including pluralisation", async () => {
     mockFetch(() => ok([asset({ variants: [asset().variants[0]!] })]));
-    renderWithProviders(<MediaLibrary workspaceId="w1" />, { locale: "pt-BR" });
+    renderWithProviders(<MediaLibrary workspaceId="w1" projectId="p1" />, { locale: "pt-BR" });
 
     expect(await screen.findByRole("heading", { level: 2, name: "Mídia" })).toBeInTheDocument();
     expect(screen.getByText(/1 tamanho/)).toBeInTheDocument();

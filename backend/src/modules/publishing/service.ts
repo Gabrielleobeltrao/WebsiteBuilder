@@ -298,7 +298,10 @@ export class PublishingService {
     const [settings, posts, media, collections, items, redirects, facts, blogTemplates] = await Promise.all([
       this.deps.blog.loadSettings(context, projectId),
       this.deps.blog.list(context, projectId, { perPage: 500 }),
-      this.deps.media.list(context, 1000),
+      // Workspace-wide on purpose. This list answers "may this tenant reference these bytes", which
+      // is a tenancy question and not a library question — narrowing it to one site would refuse a
+      // publish over an image the same customer owns and is entitled to use.
+      this.deps.media.list(context, undefined, 1000),
       this.deps.loadCmsCollections?.(context, projectId) ?? Promise.resolve([]),
       this.deps.loadCmsItems?.(context, projectId) ?? Promise.resolve([]),
       this.deps.loadRedirects?.(context, projectId) ?? Promise.resolve([]),

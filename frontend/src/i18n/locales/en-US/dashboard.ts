@@ -77,7 +77,7 @@ export default {
 
   "media": {
     "title": "Media",
-    "description": "Images available to every site in this workspace.",
+    "description": "The images for this site. Uploads from before libraries were split per site appear in all of them.",
     "upload": "Upload image",
     "uploading": "Uploading…",
     "select": "Use this image",

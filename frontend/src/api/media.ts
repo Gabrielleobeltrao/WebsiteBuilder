@@ -17,6 +17,16 @@ export type MediaAsset = {
 
 const scope = (workspaceId: string) => `/workspaces/${encodeURIComponent(workspaceId)}/media`;
 
+/**
+ * A site's own library.
+ *
+ * Listing and uploading are per site; serving bytes stays on the workspace path, because a
+ * published page's image URL must not change shape when the library moves — every page already out
+ * there points at the old one.
+ */
+const siteScope = (workspaceId: string, projectId: string) =>
+  `/workspaces/${encodeURIComponent(workspaceId)}/projects/${encodeURIComponent(projectId)}/media`;
+
 /** URL for one asset, optionally asking for the smallest variant covering a width. */
 export function mediaUrl(workspaceId: string, mediaId: string, width?: number): string {
   const query = width === undefined ? "" : `?w=${Math.round(width)}`;
@@ -38,8 +48,8 @@ export function mediaSrcSet(workspaceId: string, asset: Pick<MediaAsset, "id" | 
 }
 
 export const mediaApi = {
-  list(workspaceId: string, options: { signal?: AbortSignal } = {}) {
-    return apiRequest<MediaAsset[]>(scope(workspaceId), {
+  list(workspaceId: string, projectId: string, options: { signal?: AbortSignal } = {}) {
+    return apiRequest<MediaAsset[]>(siteScope(workspaceId, projectId), {
       ...(options.signal ? { signal: options.signal } : {}),
     });
   },
@@ -48,10 +58,10 @@ export const mediaApi = {
    * Uploads raw bytes. `fetch` is used directly rather than the JSON helper because the body is
    * binary and the filename travels in a header.
    */
-  async upload(workspaceId: string, file: File, defaultAlt?: string): Promise<MediaAsset> {
+  async upload(workspaceId: string, projectId: string, file: File, defaultAlt?: string): Promise<MediaAsset> {
     let response: Response;
     try {
-      response = await fetch(`${API_BASE_PATH}${scope(workspaceId)}`, {
+      response = await fetch(`${API_BASE_PATH}${siteScope(workspaceId, projectId)}`, {
         method: "POST",
         credentials: "include",
         headers: {
