@@ -227,10 +227,28 @@ function SectionRow({ section, index, total }: { section: BuilderSection; index:
           event.dataTransfer.setData(SECTION_MIME, section.id);
           event.dataTransfer.effectAllowed = "move";
         }}
+        /*
+         * A section row takes a section *or* an element.
+         *
+         * It used to take only a section, so the tree could reorder sections and reorder elements
+         * within one, and offered no way to move an element into a different section — least of all
+         * into an empty one, which has no element row to aim at. Dragging on the canvas was the only
+         * path, and there it meant hitting a four-pixel band.
+         */
         onDragOver={(event: DragEvent) => {
-          if ([...event.dataTransfer.types].includes(SECTION_MIME)) event.preventDefault();
+          const types = [...event.dataTransfer.types];
+          if (types.includes(SECTION_MIME) || types.includes(MOVE_MIME)) event.preventDefault();
         }}
         onDrop={(event) => {
+          const element = event.dataTransfer.getData(MOVE_MIME);
+          if (element) {
+            event.stopPropagation();
+            // The end of this section: a row that stands for the whole section cannot mean a
+            // position inside it, and the element rows below already say what "before this" means.
+            store.moveElementTo(element, { sectionId: section.id, index: section.elements.length });
+            return;
+          }
+
           const moved = event.dataTransfer.getData(SECTION_MIME);
           if (!moved || moved === section.id) return;
           const from = store.history.present.pages

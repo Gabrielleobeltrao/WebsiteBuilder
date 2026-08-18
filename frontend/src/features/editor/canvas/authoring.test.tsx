@@ -138,6 +138,37 @@ describe("dragging a block from the library", () => {
     expect(firstSection().elements.map((element) => element.type)).toEqual(["text", "button"]);
   });
 
+  it("accepts a drop anywhere in a structured section, not only on the thin markers", () => {
+    useEditorStore.getState().loadFromProject(project());
+    act(() => useEditorStore.getState().convertSectionLayout(firstSection().id, "flex"));
+    render();
+
+    // Only free sections took a drop, so an empty flex or grid section could be reached solely
+    // through a four-pixel marker sitting under a paragraph of placeholder text.
+    dragTo(document.querySelector(`[data-section-id="${firstSection().id}"]`)!, transfer(CREATE_MIME, "text"));
+
+    expect(firstSection().elements.map((element) => element.type)).toEqual(["text"]);
+  });
+
+  it("moves a block from one section into another", () => {
+    useEditorStore.getState().loadFromProject(project());
+    const sourceId = firstSection().id;
+    act(() => {
+      const store = useEditorStore.getState();
+      store.convertSectionLayout(sourceId, "flex");
+      store.addElement(sourceId, "button");
+      store.addSection("flex");
+    });
+    render();
+
+    const moved = currentPage().sections[0]!.elements[0]!.id;
+    const target = currentPage().sections[1]!.id;
+    dragTo(document.querySelector(`[data-section-id="${target}"]`)!, transfer(MOVE_MIME, moved));
+
+    expect(currentPage().sections[0]?.elements).toHaveLength(0);
+    expect(currentPage().sections[1]?.elements.map((element) => element.id)).toEqual([moved]);
+  });
+
   it("writes nothing when the drag is cancelled", () => {
     useEditorStore.getState().loadFromProject(project());
     render();

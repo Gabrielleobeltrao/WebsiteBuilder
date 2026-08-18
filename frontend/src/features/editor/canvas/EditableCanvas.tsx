@@ -78,11 +78,27 @@ function InsertionMarker({
         if (disabled) return;
         context.onDrop(event, target);
       }}
+      /*
+       * Tall enough to hit, and only present while something is being dragged.
+       *
+       * This was four pixels. Moving a block from one section to another meant landing a pointer
+       * inside a 4px band, which is why people concluded it could not be done at all. The marker
+       * renders only during a drag, so the extra height costs the layout nothing the rest of the
+       * time.
+       */
       className={[
-        "my-0.5 h-1 rounded-full transition-colors",
-        disabled ? "bg-red-200" : over ? "bg-accent-600" : "bg-accent-200",
+        "my-0.5 flex h-4 items-center rounded transition-colors",
+        over ? "bg-accent-100" : "",
       ].join(" ")}
-    />
+    >
+      <span
+        aria-hidden
+        className={[
+          "h-1 w-full rounded-full transition-colors",
+          disabled ? "bg-red-200" : over ? "bg-accent-600" : "bg-accent-200",
+        ].join(" ")}
+      />
+    </div>
   );
 }
 
@@ -292,8 +308,19 @@ function EditableSection({
         event.stopPropagation();
         select({ kind: "section", sectionId: section.id });
       }}
+      /*
+       * The whole section is a target, in every layout mode.
+       *
+       * Only free sections accepted a drop, so a flex or grid section could be reached only through
+       * the thin markers between its children — and an empty one had a single marker and a paragraph
+       * of placeholder text covering everything else. Moving a block into a section that had nothing
+       * in it yet was close to impossible, which reads as "you cannot move blocks between sections".
+       *
+       * A free section is addressed by coordinate; the others append at the end. The markers stop
+       * propagation, so a person aiming at a precise position still gets it.
+       */
       onDragOver={
-        free && context.dragKind !== null && context.dragKind !== "section"
+        context.dragKind !== null && context.dragKind !== "section"
           ? (event) => {
               event.preventDefault();
               setOver(true);
@@ -301,14 +328,15 @@ function EditableSection({
           : undefined
       }
       onDragLeave={() => setOver(false)}
-      onDrop={
-        free
-          ? (event) => {
-              setOver(false);
-              context.onDrop(event, { sectionId: section.id, at: coordinateOf(event) });
-            }
-          : undefined
-      }
+      onDrop={(event) => {
+        setOver(false);
+        context.onDrop(
+          event,
+          free
+            ? { sectionId: section.id, at: coordinateOf(event) }
+            : { sectionId: section.id, index: section.elements.length },
+        );
+      }}
       style={sectionStyle(section)}
       className={[
         isSelected ? "outline outline-2 -outline-offset-2 outline-accent-600" : "",

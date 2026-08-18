@@ -1,11 +1,12 @@
 import { createProjectDocument, type BuilderProject } from "@websitebuilder/shared";
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EditorShell } from "@/features/editor/EditorShell";
 import { cancelPendingAutosave, selectCurrentPage, useEditorStore } from "@/features/editor/store/editorStore";
 import { createHistory } from "@/features/editor/store/history";
+import { MOVE_MIME, SECTION_MIME } from "@/features/editor/canvas/dnd";
 import { renderWithProviders } from "@/test/render";
 
 /**
@@ -113,5 +114,54 @@ describe("deleting from the structure tree", () => {
     await user.click(screen.getByRole("button", { name: "Undo" }));
 
     expect(sections()).toHaveLength(1);
+  });
+});
+
+/**
+ * Moving a block from one section to another.
+ *
+ * The tree could reorder sections and reorder elements inside one, and had no way to move an element
+ * *between* them — least of all into an empty section, which has no element row to aim at. On the
+ * canvas the only target was a four-pixel band, which is why the honest report was "you cannot do
+ * this at all".
+ */
+describe("moving a block between sections", () => {
+  /** A drag whose payload the drop handler will read, as the DOM would carry it. */
+  const transfer = (mime: string, value: string) => {
+    const data: Record<string, string> = { [mime]: value };
+    return { types: [mime], getData: (key: string) => data[key] ?? "" };
+  };
+
+  it("drops an element onto another section and lands it there", async () => {
+    const user = await openStructure(() => {
+      const store = useEditorStore.getState();
+      store.insertElement("text", { sectionId: sections()[0]!.id, index: 0 });
+      store.addSection("flex");
+    });
+    void user;
+
+    const [first, second] = sections();
+    expect(first!.elements).toHaveLength(1);
+    expect(second!.elements).toHaveLength(0);
+
+    const rows = within(tree()).getAllByRole("button", { name: "Delete section" });
+    const target = rows[1]!.closest("div")!;
+    fireEvent.dragOver(target, { dataTransfer: transfer(MOVE_MIME, first!.elements[0]!.id) });
+    fireEvent.drop(target, { dataTransfer: transfer(MOVE_MIME, first!.elements[0]!.id) });
+
+    expect(sections()[0]?.elements).toHaveLength(0);
+    expect(sections()[1]?.elements).toHaveLength(1);
+  });
+
+  it("still reorders sections, which is what that row meant before", async () => {
+    await openStructure(() => useEditorStore.getState().addSection("flex"));
+
+    const before = sections().map((section) => section.id);
+    const rows = within(tree()).getAllByRole("button", { name: "Delete section" });
+    const target = rows[0]!.closest("div")!;
+    fireEvent.dragOver(target, { dataTransfer: transfer(SECTION_MIME, before[1]!) });
+    fireEvent.drop(target, { dataTransfer: transfer(SECTION_MIME, before[1]!) });
+
+    expect(sections().map((section) => section.id)).toEqual([before[1], before[0]]);
   });
 });
