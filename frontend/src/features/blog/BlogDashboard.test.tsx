@@ -27,12 +27,37 @@ const post = (overrides: Partial<BlogPost> = {}): BlogPost => ({
 const ok = (data: unknown) =>
   new Response(JSON.stringify({ data }), { status: 200, headers: { "content-type": "application/json" } });
 
-function mockApi(options: { enabled?: boolean; posts?: BlogPost[]; onRequest?: (url: string, init?: RequestInit) => void }) {
-  const { enabled = true, posts = [], onRequest } = options;
+function mockApi(options: {
+  enabled?: boolean;
+  posts?: BlogPost[];
+  /** The site's live hostname, or none — which is the state of a site nobody has published. */
+  liveHost?: string | null;
+  onRequest?: (url: string, init?: RequestInit) => void;
+}) {
+  const { enabled = true, posts = [], liveHost = null, onRequest } = options;
   const spy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     onRequest?.(url, init);
     if (url.includes("/settings")) return ok({ ...DEFAULT_BLOG_SETTINGS, enabled });
+    if (url.includes("/domains")) {
+      return ok(
+        liveHost === null
+          ? []
+          : [
+              {
+                id: "d1",
+                workspaceId: "w1",
+                projectId: "p1",
+                hostname: liveHost,
+                kind: "platform",
+                isPrimary: true,
+                status: "active",
+                sslStatus: "active",
+                createdAt: "2026-08-01T00:00:00.000Z",
+              },
+            ],
+      );
+    }
     if (init?.method && init.method !== "GET") return ok(post());
     return ok({ items: posts, total: posts.length, page: 1, perPage: 20 });
   });
@@ -183,5 +208,51 @@ describe("localization", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Blog" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Novo post" })).toBeInTheDocument();
     expect(screen.getByText("Rascunho")).toBeInTheDocument();
+  });
+});
+
+/**
+ * Looking at a post as a reader would.
+ *
+ * The list could edit, publish and delete a post but never open it, so the one question an author
+ * asks after writing — how does this actually look — had no answer without typing a URL by hand.
+ * The link points at whichever version of that page genuinely exists.
+ */
+describe("seeing a post's own page", () => {
+  it("opens the real page when the site is serving one", async () => {
+    mockApi({ posts: [post({ status: "published" })], liveHost: "acme.example.com" });
+    render();
+
+    const link = await screen.findByRole("link", { name: "View the page" });
+    expect(link).toHaveAttribute("href", "https://acme.example.com/blog/release-notes");
+    // Another origin, so the site opens beside the dashboard rather than replacing it.
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link.getAttribute("rel")).toContain("noopener");
+  });
+
+  it("falls back to the draft preview while the site has no address", async () => {
+    mockApi({ posts: [post({ status: "published" })], liveHost: null });
+    render();
+
+    // The article renders the same either way; the preview simply does not need a hostname.
+    const link = await screen.findByRole("link", { name: "Preview" });
+    expect(link).toHaveAttribute("href", "/preview/w1/p1/blog/release-notes");
+  });
+
+  it("offers nothing for a draft, because an unpublished post has no page anywhere", async () => {
+    mockApi({ posts: [post({ status: "draft" })], liveHost: "acme.example.com" });
+    render();
+
+    await screen.findByRole("link", { name: "Edit" });
+    expect(screen.queryByRole("link", { name: "View the page" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Preview" })).toBeNull();
+  });
+
+  it("keeps the list usable when the address cannot be loaded at all", async () => {
+    mockApi({ posts: [post({ status: "published" })] });
+    render();
+
+    // A failed lookup of an optional address must not turn the post list into an error screen.
+    expect(await screen.findByText("Release notes")).toBeInTheDocument();
   });
 });

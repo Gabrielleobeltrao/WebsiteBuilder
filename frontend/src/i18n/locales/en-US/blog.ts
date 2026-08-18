@@ -31,6 +31,8 @@ export default {
     saved: "Settings saved",
   },
   posts: {
+    viewPage: "View the page",
+    previewPage: "Preview",
     create: "New post",
     search: "Search posts",
     all: "All",

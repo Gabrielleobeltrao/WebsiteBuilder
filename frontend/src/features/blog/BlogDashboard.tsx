@@ -1,6 +1,8 @@
 import {
   BLOG_FORMATS,
   blogFormatOf,
+  isDomainLive,
+  postPath,
   type BlogFormat,
   type BlogPost,
   type BlogSettings,
@@ -10,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
 import { blogApi, type PostPage } from "@/api/blog";
+import { publishingApi } from "@/api/publishing";
 import { ApiError } from "@/api/client";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { useRelativeTime } from "@/hooks/useRelativeTime";
@@ -45,6 +48,14 @@ export function BlogDashboard({
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [pendingDelete, setPendingDelete] = useState<BlogPost | null>(null);
+  /**
+   * The address a visitor would actually open, when there is one.
+   *
+   * Same source as the publish screen, so the two cannot disagree about where this site lives. A
+   * site with no live hostname is not an error here — it just means the best available way to look
+   * at a post is the draft preview rather than the real page.
+   */
+  const [liveHost, setLiveHost] = useState<string | null>(null);
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -60,6 +71,16 @@ export function BlogDashboard({
         ]);
         setSettings(loadedSettings);
         setState({ status: "ready", page });
+
+        // Separate and forgiving: no address is an ordinary state for a site nobody has published,
+        // and it must not turn the post list into an error screen.
+        try {
+          const domains = await publishingApi.domains(workspaceId, projectId, signal ? { signal } : {});
+          const primary = domains.find((domain) => domain.isPrimary && isDomainLive(domain));
+          setLiveHost(primary?.hostname ?? null);
+        } catch {
+          setLiveHost(null);
+        }
 
         // Asked for separately because the list is filtered and paginated: counting its rows would
         // report "3 published" to somebody who had just filtered to drafts.
@@ -225,6 +246,33 @@ export function BlogDashboard({
                   </div>
 
                   <div className="flex shrink-0 flex-wrap gap-2">
+                    {/*
+                      The post's own page, by the best route that actually exists.
+                      
+                      A published post on a site with a live address gets the real page. A published
+                      post on a site with no address yet gets the draft preview, which renders the
+                      same article without needing a hostname. A draft gets neither, because an
+                      unpublished post claims no route anywhere — offering a button to it would send
+                      someone to the site's 404 and look like a bug rather than a status.
+                    */}
+                    {post.status === "published" &&
+                      (liveHost !== null ? (
+                        <a
+                          href={`https://${liveHost}${postPath(settings?.basePath ?? "/blog", post.slug)}`}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
+                        >
+                          {t("blog:posts.viewPage")}
+                        </a>
+                      ) : (
+                        <Link
+                          to={`/preview/${workspaceId}/${projectId}${postPath(settings?.basePath ?? "/blog", post.slug)}`}
+                          className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
+                        >
+                          {t("blog:posts.previewPage")}
+                        </Link>
+                      ))}
                     <Link
                       to={`${basePath}/posts/${post.id}/edit`}
                       className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
