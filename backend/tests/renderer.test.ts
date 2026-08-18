@@ -1,4 +1,4 @@
-import { createProjectDocument } from "@websitebuilder/shared";
+import { createProjectDocument, elementDefinition } from "@websitebuilder/shared";
 import { fixtureButton } from "@websitebuilder/shared/responsive-fixtures";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -95,6 +95,62 @@ describe("health", () => {
     expect(response.status).toBe(200);
     expect(response.body.data.status).toBe("ok");
   });
+});
+
+describe("what a visitor actually reads", () => {
+  /**
+   * The question a customer asks after publishing: my page has a paragraph on it, where is it?
+   *
+   * Every existing assertion about published HTML reads the head — a title, a canonical URL, a
+   * policy header. Nothing asserted that the words someone typed into a block reach the body, so a
+   * page could publish, serve 200, carry the right title and contain none of its own content.
+   */
+  /** A block as the builder stores one, in whichever layout mode its section uses. */
+  const textBlock = (content: string) => ({
+    ...(elementDefinition("text").defaults() as Record<string, unknown>),
+    id: "the-only-block",
+    name: "",
+    type: "text",
+    version: elementDefinition("text").schemaVersion,
+    content,
+    geometry: { x: 0, y: 0, width: 320, height: 64, rotation: 0 },
+    responsiveLayout: {
+      width: { value: 320, unit: "px" },
+      height: { value: 64, unit: "px" },
+      horizontalConstraint: "left",
+      verticalConstraint: "top",
+      visible: true,
+    },
+    zIndex: 1,
+    locked: false,
+    hidden: false,
+  });
+
+  /** Puts one block on the home page, in the given layout mode, and publishes. */
+  async function siteWithOneBlock(layoutMode: "free" | "flex" | "grid", content: string) {
+    const projectId = await liveSite(A, "alpha", "alpha.example.test");
+    const current = await projects.findById(A, projectId);
+    const { id, workspaceId, createdByUserId, revision, createdAt, updatedAt, ...document } = current!;
+    const typed = document as ReturnType<typeof createProjectDocument>;
+
+    const section = typed.pages[0]!.sections[0]!;
+    section.layoutMode = layoutMode;
+    section.elements = [textBlock(content) as never];
+
+    expect(await projects.saveDocument(A, projectId, revision, typed)).not.toBeNull();
+    expect((await service.publish(A, projectId)).status).toBe("published");
+    return projectId;
+  }
+
+  for (const layoutMode of ["free", "flex", "grid"] as const) {
+    it(`serves the text of a ${layoutMode} section`, async () => {
+      await siteWithOneBlock(layoutMode, `Read me in a ${layoutMode} section`);
+
+      const response = await request(renderer()).get("/").set("host", "alpha.example.test");
+      expect(response.status).toBe(200);
+      expect(response.text).toContain(`Read me in a ${layoutMode} section`);
+    });
+  }
 });
 
 describe("republishing", () => {
