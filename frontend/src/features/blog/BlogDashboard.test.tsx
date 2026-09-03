@@ -123,11 +123,12 @@ describe("post list", () => {
 
     expect(await screen.findByRole("heading", { level: 2, name: "Release notes" })).toBeInTheDocument();
 
-    // Scope to the list: "Published" is also a filter button, and asserting globally would pass
+    // Scope to the list: "Ready" is also a filter button, and asserting globally would pass
     // even if the badge were missing.
     const items = screen.getAllByRole("listitem");
     expect(within(items[0]!).getByText("Draft")).toBeInTheDocument();
-    expect(within(items[1]!).getByText("Published")).toBeInTheDocument();
+    // "Ready", not "Published": nothing is public until the site itself is published.
+    expect(within(items[1]!).getByText("Ready")).toBeInTheDocument();
     expect(within(items[0]!).getByText("/release-notes")).toBeInTheDocument();
   });
 
@@ -138,7 +139,7 @@ describe("post list", () => {
     render();
     await screen.findByRole("heading", { level: 2, name: "Release notes" });
 
-    await user.click(screen.getByRole("button", { name: "Published" }));
+    await user.click(screen.getByRole("button", { name: "Ready" }));
     expect(urls.some((url) => url.includes("status=published"))).toBe(true);
   });
 
@@ -163,7 +164,7 @@ describe("post actions", () => {
     render();
     await screen.findByRole("heading", { level: 2, name: "Release notes" });
 
-    await user.click(screen.getByRole("button", { name: "Publish" }));
+    await user.click(screen.getByRole("button", { name: "Mark as ready" }));
     expect(requests.some((request) => request.startsWith("POST") && request.endsWith("/publish"))).toBe(true);
   });
 
@@ -177,7 +178,7 @@ describe("post actions", () => {
     render();
     await screen.findByRole("heading", { level: 2, name: "Release notes" });
 
-    await user.click(screen.getByRole("button", { name: "Move to drafts" }));
+    await user.click(screen.getByRole("button", { name: "Back to draft" }));
     expect(requests.some((request) => request.endsWith("/unpublish"))).toBe(true);
   });
 

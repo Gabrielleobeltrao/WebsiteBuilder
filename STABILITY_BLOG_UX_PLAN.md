@@ -127,7 +127,7 @@ These are credible paths for the reported old-site failure, but the exact cause 
   - Acceptance: opening or auditing an old enabled blog repairs only missing references; repeated repair is a no-op; site status no longer remains blocked after valid templates exist.
   - Verify: repository/API/site-status/publishing tests with pre-template blog settings and cross-tenant cases.
 
-- [ ] **P2-T2 Enforce the single publication boundary from Section 4.1.** Replace misleading post/template “Publish” actions with draft/ready semantics and pending-change indicators. Ensure only site publish compiles the exact ready posts and saved templates into an immutable snapshot. Expose active snapshot revisions/hashes needed for honest UI comparisons.
+- [x] **P2-T2 Enforce the single publication boundary from Section 4.1.** Replace misleading post/template “Publish” actions with draft/ready semantics and pending-change indicators. Ensure only site publish compiles the exact ready posts and saved templates into an immutable snapshot. Expose active snapshot revisions/hashes needed for honest UI comparisons.
   - Acceptance: saving or marking a post/template ready does not change public HTML; successful site publish changes it; failed site publish leaves the previous version live; dashboard copy never claims otherwise.
   - Verify: backend publication tests and frontend lifecycle tests for post edit, template edit, failed publish, successful republish, and rollback.
 
@@ -195,6 +195,17 @@ Append one row per completed task. Never rewrite previous rows.
 
 ```text
 YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
+2026-09-03 12:56 | P2-T2 | done | publication-boundary (4), blog dashboard (18), 42+50+65 files, typecheck, build | pending
+  Four tests fix the boundary: a post marked ready does not change public HTML, it appears only after
+  the site is published, saving and promoting a template changes nothing on its own, and a refused
+  publish leaves the previous version serving. Copy follows: "Publish"/"Published" became "Mark as
+  ready"/"Ready" in both locales, and the template message that claimed the layout was live now says
+  it goes live when the site is published.
+  Defect found while writing them, not in the plan: a post with no SEO title made every site publish
+  fail with `hash-mismatch`. The mapping produced `seo: { title: undefined }`, Mongo stores absent
+  as null, and the integrity check hashes before writing and after reading back — so the two never
+  matched. Normalised at the same boundary as the other optional fields. It surfaced only here
+  because this is the first test that publishes a post read from a real database rather than a fixture.
 2026-09-03 12:49 | P1-T3 | done | editor-target regressions (4, failing first), frontend 65 files, typecheck, test, build | pending
   Five defects on the store's most dangerous field. `loadFromProject` now resets the target, so a
   site save after a template can no longer address the template endpoint. Field definitions travel

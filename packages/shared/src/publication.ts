@@ -296,6 +296,21 @@ export function normalizePublishablePost(post: PublishablePost): PublishablePost
     if (value === undefined) delete next[key];
     else next[key] = value;
   }
+
+  /*
+   * The same for the SEO pair, and this one was breaking publication outright.
+   *
+   * A post with no SEO title produced `seo: { title: undefined, description: undefined }`. The
+   * integrity check hashes what is written and hashes it again after reading it back — and Mongo
+   * stores an absent value as `null`, so the two never matched. Every site publish with such a post
+   * failed with `hash-mismatch`, which is a customer unable to publish their site at all because a
+   * blog post has no SEO title.
+   */
+  const seo: PublishablePost["seo"] = {};
+  if (text(post.seo?.title) !== undefined) seo.title = text(post.seo?.title);
+  if (text(post.seo?.description) !== undefined) seo.description = text(post.seo?.description);
+  next.seo = seo;
+
   return next;
 }
 

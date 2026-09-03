@@ -1,9 +1,9 @@
 export default {
   topBar: {
     "templateConflict": "Salvamento recusado: alguém guardou este layout depois que você o abriu. Recarregue antes de publicar.",
-    "publishTemplate": "Publicar layout",
+    "publishTemplate": "Salvar como pronto",
     "publishing": "Publicando…",
-    "templatePublished": "Layout no ar. Todos os posts já usam ele.",
+    "templatePublished": "Layout pronto. Ele vai ao ar quando você publicar o site.",
     "templateBlocked": "Não deu para publicar: um campo novo deixaria posts incompletos.",
     "templateFailed": "Não conseguimos publicar o layout.",
     backToSites: "Voltar para sites",

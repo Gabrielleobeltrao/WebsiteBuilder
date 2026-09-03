@@ -1,9 +1,9 @@
 export default {
   topBar: {
     "templateConflict": "Save refused: somebody stored this layout after you opened it. Reload before publishing.",
-    "publishTemplate": "Publish layout",
+    "publishTemplate": "Save as ready",
     "publishing": "Publishing…",
-    "templatePublished": "The layout is live. Every post uses it now.",
+    "templatePublished": "Layout ready. It goes live when you publish the site.",
     "templateBlocked": "Not published: a newly required field would leave posts incomplete.",
     "templateFailed": "We could not publish the layout.",
     backToSites: "Back to sites",
