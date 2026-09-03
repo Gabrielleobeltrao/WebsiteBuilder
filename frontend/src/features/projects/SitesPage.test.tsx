@@ -49,7 +49,8 @@ describe("SitesPage states", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading sites…");
     expect(await screen.findByRole("heading", { level: 2, name: "Acme Studio" })).toBeInTheDocument();
-    expect(screen.getByText(/3 pages/)).toBeInTheDocument();
+    // Collapsed: a name and one honest word about where the site is. The counts are a disclosure away.
+    expect(screen.getByText("Draft")).toBeInTheDocument();
   });
 
   it("shows an empty state rather than a blank page", async () => {
@@ -123,9 +124,14 @@ describe("SitesPage localization", () => {
     renderWithProviders(<SitesPage workspaceId="w1" />, { locale: "pt-BR" });
 
     expect(await screen.findByRole("heading", { level: 1, name: "Sites" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Novo site" })).toBeInTheDocument();
+
+    const user = userEvent.setup();
+    for (const name of ["Acme Studio", "Outro"]) {
+      await user.click(screen.getByRole("button", { name: `Detalhes de ${name}` }));
+    }
     expect(screen.getByText(/1 página/)).toBeInTheDocument();
     expect(screen.getByText(/5 páginas/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Novo site" })).toBeInTheDocument();
   });
 });
 
@@ -146,22 +152,23 @@ describe("finding a site from the list", () => {
     );
   });
 
-  it("opens the published address in one tap", async () => {
+  /** Opens one card's disclosure and hands back the panel it revealed. */
+  async function disclose(name = "Acme Studio") {
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: `Details for ${name}` }));
+    return user;
+  }
+
+  it("opens the published address in one tap, from the disclosure", async () => {
     mockFetch(() => ok([summary({ liveUrl: "https://acme-studio.example.com" })]));
     renderWithProviders(<SitesPage workspaceId="w1" />);
+    await disclose();
 
-    const visit = await screen.findByRole("link", { name: "Visit site" });
+    const visit = screen.getByRole("link", { name: "Visit site" });
     expect(visit).toHaveAttribute("href", "https://acme-studio.example.com");
     // Another origin, so the site opens beside the dashboard rather than replacing it.
     expect(visit).toHaveAttribute("target", "_blank");
     expect(visit.getAttribute("rel")).toContain("noopener");
-  });
-
-  it("shows the address, because it is what a customer types and shares", async () => {
-    mockFetch(() => ok([summary({ liveUrl: "https://acme-studio.example.com" })]));
-    renderWithProviders(<SitesPage workspaceId="w1" />);
-
-    expect(await screen.findByText(/acme-studio\.example\.com/)).toBeInTheDocument();
   });
 
   it("offers no address for a site that is not serving one", async () => {
@@ -169,51 +176,66 @@ describe("finding a site from the list", () => {
     // that the product is broken when what happened is that they have not published.
     mockFetch(() => ok([summary()]));
     renderWithProviders(<SitesPage workspaceId="w1" />);
+    await disclose();
 
-    expect(await screen.findByText(/Not published yet/)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Visit site" })).toBeNull();
   });
 
-  it("keeps destructive actions off the list", async () => {
+  it("keeps destructive actions off the list, open or closed", async () => {
     // Delete beside Open, on every row, is one mis-tap from losing a site — and on a phone it sits
     // next to the button people press most. It lives on the site's own settings now.
     mockFetch(() => ok([summary()]));
     renderWithProviders(<SitesPage workspaceId="w1" />);
+    await disclose();
 
-    await screen.findByRole("link", { name: "Publish" });
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Rename" })).toBeNull();
   });
 
-  it("says a published site has no address rather than calling it unpublished", async () => {
+  it("says a published site with no address needs attention, not that it is unpublished", async () => {
     // The state that used to read "Not published yet" after a successful publish. Publishing again
     // does not fix a missing address, so sending someone back to publish would waste their time.
-    mockFetch(() => ok([summary({ isPublished: true })]));
+    mockFetch(() =>
+      ok([
+        summary({
+          isPublished: true,
+          summary: { hasPendingChanges: false, knownBlockers: ["no-address"], traffic: { state: "measured", days: 30, views: 0, visitors: null } },
+        }),
+      ]),
+    );
     renderWithProviders(<SitesPage workspaceId="w1" />);
 
-    expect(await screen.findByText(/Published, but has no address yet/)).toBeInTheDocument();
-    expect(screen.queryByText(/Not published yet/)).toBeNull();
+    expect(await screen.findByText("Needs attention")).toBeInTheDocument();
+    expect(screen.queryByText("Draft")).toBeNull();
+
+    await disclose();
+    expect(screen.getByText(/no address points at it yet/)).toBeInTheDocument();
   });
 
-  it("offers publishing from the card, because it is needed after every edit", async () => {
+  it("offers publishing from the disclosure, because it is needed after every edit", async () => {
     mockFetch(() => ok([summary()]));
     renderWithProviders(<SitesPage workspaceId="w1" />);
+    await disclose();
 
-    const publish = await screen.findByRole("link", { name: "Publish" });
-    expect(publish).toHaveAttribute("href", "/app/w1/sites/aaaaaaaaaaaaaaaaaaaaaaaa/publish");
+    expect(screen.getByRole("link", { name: "Publish" })).toHaveAttribute(
+      "href",
+      "/app/w1/sites/aaaaaaaaaaaaaaaaaaaaaaaa/publish",
+    );
   });
 
-  it("emphasises publishing while a site has never been live, and stops shouting once it is", async () => {
-    // The one action that turns a site nobody can reach into one they can. Once it is reachable,
-    // publishing is routine and the emphasis belongs elsewhere.
-    mockFetch(() => ok([summary()]));
-    const { unmount } = renderWithProviders(<SitesPage workspaceId="w1" />);
-    expect((await screen.findByRole("link", { name: "Publish" })).className).toContain("bg-accent-600");
-    unmount();
-
+  it("keeps one emphasised action on a collapsed card, and it is the dashboard", async () => {
+    // Four buttons on every row is forty controls in a list of ten sites, and on a phone they wrap
+    // into a block taller than the card. Everything else is reached through the one destination.
     mockFetch(() => ok([summary({ liveUrl: "https://acme-studio.example.com" })]));
     renderWithProviders(<SitesPage workspaceId="w1" />);
-    expect((await screen.findByRole("link", { name: "Publish" })).className).not.toContain("bg-accent-600");
+
+    const card = (await screen.findByRole("heading", { level: 2, name: "Acme Studio" })).closest("li")!;
+    const visible = within(card)
+      .getAllByRole("link")
+      .filter((link) => link.closest("[hidden]") === null);
+
+    expect(visible.map((link) => link.textContent)).toEqual(["Acme Studio", "Dashboard"]);
+    expect(within(card).getByRole("link", { name: "Dashboard" }).className).toContain("bg-accent-600");
   });
 
   it("shows the site's own page as a link a touch device can see", async () => {
@@ -226,5 +248,107 @@ describe("finding a site from the list", () => {
     expect(name).toHaveAttribute("href", "/app/w1/sites/aaaaaaaaaaaaaaaaaaaaaaaa/dashboard");
     expect(name.className).toContain("underline");
     expect(name.className).not.toContain("hover:underline");
+  });
+});
+
+/**
+ * The disclosure itself.
+ *
+ * It carries everything the card used to shout, so the two things that decide whether it is usable
+ * at all are the ones asserted here: it can be operated without a pointer, and what it says is
+ * announced rather than merely drawn.
+ */
+describe("the card's disclosure", () => {
+  const measured = (overrides: Partial<ProjectSummary["summary"] & object> = {}) =>
+    summary({
+      isPublished: true,
+      liveUrl: "https://acme-studio.example.com",
+      summary: {
+        hasPendingChanges: true,
+        knownBlockers: [],
+        traffic: { state: "measured", days: 30, views: 120, visitors: 45 },
+        ...overrides,
+      },
+    });
+
+  it("is closed to begin with, and says so where a screen reader can hear it", async () => {
+    mockFetch(() => ok([measured()]));
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+
+    const toggle = await screen.findByRole("button", { name: "Details for Acme Studio" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(document.getElementById(toggle.getAttribute("aria-controls")!)).toHaveAttribute("hidden");
+  });
+
+  it("opens from the keyboard alone", async () => {
+    mockFetch(() => ok([measured()]));
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+    const user = userEvent.setup();
+
+    const toggle = await screen.findByRole("button", { name: "Details for Acme Studio" });
+    toggle.focus();
+    await user.keyboard("{Enter}");
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(document.getElementById(toggle.getAttribute("aria-controls")!)).not.toHaveAttribute("hidden");
+  });
+
+  it("states what the request already measured, without asking again", async () => {
+    const fetchSpy = mockFetch(() => ok([measured()]));
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Details for Acme Studio" }));
+
+    expect(screen.getByText("120 views")).toBeInTheDocument();
+    expect(screen.getByText("45 visitors")).toBeInTheDocument();
+    expect(screen.getByText(/the live site is behind the draft/)).toBeInTheDocument();
+    // One request for the whole list, and opening a card is not a second one.
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("labels visitors nobody is measuring as unmeasured rather than as zero", async () => {
+    mockFetch(() => ok([measured({ traffic: { state: "measured", days: 30, views: 8, visitors: null } })]));
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Details for Acme Studio" }));
+
+    expect(screen.getByText("Visitors are not being measured")).toBeInTheDocument();
+    expect(screen.queryByText("0 visitors")).toBeNull();
+  });
+
+  it("says nothing was measured at all on a site that was never published", async () => {
+    mockFetch(() =>
+      ok([summary({ summary: { hasPendingChanges: false, knownBlockers: [], traffic: { state: "unavailable" } } })]),
+    );
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Details for Acme Studio" }));
+
+    expect(screen.getByText(/never been published/)).toBeInTheDocument();
+    expect(screen.queryByText("0 views")).toBeNull();
+  });
+
+  it("admits that the blockers it lists are only the ones it checked", async () => {
+    mockFetch(() => ok([measured({ knownBlockers: [] })]));
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Details for Acme Studio" }));
+
+    // A list cannot run the full pre-publish audit for every site without loading every document.
+    // Claiming a clean bill of health from a partial check would be the more expensive lie.
+    expect(screen.getByText("None found in this list")).toBeInTheDocument();
+    expect(screen.getByText(/full check/)).toBeInTheDocument();
+  });
+
+  it("renders on a phone without pushing the card sideways", async () => {
+    mockFetch(() => ok([measured()]));
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Details for Acme Studio" }));
+
+    // The panel is a one-column grid until there is room for two, and the row above it wraps.
+    const card = screen.getByRole("heading", { level: 2, name: "Acme Studio" }).closest("li")!;
+    expect(card.querySelector("dl")?.className).toContain("sm:grid-cols-2");
+    expect(card.querySelector("div")?.className).toContain("flex-wrap");
   });
 });

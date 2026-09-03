@@ -21,6 +21,7 @@ import { MediaRepository } from "./modules/media/repository";
 import { createMediaRouter } from "./modules/media/routes";
 import { createGridFsStorage } from "./modules/media/storage";
 import { ProjectRepository } from "./modules/projects/repository";
+import { attachCardSummaries } from "./modules/projects/summaries";
 import { createProjectsRouter } from "./modules/projects/routes";
 import { WorkspaceRepository } from "./modules/workspaces/repository";
 import { COLLECTIONS } from "./db/indexes";
@@ -199,6 +200,7 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
       path: "/workspaces/:workspaceId/projects",
       router: createProjectsRouter({
         repository: projects,
+        attachCardSummaries: (context, list) => attachCardSummaries(database.db, context, list),
         // Read is the floor for reaching the router at all; each mutating route needs more, which
         // Phase 13 tightens per operation once the member management UI exists.
         resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),

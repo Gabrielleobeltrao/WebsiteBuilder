@@ -4,6 +4,7 @@ import {
   renameProjectInputSchema,
   resourceIdSchema,
   projectSlugSchema,
+  type ProjectSummary,
 } from "@websitebuilder/shared";
 import { Router, type RequestHandler } from "express";
 import { z } from "zod";
@@ -45,6 +46,8 @@ export function createProjectsRouter(options: {
    * Reads each optional module's own records. Injected so the projection is assembled from real
    * sources rather than from anything the caller sends.
    */
+  /** Fills in what each site card shows, for the whole page in one batch. */
+  attachCardSummaries?: (context: WorkspaceContext, projects: ProjectSummary[]) => Promise<ProjectSummary[]>;
   /** The workspace's own media ids, so a missing image is told apart from an unchecked one. */
   loadOwnedMediaIds?: (input: { workspaceId: string }) => Promise<Set<string>>;
   /** The revision the active published snapshot was compiled from, or null when nothing is live. */
@@ -64,7 +67,10 @@ export function createProjectsRouter(options: {
     try {
       const context = await resolveWorkspace(req);
       const clientId = typeof req.query.clientId === "string" ? req.query.clientId : undefined;
-      res.json({ data: await repository.listSummaries(context, clientId ? { clientId } : {}) });
+      const summaries = await repository.listSummaries(context, clientId ? { clientId } : {});
+      // One batched pass for the whole page. A card that asked its own question would be one
+      // request per site, which gets slower with every site a customer adds.
+      res.json({ data: options.attachCardSummaries === undefined ? summaries : await options.attachCardSummaries(context, summaries) });
     } catch (error) {
       next(error);
     }

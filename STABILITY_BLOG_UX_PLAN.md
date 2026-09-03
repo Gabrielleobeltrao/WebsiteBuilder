@@ -153,7 +153,7 @@ These are credible paths for the reported old-site failure, but the exact cause 
 
 ### Phase 4 — Site list and dashboard information architecture
 
-- [ ] **P4-T1 Simplify site cards and add a batched quick summary.** Keep Dashboard as the only persistent button. Add an accessible disclosure for live/draft state, last update, pending changes, blockers, live link, quick Edit, and measured 30-day views/visitors when analytics exists. Return all card summaries in one request or one batched endpoint; avoid per-card requests and layout shift.
+- [x] **P4-T1 Simplify site cards and add a batched quick summary.** Keep Dashboard as the only persistent button. Add an accessible disclosure for live/draft state, last update, pending changes, blockers, live link, quick Edit, and measured 30-day views/visitors when analytics exists. Return all card summaries in one request or one batched endpoint; avoid per-card requests and layout shift.
   - Acceptance: collapsed cards show name, concise status, and one action; disclosure works by keyboard and screen reader; absent analytics is labelled unavailable rather than zero; phone layout does not overflow.
   - Verify: project summary/API query-count tests, SitesPage loading/error/empty/disclosure tests, accessibility, and phone viewport test.
 
@@ -314,6 +314,19 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   snapshot, an image field's asset counts as referenced media and blocks publication when the workspace
   does not own it. Gates: typecheck 0, shared 43 files / 716 tests, backend 52 / 794, frontend 65 / 802,
   build exit 0. The browser journey named in Verify belongs to P5-T1 and is not claimed here.
+2026-09-03 | P4-T1 | Simplified site cards with a batched summary | A card carried four buttons and a
+  run-on line of metadata, so a list of ten sites was forty controls that wrapped into a block taller
+  than the card on a phone. Collapsed, a card is now the name, one phrase for where the site is
+  (Draft / Live / Live with unpublished changes / Needs attention) and Dashboard as the only
+  persistent button. Everything else — last change, pages, pending changes, known blockers, the live
+  link, Edit, Publish and 30-day traffic — is behind a real `aria-expanded`/`aria-controls` button
+  that opens from the keyboard. All of it arrives with the list: `attachCardSummaries` answers the
+  whole page in a fixed set of grouped queries, asserted by a test that counts reads for one site and
+  for ten and requires the same number. Views come from server counting and exist for any published
+  site; visitors come from the browser and read null — labelled "not being measured" — until the owner
+  turns measurement on, and a site never published reports `unavailable` rather than zero. Blockers are
+  named as the known ones, because a list cannot run the full audit without loading every document.
+  Gates: typecheck 0, shared 43 files / 716 tests, backend 53 / 809, frontend 65 / 808, build exit 0.
 ```
 
 ## 8. Decision Log
@@ -322,6 +335,7 @@ Record only material deviations or newly discovered architectural choices.
 
 ```text
 YYYY-MM-DD | decision | alternatives | reason | compatibility/rollback impact
+2026-09-03 | The site card reports known blockers, not a verdict | run the full readiness audit per row | the audit walks the builder document, and running it for a page of 200 sites would move megabytes to render a list; two grouped queries answer the blockers customers actually hit (no address, blog on with unpublished layouts) | truthful-by-construction: the card says which check it ran and points at the site's dashboard for the rest
 2026-09-03 | A post's stale write is detected by its own `updatedAt`, not by a revision counter | add a revision field to every post | posts have no counter and adding one is a stored-data change with a migration for every existing blog; `updatedAt` already changes on every write and is already returned to the client | additive: a request that omits `expectedUpdatedAt` still writes, so nothing existing breaks
 2026-09-03 | Custom field values and their definitions are frozen into the published snapshot | resolve them live from the template at request time | a snapshot that reads anything live is not immutable, and a definition renamed after publication would change what an already-published article resolves | additive: a snapshot written before this carries no values and resolves them as absent, which is what it already did
 2026-09-03 | Sample post copy lives in `packages/shared`, in both languages, rather than in the frontend locale resources | render the sample in the browser; ship English only | it is content inside a document the backend renderer produces, which cannot reach the application's locale files; the endpoint takes the reader's language and both locales sit side by side so neither can be updated alone | additive: no existing copy moved, and the samples are never stored or published

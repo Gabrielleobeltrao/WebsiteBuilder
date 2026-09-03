@@ -1,5 +1,5 @@
 import type { ProjectSummary } from "@websitebuilder/shared";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
@@ -28,7 +28,6 @@ export function SitesPage({ workspaceId }: { workspaceId: string }) {
   const [dialog, setDialog] = useState<DialogState>({ kind: "none" });
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
-  const formatRelative = useRelativeTime();
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -125,84 +124,7 @@ export function SitesPage({ workspaceId }: { workspaceId: string }) {
           {state.status === "ready" && state.projects.length > 0 && (
             <ul className="space-y-3">
               {state.projects.map((project) => (
-                <li
-                  key={project.id}
-                  className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-ink-200
-                    bg-white px-5 py-4"
-                >
-                  <div className="min-w-0">
-                    {/* The name is the way in. Underlined always, not on hover: a touch device has
-                        no hover, so a link that only reveals itself to a pointer is invisible to
-                        everyone on a phone — which is where this list is most used, because the
-                        editor needs a pointer and a wide screen. */}
-                    <h2 className="truncate font-medium text-ink-900">
-                      <Link
-                        to={`/app/${workspaceId}/sites/${project.id}/dashboard`}
-                        className="underline decoration-ink-300 underline-offset-4 hover:decoration-ink-900"
-                      >
-                        {project.name}
-                      </Link>
-                    </h2>
-                    <p className="mt-1 text-xs text-ink-500">
-                      {t("dashboard:sites.pageCount", { count: project.pageCount })} ·{" "}
-                      {t("dashboard:sites.updatedAt", { when: formatRelative(project.updatedAt) })} ·{" "}
-                      {project.liveUrl !== undefined
-                        ? project.liveUrl.replace(/^https?:\/\//, "")
-                        : project.isPublished
-                          ? // Published and reachable from nowhere. Saying "not published" here
-                            // would be false, and would send someone to publish again to fix
-                            // something publishing does not fix.
-                            t("dashboard:sites.noAddress")
-                          : t("dashboard:sites.notPublished")}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-wrap gap-2">
-                    {/* Publishing is what puts a change in front of visitors, and it is needed
-                        again every time the site is edited — so it belongs on the card rather than
-                        two taps away behind the site's own page. */}
-                    <Link
-                      to={`/app/${workspaceId}/sites/${project.id}/publish`}
-                      className={
-                        project.liveUrl === undefined
-                          ? "rounded-md bg-accent-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-accent-700"
-                          : "rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
-                      }
-                    >
-                      {t("publishing:publish.title")}
-                    </Link>
-                    {/* The published address, when there is one. Not a preview: a preview is a
-                        rehearsal of what a visitor would get, and what someone opening this list
-                        wants is the page their visitors are actually on. It appears only where the
-                        site is genuinely serving — a button to a page that does not exist yet is
-                        worse than no button. */}
-                    {project.liveUrl !== undefined && (
-                      <a
-                        href={project.liveUrl}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
-                      >
-                        {t("dashboard:sites.visit")}
-                      </a>
-                    )}
-                    {/* The site's own page, as a button rather than only as the name above it.
-                        Everything that is not a page lives behind it — the blog, forms, the CMS,
-                        what each module still needs — and a link whose only form is an underlined
-                        title is a link people look straight past while asking where the blog is. */}
-                    <Link
-                      to={`/app/${workspaceId}/sites/${project.id}/dashboard`}
-                      className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
-                    >
-                      {t("dashboard:sites.panel")}
-                    </Link>
-                    <Link
-                      to={`/app/${workspaceId}/sites/${project.id}/builder`}
-                      className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
-                    >
-                      {t("dashboard:sites.open")}
-                    </Link>
-                  </div>
-                </li>
+                <SiteCard key={project.id} workspaceId={workspaceId} project={project} />
               ))}
             </ul>
           )}
@@ -233,5 +155,181 @@ export function SitesPage({ workspaceId }: { workspaceId: string }) {
       </ConfirmDialog>
 
     </div>
+  );
+}
+
+
+/**
+ * One site, collapsed to what a person scanning the list needs.
+ *
+ * It used to carry four buttons and a run-on line of metadata, on every row: publishing, visiting,
+ * the dashboard, the builder. A list of ten sites was forty controls, and on a phone they wrapped
+ * into a block taller than the card. So the card states the name, one honest word about where the
+ * site is, and the one destination everything else lives behind — and the detail is a disclosure
+ * for the reader who wants it, already answered by the same request that returned the row.
+ */
+function SiteCard({ workspaceId, project }: { workspaceId: string; project: ProjectSummary }) {
+  const { t } = useTranslation(["dashboard", "publishing", "errors", "common"]);
+  const formatRelative = useRelativeTime();
+  const [open, setOpen] = useState(false);
+  const detailsId = useId();
+
+  const summary = project.summary;
+  const blockers = summary?.knownBlockers ?? [];
+
+  /** One phrase, chosen by the most important true thing about the site. */
+  const statusKey =
+    blockers.length > 0
+      ? "attention"
+      : !project.isPublished
+        ? "draft"
+        : summary?.hasPendingChanges === true
+          ? "pending"
+          : "live";
+
+  return (
+    <li className="rounded-lg border border-ink-200 bg-white px-5 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          {/* The name is the way in. Underlined always, not on hover: a touch device has no hover,
+              so a link that only reveals itself to a pointer is invisible to everyone on a phone —
+              which is where this list is most used, because the editor needs a wide screen. */}
+          <h2 className="truncate font-medium text-ink-900">
+            <Link
+              to={`/app/${workspaceId}/sites/${project.id}/dashboard`}
+              className="underline decoration-ink-300 underline-offset-4 hover:decoration-ink-900"
+            >
+              {project.name}
+            </Link>
+          </h2>
+          <p className={`mt-1 text-xs ${statusKey === "attention" ? "text-amber-700" : "text-ink-500"}`}>
+            {t(`dashboard:sites.card.status.${statusKey}` as "dashboard:sites.card.status.live")}
+          </p>
+        </div>
+
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {/*
+            The disclosure, and one destination.
+
+            A real button with `aria-expanded` and `aria-controls`, not a hover card or a chevron
+            that does nothing without a pointer: the detail has to be reachable by keyboard and
+            announceable, or it is detail only some people have.
+          */}
+          <button
+            type="button"
+            onClick={() => setOpen((current) => !current)}
+            aria-expanded={open}
+            aria-controls={detailsId}
+            aria-label={t("dashboard:sites.card.detailsFor", { name: project.name })}
+            className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
+          >
+            {t("dashboard:sites.card.details")}
+          </button>
+          <Link
+            to={`/app/${workspaceId}/sites/${project.id}/dashboard`}
+            className="rounded-md bg-accent-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-accent-700"
+          >
+            {t("dashboard:sites.panel")}
+          </Link>
+        </div>
+      </div>
+
+      {/* Rendered only when open, and always in the same place, so opening one card does not move
+          the cards below it more than the panel it just added. */}
+      <div id={detailsId} hidden={!open} className="mt-4 border-t border-ink-100 pt-3 text-xs text-ink-600">
+        <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+          <div>
+            <dt className="font-medium text-ink-700">{t("dashboard:sites.card.lastUpdate")}</dt>
+            <dd>{formatRelative(project.updatedAt)}</dd>
+          </div>
+
+          <div>
+            <dt className="font-medium text-ink-700">{t("dashboard:sites.card.pages")}</dt>
+            <dd>{t("dashboard:sites.pageCount", { count: project.pageCount })}</dd>
+          </div>
+
+          <div>
+            <dt className="font-medium text-ink-700">{t("dashboard:sites.card.pendingChanges")}</dt>
+            <dd>
+              {t(
+                summary?.hasPendingChanges === true
+                  ? "dashboard:sites.card.pendingYes"
+                  : "dashboard:sites.card.pendingNo",
+              )}
+            </dd>
+          </div>
+
+          <div>
+            <dt className="font-medium text-ink-700">{t("dashboard:sites.card.blockers")}</dt>
+            <dd>
+              {blockers.length === 0 ? (
+                t("dashboard:sites.card.blockersNone")
+              ) : (
+                <ul className="list-disc pl-4">
+                  {blockers.map((code) => (
+                    <li key={code}>{t(`dashboard:sites.card.blocker.${code}` as "dashboard:sites.card.blocker.no-address")}</li>
+                  ))}
+                </ul>
+              )}
+              {/* Said out loud, because a list cannot run the full audit for every site and a card
+                  that implied it had would be lying about what it checked. */}
+              <p className="mt-1 text-ink-400">{t("dashboard:sites.card.blockersNote")}</p>
+            </dd>
+          </div>
+
+          <div>
+            <dt className="font-medium text-ink-700">
+              {t("dashboard:sites.card.traffic", {
+                days: summary?.traffic.state === "measured" ? summary.traffic.days : 30,
+              })}
+            </dt>
+            <dd>
+              {summary?.traffic.state === "measured" ? (
+                <>
+                  <span>{t("dashboard:sites.card.views", { count: summary.traffic.views })}</span>
+                  {" · "}
+                  {/* Null is not zero: server counting is unconditional, visitors come from the
+                      browser and only where the owner turned measurement on. */}
+                  <span>
+                    {summary.traffic.visitors === null
+                      ? t("dashboard:sites.card.visitorsUnavailable")
+                      : t("dashboard:sites.card.visitors", { count: summary.traffic.visitors })}
+                  </span>
+                </>
+              ) : (
+                t("dashboard:sites.card.trafficUnavailable")
+              )}
+            </dd>
+          </div>
+        </dl>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            to={`/app/${workspaceId}/sites/${project.id}/builder`}
+            className="rounded-md border border-ink-200 px-3 py-1.5 text-ink-700 hover:bg-ink-50"
+          >
+            {t("dashboard:sites.card.edit")}
+          </Link>
+          {/* The published address, when there is one. Not a preview: what somebody opening this
+              list wants is the page their visitors are actually on. */}
+          {project.liveUrl !== undefined && (
+            <a
+              href={project.liveUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="rounded-md border border-ink-200 px-3 py-1.5 text-ink-700 hover:bg-ink-50"
+            >
+              {t("dashboard:sites.visit")}
+            </a>
+          )}
+          <Link
+            to={`/app/${workspaceId}/sites/${project.id}/publish`}
+            className="rounded-md border border-ink-200 px-3 py-1.5 text-ink-700 hover:bg-ink-50"
+          >
+            {t("publishing:publish.title")}
+          </Link>
+        </div>
+      </div>
+    </li>
   );
 }

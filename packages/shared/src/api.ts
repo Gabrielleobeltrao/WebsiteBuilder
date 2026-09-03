@@ -94,6 +94,42 @@ export type ProjectSummary = {
    * verified, has no live URL, and offering one would be a link to a page that does not exist.
    */
   liveUrl?: string;
+  /**
+   * Everything the site list's disclosure shows, measured in the same request as the list itself.
+   *
+   * A card that asked its own question would mean one request per site: the list gets slower with
+   * every site a customer adds, and the page jumps as each answer lands. So the answers travel with
+   * the row, and the ones nobody is measuring say so rather than reporting a zero.
+   */
+  summary?: ProjectCardSummary;
+};
+
+/** Codes the card can state without loading a builder document. The site's own page is the full answer. */
+export const PROJECT_CARD_BLOCKERS = ["no-address", "blog-setup"] as const;
+export type ProjectCardBlocker = (typeof PROJECT_CARD_BLOCKERS)[number];
+
+export type ProjectCardSummary = {
+  /** Edits saved since the live version was compiled. False for a site that was never published. */
+  hasPendingChanges: boolean;
+  /**
+   * Known blockers only, and named so.
+   *
+   * A list cannot run the full pre-publish audit for every site without loading every document,
+   * which is the cost this whole shape exists to avoid. These are the ones a batched query answers;
+   * the site's own dashboard runs the rest.
+   */
+  knownBlockers: readonly ProjectCardBlocker[];
+  /**
+   * Traffic over the window, or the reason there is none to show.
+   *
+   * `unavailable` is not zero. Server counting starts at the first publication, so a site that has
+   * never been live has nothing measured rather than no visitors, and `visitors` is null until the
+   * site owner turns on browser measurement — the two numbers have different sources and different
+   * consent, and collapsing either into 0 tells the reader something untrue.
+   */
+  traffic:
+    | { state: "measured"; days: number; views: number; visitors: number | null }
+    | { state: "unavailable" };
 };
 
 export const createProjectInputSchema = z
