@@ -71,11 +71,23 @@ describe("the catalog for a context", () => {
   it("hides a block its context cannot hold, rather than disabling it", () => {
     // A page-wide bar inside a blog article template is not a permission somebody can obtain, so a
     // greyed-out row would be a promise the product cannot keep.
-    const types = build("blogTemplate").map((candidate) => candidate.definition.type);
+    const types = build("blogArticleTemplate").map((candidate) => candidate.definition.type);
 
     expect(types).not.toContain("announcementBar");
     expect(types).not.toContain("form");
     expect(types).toContain("text");
+  });
+
+  it("offers each blog layout the data it actually has", () => {
+    // An article draws one post and an index draws a list. Under one shared context the panel
+    // offered both to both, so an article layout listed a post feed with nothing to feed it.
+    const article = build("blogArticleTemplate").map((candidate) => candidate.definition.type);
+    const index = build("blogIndexTemplate").map((candidate) => candidate.definition.type);
+
+    expect(article).toContain("dynamicField");
+    expect(article).not.toContain("postCollection");
+    expect(index).toContain("postCollection");
+    expect(index).not.toContain("dynamicField");
   });
 
   it("explains a block that cannot be inserted right now", () => {

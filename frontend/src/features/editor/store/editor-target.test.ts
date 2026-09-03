@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { createProjectDocument, type BuilderProject } from "@websitebuilder/shared";
 
-import { cancelPendingAutosave, useEditorStore } from "@/features/editor/store/editorStore";
+import { cancelPendingAutosave, selectCurrentPage, useEditorStore } from "@/features/editor/store/editorStore";
+import { createElement } from "@/features/editor/store/elements";
 
 /**
  * What the editor is editing, and what a save is allowed to do about it.
@@ -106,5 +107,60 @@ describe("what a save reports", () => {
     // Publish calls save first. A save that swallows its own failure lets publication promote the
     // last version that did save — content the person never saw.
     await expect(useEditorStore.getState().save()).resolves.toMatchObject({ ok: false });
+  });
+});
+
+/**
+ * A template holding a block its catalog no longer offers.
+ *
+ * Article and index layouts now have separate allowlists, so a post feed placed in an article back
+ * when both shared one catalog is no longer offered there. Narrowing what may be *added* must not
+ * narrow what may be kept: a layout that silently dropped, froze or refused to save that block
+ * would destroy work the author still sees on their published site.
+ */
+describe("a block that is stored but no longer offered", () => {
+  const articleHoldingAPostFeed = () => {
+    const page = createProjectDocument({ name: "T", slug: "t-site" }).pages[0]!;
+    const section = page.sections[0]!;
+    const stored = createElement("postCollection", { section });
+    return template({
+      draftDocument: {
+        ...page,
+        slug: "",
+        sections: [{ ...section, elements: [...section.elements, stored] }],
+      },
+    });
+  };
+
+  const elements = () => selectCurrentPage(useEditorStore.getState())?.sections[0]?.elements ?? [];
+
+  it("survives being loaded into the editor", async () => {
+    load.mockResolvedValue(articleHoldingAPostFeed());
+    await useEditorStore.getState().loadBlogTemplate("w1", "p1", "article");
+
+    expect(elements().map((element) => element.type)).toContain("postCollection");
+  });
+
+  it("can still be renamed and deleted", async () => {
+    load.mockResolvedValue(articleHoldingAPostFeed());
+    await useEditorStore.getState().loadBlogTemplate("w1", "p1", "article");
+    const stored = elements().find((element) => element.type === "postCollection")!;
+
+    useEditorStore.getState().renameElement(stored.id, "Older feed");
+    expect(elements().find((element) => element.id === stored.id)?.name).toBe("Older feed");
+
+    useEditorStore.getState().deleteElement(stored.id);
+    expect(elements().some((element) => element.id === stored.id)).toBe(false);
+  });
+
+  it("saves back without being stripped", async () => {
+    load.mockResolvedValue(articleHoldingAPostFeed());
+    await useEditorStore.getState().loadBlogTemplate("w1", "p1", "article");
+    useEditorStore.getState().renameElement(elements()[0]!.id, "Heading");
+
+    await useEditorStore.getState().save();
+
+    const sent = save.mock.calls[0]?.[3] as { draftDocument: { sections: { elements: { type: string }[] }[] } };
+    expect(sent.draftDocument.sections[0]?.elements.map((element) => element.type)).toContain("postCollection");
   });
 });

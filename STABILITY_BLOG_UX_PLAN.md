@@ -137,7 +137,7 @@ These are credible paths for the reported old-site failure, but the exact cause 
 
 ### Phase 3 — Focused blog authoring and templates
 
-- [ ] **P3-T1 Split the blog template catalog by template kind.** Extend the registry/context model so index and article templates receive separate allowlists. Article templates expose semantic layout plus title, excerpt, cover, body, author, and published date bindings. Index templates expose semantic layout, post collections, and relevant supporting content. Exclude forms, pricing, countdowns, unrelated icon lists, and other blocks without a blog-data contract.
+- [x] **P3-T1 Split the blog template catalog by template kind.** Extend the registry/context model so index and article templates receive separate allowlists. Article templates expose semantic layout plus title, excerpt, cover, body, author, and published date bindings. Index templates expose semantic layout, post collections, and relevant supporting content. Exclude forms, pricing, countdowns, unrelated icon lists, and other blocks without a blog-data contract.
   - Acceptance: the catalog cannot insert a block unsupported by that template kind; existing stored blocks continue to render and remain removable/editable even if no longer offered for new insertion.
   - Verify: registry/catalog/i18n tests and backward-compatibility fixture tests.
 
@@ -273,6 +273,17 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   Element migration reaches containers but not `sharedSections`; `compilePageCss` emits rules only for
   top-level section elements. Six tests assert the promised behaviour and are marked `it.fails`, so
   they turn red when the fix lands.
+2026-09-03 | P3-T1 | Split the blog template catalog by template kind | `blogTemplate` became `blogIndexTemplate` and
+  `blogArticleTemplate` in `ELEMENT_CONTEXTS`, and `EditorShell` picks one from `target.templateKind`.
+  Both layouts offered the same 25 blocks; they now offer 13 (index) and 14 (article). The post feed is
+  index-only, the post's own fields and the table of contents are article-only, and eleven blocks with
+  no blog-data contract — icon lists, tables, galleries, video, download buttons, accordions, tabs,
+  testimonials, counters, contact info — are offered by neither. Narrowing the catalog did not narrow
+  what a document may hold: a stored `postCollection` in an article still loads, renames, deletes and
+  saves back. `element-registry.test.ts` asserted the old restriction against a context name that no
+  longer existed, which returned an empty list and satisfied `not.toContain` vacuously; it now asserts
+  the list is non-empty first. Gates: typecheck 0 errors, shared 43 files / 711 tests, backend 51 / 779,
+  frontend 65 / 779, build exit 0.
 ```
 
 ## 8. Decision Log

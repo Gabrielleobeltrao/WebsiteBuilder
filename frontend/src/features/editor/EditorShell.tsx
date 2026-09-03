@@ -273,9 +273,20 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
       case "elements":
         return (
           <ElementsPanel
-            /* Which blocks exist here at all. A blog template offers the bound ones and an
-               ordinary page does not, because a block with no record behind it renders nothing. */
-            context={store.target.kind === "blogTemplate" ? "blogTemplate" : "page"}
+            /*
+              Which blocks exist here at all, and the two blog layouts do not agree.
+              
+              An article draws one post, so it offers that post's own fields; an index draws a list,
+              so it offers the list. Offering both everywhere showed a designer laying out an article
+              a post-list block with no list to draw.
+            */
+            context={
+              store.target.kind === "blogTemplate"
+                ? store.target.templateKind === "index"
+                  ? "blogIndexTemplate"
+                  : "blogArticleTemplate"
+                : "page"
+            }
             onAdd={(type) => store.insertElement(type)}
             onInsertPattern={(patternId) =>
               store.insertPattern(patternId, (key) => t(`builder:patterns.${key}` as "builder:patterns.hero.name"))

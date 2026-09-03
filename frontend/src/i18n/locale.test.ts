@@ -46,3 +46,4 @@ describe("resolveLocale precedence", () => {
     expect(resolveLocale({ accountLocale: "pt-BR", browserLanguages: ["en-US", "de-DE"] })).toBe("pt-BR");
   });
 });
+

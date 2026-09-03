@@ -26,7 +26,16 @@ export type ElementCategory = (typeof ELEMENT_CATEGORIES)[number];
  * A page is the ordinary document. Blog and CMS templates are rendered against a record, so a block
  * that reads from one is meaningless on a page and must not be offered there.
  */
-export const ELEMENT_CONTEXTS = ["page", "blogTemplate", "cmsTemplate"] as const;
+/*
+ * Where a block may be placed.
+ *
+ * The two blog templates are separate contexts because they answer different questions. An article
+ * layout draws one post, so it offers the bindings for that post's own fields; an index draws a list,
+ * so it offers the list. Under one shared `blogTemplate` context both were offered everywhere, and a
+ * designer laying out an article was shown a post-list block that has no list to draw, next to
+ * feature grids and data tables that have no relationship to a blog at all.
+ */
+export const ELEMENT_CONTEXTS = ["page", "blogIndexTemplate", "blogArticleTemplate", "cmsTemplate"] as const;
 export type ElementContext = (typeof ELEMENT_CONTEXTS)[number];
 
 /**
@@ -112,7 +121,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["field", "post", "title", "cover", "author"],
     icon: "type",
     defaultSize: { width: 480, height: 64 },
-    contexts: ["blogTemplate", "cmsTemplate"],
+    contexts: ["blogArticleTemplate", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     defaults: () => ({ binding: { source: "system", field: "title" }, display: "heading" }),
@@ -125,7 +134,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["posts", "blog", "list", "articles"],
     icon: "list",
     defaultSize: { width: 960, height: 400 },
-    contexts: ["blogTemplate"],
+    contexts: ["blogIndexTemplate"],
     acceptsChildren: false,
     freePositionable: false,
     feature: "blog",
@@ -149,7 +158,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["group", "box", "columns"],
     icon: "square",
     defaultSize: { width: 480, height: 240 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "blogIndexTemplate", "blogArticleTemplate", "cmsTemplate"],
     acceptsChildren: true,
     freePositionable: true,
     defaults: () => ({ layout: "free", children: [], layoutByBreakpoint: {} }),
@@ -162,7 +171,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["rule", "separator", "line"],
     icon: "minus",
     defaultSize: { width: 480, height: 16 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "blogIndexTemplate", "blogArticleTemplate", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     defaults: () => ({ thickness: 1, color: "#e2e8f0", style: "solid" }),
@@ -175,7 +184,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["gap", "space"],
     icon: "move-vertical",
     defaultSize: { width: 480, height: 48 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "blogIndexTemplate", "blogArticleTemplate", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     defaults: () => ({}),
@@ -189,7 +198,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["paragraph", "heading", "title", "copy"],
     icon: "type",
     defaultSize: { width: 320, height: 64 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "blogIndexTemplate", "blogArticleTemplate", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     defaults: () => ({
@@ -214,7 +223,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["symbol", "glyph"],
     icon: "star",
     defaultSize: { width: 48, height: 48 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "blogIndexTemplate", "blogArticleTemplate", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     defaults: () => ({ icon: ICON_NAMES[0], size: 32, color: "#111827", link: EMPTY_LINK }),
@@ -227,7 +236,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["bullets", "features", "checklist"],
     icon: "list",
     defaultSize: { width: 360, height: 140 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     defaults: () => ({
@@ -247,7 +256,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["cta", "action", "link"],
     icon: "mouse-pointer-click",
     defaultSize: { width: 180, height: 48 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "blogIndexTemplate", "blogArticleTemplate", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     defaults: () => ({
@@ -273,7 +282,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["grid", "rows", "columns", "data"],
     icon: "table",
     defaultSize: { width: 640, height: 200 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     defaults: () => ({
@@ -295,7 +304,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["prose", "article", "formatted", "paragraphs"],
     icon: "type",
     defaultSize: { width: 640, height: 240 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "blogIndexTemplate", "blogArticleTemplate", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     defaults: () => ({ content: { type: "doc", content: [] } }),
@@ -309,7 +318,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["photo", "picture", "media"],
     icon: "image",
     defaultSize: { width: 400, height: 260 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "blogIndexTemplate", "blogArticleTemplate", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     defaults: () => ({
@@ -327,7 +336,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["photos", "grid", "album"],
     icon: "images",
     defaultSize: { width: 640, height: 320 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     runtime: "lightbox",
@@ -341,7 +350,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["youtube", "vimeo", "embed", "player"],
     icon: "play",
     defaultSize: { width: 640, height: 360 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     defaults: () => ({ provider: "youtube", videoId: "", title: "" }),
@@ -354,7 +363,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["file", "pdf", "attachment"],
     icon: "download",
     defaultSize: { width: 220, height: 48 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     defaults: () => ({ mediaId: "", label: "Download" }),
@@ -368,7 +377,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["faq", "questions", "collapse"],
     icon: "chevron-down",
     defaultSize: { width: 640, height: 200 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     runtime: "accordion",
@@ -385,7 +394,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["panels", "sections"],
     icon: "columns",
     defaultSize: { width: 640, height: 240 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     runtime: "tabs",
@@ -467,7 +476,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["quote", "review", "customer", "praise"],
     icon: "star",
     defaultSize: { width: 480, height: 220 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     defaults: () => ({ quote: "", personName: "", personRole: "", avatarMediaId: "" }),
@@ -480,7 +489,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["number", "statistic", "progress", "metric"],
     icon: "plus",
     defaultSize: { width: 240, height: 120 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     runtime: "reveal",
@@ -494,7 +503,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["phone", "email", "address", "hours", "contact"],
     icon: "phone",
     defaultSize: { width: 360, height: 200 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     defaults: () => ({ items: [{ kind: "email", label: "Email", value: "" }], iconSize: 20 }),
@@ -537,7 +546,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["logo", "brand", "mark", "identity"],
     icon: "image",
     defaultSize: { width: 180, height: 60 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "blogIndexTemplate", "blogArticleTemplate", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     defaults: () => ({ mediaId: "", alt: "", fallbackText: "", linksHome: true }),
@@ -550,7 +559,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["menu", "nav", "pages", "header"],
     icon: "menu",
     defaultSize: { width: 640, height: 48 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "blogIndexTemplate", "blogArticleTemplate", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     runtime: "navigation",
@@ -566,7 +575,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     defaultSize: { width: 320, height: 240 },
     // Only where there is long-form prose to summarise. On an ordinary page it would list
     // whatever headings happened to be there, which is not a table of contents.
-    contexts: ["blogTemplate", "cmsTemplate"],
+    contexts: ["blogArticleTemplate", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     runtime: "tableOfContents",
@@ -581,7 +590,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["instagram", "facebook", "profiles"],
     icon: "share",
     defaultSize: { width: 240, height: 48 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "blogIndexTemplate", "blogArticleTemplate", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     defaults: () => ({ items: [], iconSize: 24, gap: 12 }),
@@ -594,7 +603,7 @@ export const ELEMENT_REGISTRY: Record<ElementType, ElementDefinition> = {
     keywords: ["path", "trail"],
     icon: "chevron-right",
     defaultSize: { width: 480, height: 32 },
-    contexts: ["page", "blogTemplate", "cmsTemplate"],
+    contexts: ["page", "blogIndexTemplate", "blogArticleTemplate", "cmsTemplate"],
     acceptsChildren: false,
     freePositionable: true,
     defaults: () => ({ separator: "chevron", label: "Breadcrumb" }),

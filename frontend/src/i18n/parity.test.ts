@@ -1,4 +1,4 @@
-import { SUPPORTED_APP_LOCALES } from "@websitebuilder/shared";
+import { elementsForContext, SUPPORTED_APP_LOCALES } from "@websitebuilder/shared";
 import { describe, expect, it } from "vitest";
 
 import { NAMESPACES, resources } from "./resources";
@@ -51,4 +51,23 @@ describe("translation catalogues", () => {
     expect(portuguese.hero.subtitle).not.toBe(english.hero.subtitle);
     expect(portuguese.metaDescription).not.toBe(english.metaDescription);
   });
+});
+
+/**
+ * Every block a blog layout offers must be nameable in both languages.
+ *
+ * The catalog labels a block through `builder.elements.<type>.name`. A context that offers a block
+ * with no entry there shows its raw type id — English debug output inside a Portuguese panel.
+ */
+describe("names for the blocks each blog layout offers", () => {
+  for (const context of ["blogIndexTemplate", "blogArticleTemplate"] as const) {
+    it(`covers every block offered in ${context}`, () => {
+      for (const definition of elementsForContext(context)) {
+        for (const locale of SUPPORTED_APP_LOCALES) {
+          const names = resources[locale].builder.elements as Record<string, string | undefined>;
+          expect(names[definition.labelKey], `${definition.labelKey} in ${locale}`).toBeTruthy();
+        }
+      }
+    });
+  }
 });

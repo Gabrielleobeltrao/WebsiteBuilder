@@ -100,7 +100,13 @@ describe("context restrictions", () => {
   });
 
   it("keeps a page-wide bar out of contexts that render inside a record", () => {
-    expect(elementsForContext("blogTemplate").map((definition) => definition.type)).not.toContain("announcementBar");
+    for (const context of ["blogIndexTemplate", "blogArticleTemplate", "cmsTemplate"] as const) {
+      const offered = elementsForContext(context).map((definition) => definition.type);
+      // Asserted non-empty first: an unknown context name returns nothing, and "nothing" satisfies
+      // every not-toContain assertion that follows without meaning a thing.
+      expect(offered.length, context).toBeGreaterThan(0);
+      expect(offered, context).not.toContain("announcementBar");
+    }
   });
 });
 
