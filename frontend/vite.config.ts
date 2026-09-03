@@ -8,15 +8,17 @@ import { loadEnv } from "vite";
 import { defineConfig } from "vitest/config";
 
 /**
- * Ports, from the same file the backend reads.
+ * Ports, from this workspace's own `.env`.
  *
  * The API and the renderer have taken their ports from the environment from the start; the web
  * server's was written here and the proxy target beside it, so a developer with something else on
- * 5173 or 3000 could move half of the stack and not the other half. Everything now comes from one
- * `.env` at the repository root, which is where `npm run dev` already loads the backend's from.
+ * 5173 or 3000 could move half of the stack and not the other half.
+ *
+ * Read from `frontend/.env` rather than a file at the repository root, because deployment gives each
+ * service its own environment and a root file exists on no machine that runs this in production.
  */
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, fileURLToPath(new URL("..", import.meta.url)), "");
+  const env = loadEnv(mode, fileURLToPath(new URL(".", import.meta.url)), "");
   const webPort = Number(env.WEB_PORT || 5173);
   const apiTarget = `http://localhost:${Number(env.API_PORT || 3000)}`;
 

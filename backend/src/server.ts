@@ -4,6 +4,7 @@ import express from "express";
 import { createApp, type AppDependencies } from "./app";
 import { EnvironmentError, loadEnv, presentVariables, type Env } from "./config/env";
 import { createLogger } from "./config/logger";
+import { listenOrExplain } from "./config/listen";
 import { connectDatabase, createDatabaseHealthProbe, type Database } from "./db/client";
 import { installGracefulShutdown } from "./lifecycle";
 import { createWorkspaceResolver } from "./middleware/session";
@@ -368,8 +369,12 @@ async function start(): Promise<void> {
     healthProbe: createDatabaseHealthProbe(database),
   });
 
-  const server = app.listen(env.API_PORT, () => {
-    logger.info({ port: env.API_PORT, env: env.NODE_ENV }, "API listening");
+  const server = listenOrExplain(app, {
+    port: env.API_PORT,
+    variable: "API_PORT",
+    service: "The API",
+    logger,
+    environment: env.NODE_ENV,
   });
 
   installGracefulShutdown({

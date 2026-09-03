@@ -4,6 +4,7 @@ import { EnvironmentError, loadEnv } from "./config/env";
 import type { Router } from "express";
 
 import { createLogger } from "./config/logger";
+import { listenOrExplain } from "./config/listen";
 import { installGracefulShutdown } from "./lifecycle";
 import { AnalyticsRepository, ensureAnalyticsIndexes, SiteViewRepository } from "./modules/analytics/repository";
 import { ensurePublishingIndexes, PublishingRepository } from "./modules/publishing/repository";
@@ -101,8 +102,12 @@ async function start(): Promise<void> {
   }
 
   const app = createRendererApp({ env, logger, resolver, recordView, analytics, forms: formSubmissions, media: publicMedia });
-  const server = app.listen(env.PUBLIC_RENDERER_PORT, () => {
-    logger.info({ port: env.PUBLIC_RENDERER_PORT, env: env.NODE_ENV }, "public renderer listening");
+  const server = listenOrExplain(app, {
+    port: env.PUBLIC_RENDERER_PORT,
+    variable: "PUBLIC_RENDERER_PORT",
+    service: "The public renderer",
+    logger,
+    environment: env.NODE_ENV,
   });
 
   installGracefulShutdown({ server, logger, timeoutMs: env.SHUTDOWN_TIMEOUT_MS });

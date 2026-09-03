@@ -89,6 +89,16 @@ export type Env = z.infer<typeof baseSchema> & {
   isTest: boolean;
   reservedSubdomains: string[];
   trustedProxyCidrs: string[];
+  /*
+   * Always present by the time anyone reads them.
+   *
+   * The schema leaves these optional so an absent value can be told apart from a set one and filled
+   * in from `WEB_PORT`. `loadEnv` does that before returning, so every consumer sees a string —
+   * which is what they were written against, and what production always supplies explicitly.
+   */
+  FRONTEND_ORIGIN: string;
+  PLATFORM_PUBLIC_ORIGIN: string;
+  BETTER_AUTH_URL: string;
 };
 
 export class EnvironmentError extends Error {
@@ -196,6 +206,11 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env, role: ServiceRo
 
   return {
     ...env,
+    // Filled in above; naming them here is what turns the schema's optional into the string every
+    // consumer was written against.
+    FRONTEND_ORIGIN: env.FRONTEND_ORIGIN,
+    PLATFORM_PUBLIC_ORIGIN: env.PLATFORM_PUBLIC_ORIGIN,
+    BETTER_AUTH_URL: env.BETTER_AUTH_URL,
     isProduction: env.NODE_ENV === "production",
     isTest: env.NODE_ENV === "test",
     reservedSubdomains: env.PLATFORM_RESERVED_SUBDOMAINS.split(",")
