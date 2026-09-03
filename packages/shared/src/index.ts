@@ -15,6 +15,7 @@ export * from "./patterns";
 export * from "./content-elements";
 export * from "./element-registry";
 export * from "./document-diagnosis";
+export * from "./document-traversal";
 export * from "./element-migrations";
 export * from "./features";
 export * from "./forms";

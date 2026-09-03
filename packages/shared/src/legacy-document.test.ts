@@ -4,6 +4,7 @@ import { migrateDocumentElements } from "./element-migrations";
 import { builderElementSchema, walkElements } from "./elements";
 import {
   LEGACY_CONTAINER_ID,
+  LEGACY_SHARED_FORM_ID,
   LEGACY_NESTED_ID,
   LEGACY_SHARED_ID,
   legacyProjectDocument,
@@ -20,7 +21,7 @@ import { migrateDocumentResponsive } from "./responsive-migration";
  * — which is exactly the report this fixture was built from.
  */
 
-const document = () => legacyProjectDocument();
+const document = () => legacyProjectDocument({ withLegacyForm: true });
 
 /** Every element in the document, wherever it lives — pages, containers, shared sections. */
 function everyElement(input: ReturnType<typeof document>) {
@@ -48,8 +49,13 @@ describe("the fixture itself", () => {
     }
   });
 
-  it("is a document the schema accepts, so nothing here is merely malformed", () => {
-    for (const element of everyElement(document())) {
+  it("is old rather than malformed: every block validates once migrated", () => {
+    // The version-1 form is deliberately refused by the current union — that refusal is what a
+    // migration exists to prevent reaching. What matters is that nothing here is broken in a way no
+    // migration can repair, because then the fixture would prove a different bug than the reported one.
+    const { document: migrated } = migrateDocumentElements(document() as never);
+
+    for (const element of everyElement(migrated as ReturnType<typeof document>)) {
       expect(builderElementSchema.safeParse(element).success, element.id).toBe(true);
     }
   });
@@ -62,18 +68,24 @@ describe("the fixture itself", () => {
  * forces the marker to be removed in the same change rather than left behind as a lie.
  */
 describe("element migration", () => {
-  it.fails("visits shared sections, not only pages", () => {
-    const { document: migrated } = migrateDocumentElements(document() as never);
+  it("visits shared sections, not only pages", () => {
+    const { document: migrated, report } = migrateDocumentElements(document() as never);
 
     // A shared section holds a header or a footer: the blocks that appear on every page of a site.
     // Leaving them on an older payload version is leaving most of the site unmigrated.
-    const shared = (migrated as ReturnType<typeof document>).sharedSections[0]!.elements[0]!;
-    expect(shared).toHaveProperty("version");
+    //
+    // Asserted with the form, because it is a block whose shape actually changed. Text has never
+    // moved version, so it comes back identical whether a transform visited it or not — which is
+    // what made the first version of this test pass against the broken traversal.
+    const shared = (migrated as ReturnType<typeof document>).sharedSections[0]!.elements[1]!;
+    expect(shared.type).toBe("form");
+    expect(shared).toMatchObject({ version: 2, presentation: expect.any(Object) });
+    expect(report.migrated.map((entry) => entry.elementId)).toContain(LEGACY_SHARED_FORM_ID);
   });
 });
 
 describe("responsive migration", () => {
-  it.fails("visits a container's children", () => {
+  it("visits a container's children", () => {
     const { report } = migrateDocumentResponsive(document() as never);
 
     // The nested paragraph is authored at the same kind of coordinate as the top-level one and needs
@@ -81,7 +93,7 @@ describe("responsive migration", () => {
     expect(report.changed.map((entry) => entry.elementId)).toContain(LEGACY_NESTED_ID);
   });
 
-  it.fails("visits shared sections", () => {
+  it("visits shared sections", () => {
     const { report } = migrateDocumentResponsive(document() as never);
     expect(report.changed.map((entry) => entry.elementId)).toContain(LEGACY_SHARED_ID);
   });

@@ -1,7 +1,7 @@
+import { mapDocumentElements, type DocumentLike } from "./document-traversal";
 import { elementDefinition, ELEMENT_REGISTRY } from "./element-registry";
 import { type BuilderElement, type ElementType } from "./elements";
 import { DEFAULT_FORM_PRESENTATION } from "./forms";
-import type { BuilderPage } from "./project";
 
 /**
  * Element payloads carry a version, and moving between versions is a pure function.
@@ -165,7 +165,7 @@ export type ElementMigrationReport = {
  * Same-object-when-unchanged, so the editor can load a document without marking it dirty and
  * without prompting somebody to save a change they did not make.
  */
-export function migrateDocumentElements<T extends { pages: BuilderPage[] }>(
+export function migrateDocumentElements<T extends DocumentLike>(
   document: T,
 ): { document: T; report: ElementMigrationReport } {
   const report: ElementMigrationReport = { migrated: [], future: [] };
@@ -193,19 +193,15 @@ export function migrateDocumentElements<T extends { pages: BuilderPage[] }>(
     return migrated;
   };
 
-  const pages = document.pages.map((page) => {
-    const sections = page.sections.map((section) => {
-      const elements = section.elements.map(visit);
-      return elements.every((element, index) => element === section.elements[index])
-        ? section
-        : { ...section, elements };
-    });
-
-    return sections.every((section, index) => section === page.sections[index]) ? page : { ...page, sections };
-  });
-
-  if (pages.every((page, index) => page === document.pages[index])) return { document, report };
-  return { document: { ...document, pages }, report };
+  /*
+   * Shared sections are part of the document.
+   *
+   * This walked `pages` alone, so a header or a footer — the blocks a visitor sees on every page of
+   * a site — stayed on whatever payload version they were written at, and the document that came
+   * back claimed to be migrated.
+   */
+  const next = mapDocumentElements(document as unknown as DocumentLike, visit) as unknown as T;
+  return next === (document as unknown as T) ? { document, report } : { document: next, report };
 }
 
 /** The version a newly created element of this type is stamped with. */

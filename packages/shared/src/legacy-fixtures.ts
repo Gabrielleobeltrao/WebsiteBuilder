@@ -58,14 +58,59 @@ function legacyContainer(child: BuilderElement): BuilderElement {
   } as unknown as BuilderElement;
 }
 
-/** The shared section a header or a footer lives in, carrying text of its own. */
-export function legacySharedSection(): BuilderSection {
+export const LEGACY_SHARED_FORM_ID = "legacy-shared-form";
+
+/**
+ * A form as version 1 stored one.
+ *
+ * Text has never changed shape, so it proves nothing about whether a transform reached it: an
+ * already-current element comes back identical either way. The form did change — it carried its own
+ * copy of the questions before placement and definition were separated — so it is the block that
+ * shows whether a migration actually visited a shared section.
+ */
+function legacyFormV1(): BuilderElement {
+  return {
+    id: LEGACY_SHARED_FORM_ID,
+    name: "",
+    type: "form",
+    version: 1,
+    formId: "contact",
+    submitLabel: "Send",
+    successMessage: "Thank you.",
+    errorMessage: "That did not send.",
+    consentText: "",
+    consentRequired: false,
+    geometry: { x: 60, y: 200, width: 480, height: 360, rotation: 0 },
+    responsiveLayout: {
+      width: { value: 480, unit: "px" },
+      height: { value: 360, unit: "px" },
+      horizontalConstraint: "left",
+      verticalConstraint: "top",
+      visible: true,
+    },
+    zIndex: 2,
+    locked: false,
+    hidden: false,
+  } as unknown as BuilderElement;
+}
+
+/**
+ * The shared section a header or a footer lives in, carrying content of its own.
+ *
+ * The version-1 form is opt-in. It is the block that proves a migration reached this section, and it
+ * references a form id that exists in no workspace — which blocks publication for a reason that has
+ * nothing to do with the failure being reproduced. A test proves one thing at a time.
+ */
+export function legacySharedSection(options: { withLegacyForm?: boolean } = {}): BuilderSection {
   return {
     ...createEmptySection(),
     id: LEGACY_SHARED_SECTION_ID,
     name: "Shared band",
     layoutMode: "free",
-    elements: [fixtureText({ id: LEGACY_SHARED_ID, x: 60, y: 60, width: 480, content: LEGACY_SHARED_TEXT })],
+    elements: [
+      fixtureText({ id: LEGACY_SHARED_ID, x: 60, y: 60, width: 480, content: LEGACY_SHARED_TEXT }),
+      ...(options.withLegacyForm === true ? [legacyFormV1()] : []),
+    ],
   };
 }
 
@@ -75,7 +120,7 @@ export function legacySharedSection(): BuilderSection {
  * Absent means version 1, which is what everything written before element versioning existed means.
  * Nothing here is invalid; it is simply old, and old is the state the transforms have to survive.
  */
-export function legacyProjectDocument(): BuilderDocumentInput {
+export function legacyProjectDocument(options: { withLegacyForm?: boolean } = {}): BuilderDocumentInput {
   const base = createProjectDocument({ name: "Legacy fixture", slug: "legacy-fixture" });
   const page = createPage({ name: "Home", slug: "", isHome: true });
 
@@ -88,7 +133,7 @@ export function legacyProjectDocument(): BuilderDocumentInput {
   });
   const nested = fixtureText({ id: LEGACY_NESTED_ID, x: 20, y: 20, width: 400, content: LEGACY_NESTED_TEXT });
 
-  const shared = legacySharedSection();
+  const shared = legacySharedSection(options);
 
   return {
     ...base,

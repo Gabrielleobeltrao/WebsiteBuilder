@@ -1,7 +1,8 @@
 import { DEVICE_SAFE_PADDING, deviceReferenceWidth, type DeviceMode } from "./devices";
 import { applyConstraints } from "./resolve";
 import type { BuilderElement } from "./elements";
-import type { BuilderPage, BuilderSection } from "./project";
+import { mapDocumentElements, type DocumentLike } from "./document-traversal";
+import type { BuilderPage } from "./project";
 
 /**
  * Gives an existing document safe narrow layouts without changing what it looks like on desktop.
@@ -132,20 +133,13 @@ function migrateElement(element: BuilderElement, report: MigrationReport): Build
   return { ...element, breakpointOverrides: overrides } as BuilderElement;
 }
 
-function migrateSection(section: BuilderSection, report: MigrationReport): BuilderSection {
-  // Only free sections can strand an element: grid and flex children are in normal flow and the
-  // browser already reflows them.
-  if (section.layoutMode !== "free") return section;
-
-  const elements = section.elements.map((element) => migrateElement(element, report));
-  return elements.every((element, index) => element === section.elements[index])
-    ? section
-    : { ...section, elements };
-}
-
 export function migratePageResponsive(page: BuilderPage, report: MigrationReport): BuilderPage {
-  const sections = page.sections.map((section) => migrateSection(section, report));
-  return sections.every((section, index) => section === page.sections[index]) ? page : { ...page, sections };
+  const migrated = mapDocumentElements({ pages: [page], sharedSections: [] }, (element, location) =>
+    // Only free sections can strand an element: grid and flex children are in normal flow and the
+    // browser already reflows them.
+    location.layoutMode === "free" ? migrateElement(element, report) : element,
+  );
+  return migrated.pages[0] ?? page;
 }
 
 /**
@@ -154,12 +148,23 @@ export function migratePageResponsive(page: BuilderPage, report: MigrationReport
  * Returns the same object when nothing needed changing, so a caller can tell whether there is
  * anything to save without comparing documents.
  */
-export function migrateDocumentResponsive<T extends { pages: BuilderPage[] }>(
+export function migrateDocumentResponsive<T extends DocumentLike>(
   document: T,
 ): { document: T; report: MigrationReport } {
   const report: MigrationReport = { changed: [] };
-  const pages = document.pages.map((page) => migratePageResponsive(page, report));
 
-  if (pages.every((page, index) => page === document.pages[index])) return { document, report };
-  return { document: { ...document, pages }, report };
+  /*
+   * Every element, wherever it is.
+   *
+   * This walked `pages` and, inside a section, only its direct children — so a paragraph inside a
+   * container and everything in a shared header kept the desktop coordinate they were authored at.
+   * Readiness, which does walk both, then blocked publication on exactly those elements: an old site
+   * could be edited and saved and never published, and the reason named a block the author could not
+   * tell apart from the one beside it that worked.
+   */
+  const next = mapDocumentElements(document, (element, location) =>
+    location.layoutMode === "free" ? migrateElement(element, report) : element,
+  );
+
+  return next === document ? { document, report } : { document: next, report };
 }

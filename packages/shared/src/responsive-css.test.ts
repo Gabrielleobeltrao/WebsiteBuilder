@@ -60,7 +60,7 @@ describe("constraints become CSS that holds at every width", () => {
 
 describe("device overrides", () => {
   it("appear only in that device's media query", () => {
-    const { document } = migrateDocumentResponsive({ pages: [pageWith([freeSectionFixture()])] });
+    const { document } = migrateDocumentResponsive({ pages: [pageWith([freeSectionFixture()])], sharedSections: [] });
     const css = cssFor(document.pages[0]!);
 
     // Desktop keeps what the author drew; the phone gets the migrated placement.

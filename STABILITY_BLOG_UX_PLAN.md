@@ -103,7 +103,7 @@ These are credible paths for the reported old-site failure, but the exact cause 
 
 ### Phase 1 — Editor, migration, and renderer correctness
 
-- [ ] **P1-T1 Make document traversal complete and shared.** Introduce or reuse one typed traversal/update utility for pages, shared sections, and recursively nested container elements. Apply it to element migration, responsive migration, readiness, media/reference collection, and any other project-wide transform found to be top-level-only. Do not double-process shared references when a page resolves them.
+- [x] **P1-T1 Make document traversal complete and shared.** Introduce or reuse one typed traversal/update utility for pages, shared sections, and recursively nested container elements. Apply it to element migration, responsive migration, readiness, media/reference collection, and any other project-wide transform found to be top-level-only. Do not double-process shared references when a page resolves them.
   - Acceptance: the same element shape is migrated and audited identically in a page, shared header/footer, or nested container; unchanged documents retain object identity where current callers depend on it.
   - Verify: shared tests covering all three locations, idempotence, and future-element reporting.
 
@@ -191,6 +191,15 @@ Append one row per completed task. Never rewrite previous rows.
 
 ```text
 YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
+2026-09-02 22:49 | P1-T1 | done | shared traversal/migration/legacy tests, full test, typecheck, build | pending
+  One traversal (`mapDocumentElements`) now serves both migrations: pages, shared sections and nested
+  containers, children before parents, object identity preserved so a load stays clean. Readiness had
+  always walked all three, so it blocked publication on elements the migrations never visited — the
+  reported failure. Every `responsive-layout` issue on the legacy fixture is now a warning; the
+  edit -> save -> reload -> publish -> public HTML journey passes. Correction to P0-T1: its
+  shared-section assertion used a text block, which has never changed version and so returns
+  identical whether visited or not; it now asserts a version-1 form, which genuinely migrates.
+  Remaining `it.fails`: the compiled stylesheet still reaches only top-level elements (P1-T2).
 2026-09-02 22:43 | P0-T2 | done | shared diagnosis tests, backend boundary tests, full test, typecheck, build | pending
   `diagnoseStoredProject` is the single read boundary: current / migrated / future / invalid, with
   issues located by page, section and element id rather than array index. `ProjectRepository.findById`

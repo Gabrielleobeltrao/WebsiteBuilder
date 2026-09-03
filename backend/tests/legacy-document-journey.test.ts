@@ -100,7 +100,7 @@ function asTheEditorReadsIt(document: BuilderDocumentInput): BuilderDocumentInpu
  * forces the marker to be removed in the same change rather than left behind as a lie.
  */
 describe("an old document, edited and published", () => {
-  it.fails("keeps every paragraph through save, reload, publish and the public page", async () => {
+  it("keeps every paragraph through save, reload, publish and the public page", async () => {
     const { projectId, revision } = await storedLegacySite();
 
     // Read it back the way the editor does, edit one word, and save with the revision in hand.
@@ -134,6 +134,8 @@ describe("an old document, edited and published", () => {
     expect(page.text).toContain(LEGACY_SHARED_TEXT);
   });
 
+  // Still expected to fail: the compiled stylesheet reaches only top-level section elements, which
+  // is P1-T2. The migration half of the failure is fixed and asserted by the test above.
   it.fails("places every paragraph it draws, rather than drawing some with no rule", async () => {
     const { projectId } = await storedLegacySite();
     expect((await service.publish(A, projectId)).status).toBe("published");
