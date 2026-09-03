@@ -81,6 +81,14 @@ additive, and there is no destructive migration in this codebase — but confirm
 
 ---
 
+### The blog is inside the snapshot
+
+Rolling the site back rolls its blog back with it: the posts as they were, both layouts, and the
+settings that shaped the routes. A post's own draft/published status is live data rather than
+snapshot data, so a rollback does not un-publish anything — the next publication includes it again
+unless somebody sets it back to draft. `docs/BLOG_PUBLICATION.md` sets out the three separate acts
+this distinguishes.
+
 ## 5. After a rollback
 
 1. All three containers healthy.

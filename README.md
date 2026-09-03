@@ -39,13 +39,20 @@ is produced by the code that serves visitors.
 Development is driven by `IMPLEMENTATION_PLAN.md`, which is the authoritative specification. It
 tracks every task with a checkbox, a Progress Log and a Decision Log.
 
-At the time of writing: **85 of 112 tasks complete**, 1 blocked on repository permissions,
-26 remaining. Phases 0–8 and 10–14 are finished; 9, 15, 16, 17 are partial; 18 and 19 are open.
+Several plans have been executed against this repository. At the time of writing:
+
+| Plan | Complete | Blocked | Remaining |
+|---|---|---|---|
+| `IMPLEMENTATION_PLAN.md` | 35 | 1 (`8.4`, deployed smoke: owner access) | 0 |
+| `STABILITY_BLOG_UX_PLAN.md` | 16 | 1 (`P0-T3`, incident confirmation: owner account) | 0 |
+
+Both blocked tasks need the owner's production access, not code. Everything else is done and its
+gates are recorded in each plan's Progress Log.
 
 Run one task at a time with the project skill:
 
 ```bash
-node .claude/skills/execute-plan-task/scripts/extract-plan-task.mjs P15-T2
+node .claude/skills/execute-plan-task/scripts/extract-plan-task.mjs P5-T2 --plan STABILITY_BLOG_UX_PLAN.md
 ```
 
 ---
@@ -302,6 +309,7 @@ Everything an operator needs is in `docs/`:
 | [ANALYTICS_METRICS.md](docs/ANALYTICS_METRICS.md) | What every number means, and what is deliberately not measured |
 | [ANALYTICS_PRIVACY.md](docs/ANALYTICS_PRIVACY.md) | What is collected, what never is, and what a visitor controls |
 | [ANALYTICS_OPERATIONS.md](docs/ANALYTICS_OPERATIONS.md) | Budgets, storage formula, scale ceiling, rate limiting |
+| [BLOG_PUBLICATION.md](docs/BLOG_PUBLICATION.md) | What each act of publishing changes, why a publish is refused, repairing old blogs, blog rollback |
 | [FORMS.md](docs/FORMS.md) | What owns which part of a form, which definition each surface renders, lifecycle and tenancy |
 | [BLOCK_LIBRARY.md](docs/BLOCK_LIBRARY.md) | How a block is defined, rendered, edited, migrated and published |
 

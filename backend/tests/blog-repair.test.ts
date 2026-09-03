@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { auditBlogTemplates, repairBlogTemplates } from "../src/modules/blog/repair";
+import { formatAudit } from "../src/scripts/audit-blog-templates";
 import { BlogRepository, ensureBlogIndexes } from "../src/modules/blog/repository";
 import { ensureTemplateIndexes, TemplateRepository } from "../src/modules/blog/templates";
 import type { WorkspaceContext } from "../src/modules/projects/repository";
@@ -137,5 +138,22 @@ describe("the dry-run audit", () => {
     const found = await auditBlogTemplates({ repository }, { workspaceId: B.workspaceId });
 
     expect(found.map((candidate) => candidate.workspaceId)).toEqual([B.workspaceId]);
+  });
+});
+
+describe("the operator's audit output", () => {
+  it("says plainly when nothing is broken", () => {
+    expect(formatAudit([])).toBe("No blog is missing a layout.");
+  });
+
+  it("names every site and which layout it is missing", () => {
+    const text = formatAudit([
+      { workspaceId: "w1", projectId: "p1", missing: ["index"] },
+      { workspaceId: "w1", projectId: "p2", missing: ["index", "article"] },
+    ]);
+
+    expect(text).toContain("2 blog(s)");
+    expect(text).toContain("w1\tp1\tmissing: index");
+    expect(text).toContain("w1\tp2\tmissing: index, article");
   });
 });

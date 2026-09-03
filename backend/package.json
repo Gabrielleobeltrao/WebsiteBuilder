@@ -10,7 +10,8 @@
     "start": "node dist/server.js",
     "start:renderer": "node dist/renderer-server.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "audit:blog": "tsx --env-file-if-exists=../.env --env-file-if-exists=.env src/scripts/audit-blog-templates.ts"
   },
   "dependencies": {
     "@websitebuilder/shared": "*",

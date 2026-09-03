@@ -171,7 +171,7 @@ These are credible paths for the reported old-site failure, but the exact cause 
   - Acceptance: each journey asserts persisted data and rendered output, not only button presence; tests run against a real permitted MongoDB runtime and fail when the corresponding production boundary is broken.
   - Verify: focused suites, then `npm run test` and `npm run test:e2e` with recorded counts and environment.
 
-- [ ] **P5-T2 Run final gates, document operations, and hand off.** Run plan checks, typecheck, all tests, production build, bundle budgets, E2E, accessibility, and available container smoke. Update README status so it no longer points at stale task counts, and document the legacy audit/repair command, rollback, publication semantics, and remaining owner-only smoke.
+- [x] **P5-T2 Run final gates, document operations, and hand off.** Run plan checks, typecheck, all tests, production build, bundle budgets, E2E, accessibility, and available container smoke. Update README status so it no longer points at stale task counts, and document the legacy audit/repair command, rollback, publication semantics, and remaining owner-only smoke.
   - Acceptance: no known regression is hidden by weakened assertions; the Progress Log records exact commands/counts/bundle sizes; all tasks are `[x]` except genuine owner-only `[!]`; final commits are pushed only to `development`.
   - Verify: `npm run check:plan-skill`, `npm run check:runbook`, `npm run typecheck`, `npm run test`, `npm run build`, `npm run test:e2e`, and available container/deployed smoke.
 
@@ -372,6 +372,21 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   through the first full run and every spec after it failed with ERR_CONNECTION_REFUSED; the 103-pass run
   used a preview server started outside Playwright on the same build. Three e2e selectors were stale
   after P4 and were updated, not weakened.
+2026-09-03 | P5-T2 | Final gates, operations docs and handoff | Commands and results, all on `development`
+  at this commit: `npm run check:plan-skill` exit 0 (0 skipped, 0 todo), `npm run check:runbook` exit 0
+  ("runbook references match package.json"), `npm run typecheck` exit 0, `npm test` exit 0 —
+  packages/shared 43 files / 716 tests, backend 54 / 822, frontend 65 / 831 — `npm run build` exit 0, and
+  `npm run test:e2e` 103 passed across the desktop, mobile and published-site projects. Bundle budgets:
+  `bundle-budget.test.ts` 8 passed; built frontend 1.6M total, largest chunks index 594,567 B,
+  RichTextEditor 391,420 B, EditorShell 378,766 B; backend dist 1.7M. Docker is not installed on this
+  machine, so the container smoke could not run and is not claimed. New: `docs/BLOG_PUBLICATION.md` sets
+  out the three separate acts called publishing and what each changes, why a publication is refused,
+  how a blog enabled before layouts existed repairs itself on read, and that a rollback carries the blog
+  with the snapshot but does not un-publish a post; `docs/RELEASE_AND_ROLLBACK.md` gained that last point
+  where a rollback is performed; `npm run audit:blog -w backend` exposes the read-only audit that counts
+  the blogs nobody has opened yet. README's status no longer cites a stale 85/112 — it reports both plans,
+  their counts and the two genuinely owner-only tasks. Remaining `[!]`: P0-T3 here and 8.4 in
+  `IMPLEMENTATION_PLAN.md`, both needing the owner's production access rather than code.
 ```
 
 ## 8. Decision Log
