@@ -7,7 +7,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./responsive-fixtures": "./src/responsive-fixtures.ts"
+    "./responsive-fixtures": "./src/responsive-fixtures.ts",
+    "./legacy-fixtures": "./src/legacy-fixtures.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

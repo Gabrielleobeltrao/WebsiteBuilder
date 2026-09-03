@@ -1,0 +1,100 @@
+import { describe, expect, it } from "vitest";
+
+import { migrateDocumentElements } from "./element-migrations";
+import { builderElementSchema, walkElements } from "./elements";
+import {
+  LEGACY_CONTAINER_ID,
+  LEGACY_NESTED_ID,
+  LEGACY_SHARED_ID,
+  legacyProjectDocument,
+} from "./legacy-fixtures";
+import { compilePageCss } from "./responsive-css";
+import { migrateDocumentResponsive } from "./responsive-migration";
+
+/**
+ * What the document-wide transforms actually visit.
+ *
+ * Each of these exists because a transform describes itself as operating on a document and operates
+ * on part of one. A page's text is reached; a container's child and a shared section's contents are
+ * not, and the difference is invisible until somebody opens a site old enough to need the migration
+ * — which is exactly the report this fixture was built from.
+ */
+
+const document = () => legacyProjectDocument();
+
+/** Every element in the document, wherever it lives — pages, containers, shared sections. */
+function everyElement(input: ReturnType<typeof document>) {
+  return [
+    ...[...input.pages.flatMap((page) => page.sections.flatMap((section) => section.elements))].flatMap((element) => [
+      ...walkElements([element]),
+    ]),
+    ...input.sharedSections.flatMap((section) => [...walkElements(section.elements)]),
+  ];
+}
+
+describe("the fixture itself", () => {
+  it("carries text in all three placements a page can hold one", () => {
+    const ids = everyElement(document()).map((element) => element.id);
+
+    expect(ids).toContain(LEGACY_NESTED_ID);
+    expect(ids).toContain(LEGACY_SHARED_ID);
+  });
+
+  it("names no tenant, domain, credential or private content", () => {
+    const serialised = JSON.stringify(document());
+
+    for (const forbidden of ["oneplataforma", "mongodb", "@", "workspaceId", "http://", "https://"]) {
+      expect(serialised, forbidden).not.toContain(forbidden);
+    }
+  });
+
+  it("is a document the schema accepts, so nothing here is merely malformed", () => {
+    for (const element of everyElement(document())) {
+      expect(builderElementSchema.safeParse(element).success, element.id).toBe(true);
+    }
+  });
+});
+
+/*
+ * These are written against the behaviour the product promises and fail against the behaviour it
+ * has, so they are declared as expected failures rather than skipped. `it.fails` runs the body: it
+ * passes only while the defect is present and turns red the moment the fix lands, which is what
+ * forces the marker to be removed in the same change rather than left behind as a lie.
+ */
+describe("element migration", () => {
+  it.fails("visits shared sections, not only pages", () => {
+    const { document: migrated } = migrateDocumentElements(document() as never);
+
+    // A shared section holds a header or a footer: the blocks that appear on every page of a site.
+    // Leaving them on an older payload version is leaving most of the site unmigrated.
+    const shared = (migrated as ReturnType<typeof document>).sharedSections[0]!.elements[0]!;
+    expect(shared).toHaveProperty("version");
+  });
+});
+
+describe("responsive migration", () => {
+  it.fails("visits a container's children", () => {
+    const { report } = migrateDocumentResponsive(document() as never);
+
+    // The nested paragraph is authored at the same kind of coordinate as the top-level one and needs
+    // the same narrow override; nothing about being inside a container changes what a phone does.
+    expect(report.changed.map((entry) => entry.elementId)).toContain(LEGACY_NESTED_ID);
+  });
+
+  it.fails("visits shared sections", () => {
+    const { report } = migrateDocumentResponsive(document() as never);
+    expect(report.changed.map((entry) => entry.elementId)).toContain(LEGACY_SHARED_ID);
+  });
+});
+
+describe("the compiled stylesheet", () => {
+  it.fails("emits a rule for a container's child, which the renderer draws", () => {
+    const css = compilePageCss(document().pages[0]! as never);
+
+    // The child is rendered either way. Without a rule it is drawn with no placement at all, which
+    // on a free section means it lands on top of whatever else starts at the origin — the shape of
+    // "my text disappeared".
+    expect(css).toContain(`"${LEGACY_NESTED_ID}"`);
+    expect(css).toContain(`"${LEGACY_CONTAINER_ID}"`);
+  });
+});
