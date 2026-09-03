@@ -81,9 +81,17 @@ export function createProjectsRouter(options: {
   router.get("/:projectId", async (req, res, next) => {
     try {
       const context = await resolveWorkspace(req);
-      const project = await repository.findById(context, parseProjectId(req.params.projectId));
-      if (project === null) throw new ApiProblem("NOT_FOUND", "Project not found");
-      res.json({ data: project });
+      /*
+       * Missing and unreadable are different answers.
+       *
+       * `findById` returns null for both, so a document this build cannot parse looked exactly like
+       * a project in somebody else's workspace — and the person was told their site did not exist.
+       */
+      const diagnosis = await repository.diagnose(context, parseProjectId(req.params.projectId));
+      if (diagnosis === null) throw new ApiProblem("NOT_FOUND", "Project not found");
+      if (diagnosis.document === null) throw new UnsupportedDocumentError(diagnosis);
+
+      res.json({ data: diagnosis.document });
     } catch (error) {
       next(error);
     }
@@ -127,8 +135,18 @@ export function createProjectsRouter(options: {
       if (!parsed.success) throw zodProblem(parsed.error);
 
       const projectId = parseProjectId(req.params.projectId);
-      const existing = await repository.findById(context, projectId);
-      if (existing === null) throw new ApiProblem("NOT_FOUND", "Project not found");
+      /*
+       * Missing and unreadable are different answers here too.
+       *
+       * This read `findById`, which returns null for both, and reported 404 — telling a customer
+       * their site did not exist while it sat in the database refusing to parse. The refusal below
+       * in the repository never ran, because the route had already answered.
+       */
+      const diagnosis = await repository.diagnose(context, projectId);
+      if (diagnosis === null) throw new ApiProblem("NOT_FOUND", "Project not found");
+      if (diagnosis.document === null) throw new UnsupportedDocumentError(diagnosis);
+
+      const existing = diagnosis.document;
 
       // The slug is part of the public hostname; changing it is its own authorised operation.
       if (parsed.data.document.slug !== existing.slug) {
@@ -166,18 +184,6 @@ function mapDomainError(error: unknown): unknown {
     return new ApiProblem("REVISION_CONFLICT", "Document was modified after it was loaded", [
       { path: "revision", message: `current revision is ${error.currentRevision}` },
     ]);
-  }
-  if (error instanceof UnsupportedDocumentError) {
-    // The paths are the point: an issue that named an array index would tell the person nothing,
-    // because array positions move and the ids they see in the editor do not.
-    return new ApiProblem(
-      "UNSUPPORTED_DOCUMENT",
-      error.message,
-      error.diagnosis.issues.map((issue) => ({
-        path: [issue.path.pageId, issue.path.sectionId, issue.path.elementId].filter(Boolean).join(" / ") || (issue.path.field ?? ""),
-        message: issue.message,
-      })),
-    );
   }
   if (error instanceof SlugTakenError) {
     return new ApiProblem("SLUG_TAKEN", "That address is already in use");

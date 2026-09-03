@@ -12,6 +12,7 @@ import {
 import { ObjectId, type Collection, type Db } from "mongodb";
 
 import { COLLECTIONS } from "../../db/indexes";
+import { ApiProblem } from "../../middleware/errors";
 import { PUBLISHING_COLLECTIONS } from "../publishing/repository";
 
 /**
@@ -56,14 +57,26 @@ function toObjectId(id: string): ObjectId | null {
  * else's work, and one that no longer parses is a document whose contents nobody can vouch for.
  * Both used to pass straight through, because reads were trusted while writes were validated.
  */
-export class UnsupportedDocumentError extends Error {
-  constructor(
-    public readonly diagnosis: DocumentDiagnosis,
-  ) {
+export class UnsupportedDocumentError extends ApiProblem {
+  constructor(public readonly diagnosis: DocumentDiagnosis) {
     super(
+      "UNSUPPORTED_DOCUMENT",
       diagnosis.status === "future"
         ? "This site was saved by a newer version of the builder and cannot be changed here."
         : "This site's saved content could not be read.",
+      /*
+       * Ids and a schema path, never content.
+       *
+       * The point of the detail is that somebody can find the block: array positions move and ids do
+       * not. Nothing here carries what the block *says*, because an error body is the one place a
+       * customer's copy would leak into a log collector.
+       */
+      diagnosis.issues.map((issue) => ({
+        path:
+          [issue.path.pageId, issue.path.sectionId, issue.path.elementId].filter(Boolean).join(" / ") ||
+          (issue.path.field ?? ""),
+        message: issue.message,
+      })),
     );
     this.name = "UnsupportedDocumentError";
   }
