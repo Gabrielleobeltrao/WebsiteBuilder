@@ -65,6 +65,32 @@ export class BlogRepository {
     this.settings = db.collection<SettingsDocument>(BLOG_COLLECTIONS.settings);
   }
 
+  /**
+   * Enabled blogs and their template references, for the repair audit.
+   *
+   * Deliberately not workspace-scoped by default: this answers "how many sites are in this state",
+   * which is an operator question. Every other read in this repository takes a context first, and
+   * this one is the exception that has to be argued for rather than assumed — so it is separate,
+   * named for its purpose, and reachable only from the audit.
+   */
+  async listSettingsForAudit(
+    options: { workspaceId?: string } = {},
+  ): Promise<Array<{ workspaceId: string; projectId: string; indexTemplateId?: string; articleTemplateId?: string }>> {
+    const rows = await this.settings
+      .find({
+        enabled: true,
+        ...(options.workspaceId === undefined ? {} : { workspaceId: options.workspaceId }),
+      })
+      .toArray();
+
+    return rows.map((row) => ({
+      workspaceId: row.workspaceId,
+      projectId: row.projectId,
+      ...(row.indexTemplateId === undefined ? {} : { indexTemplateId: row.indexTemplateId }),
+      ...(row.articleTemplateId === undefined ? {} : { articleTemplateId: row.articleTemplateId }),
+    }));
+  }
+
   async loadSettings(context: WorkspaceContext, projectId: string): Promise<BlogSettings> {
     const document = await this.settings.findOne({ workspaceId: context.workspaceId, projectId });
     if (document === null) return { ...DEFAULT_BLOG_SETTINGS };

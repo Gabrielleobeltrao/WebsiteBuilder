@@ -11,6 +11,7 @@ import { z } from "zod";
 
 import { ApiProblem, zodProblem } from "../../middleware/errors";
 import type { WorkspaceResolver } from "../projects/routes";
+import { repairBlogTemplates } from "./repair";
 import { BlogRepository, SlugTakenError } from "./repository";
 import type { TemplateRepository } from "./templates";
 
@@ -99,46 +100,19 @@ export function createBlogRouter(options: {
       if (!parsed.success) throw zodProblem(parsed.error);
       if (templates === undefined) throw new ApiProblem("SERVICE_UNAVAILABLE", "Templates are not available");
 
-      const current = await repository.loadSettings(context, projectId);
-      const [index, article] = await Promise.all([
-        templates.loadOrCreate(context, projectId, "index"),
-        templates.loadOrCreate(context, projectId, "article"),
-      ]);
+      const result = await repairBlogTemplates(
+        { repository, templates },
+        context,
+        projectId,
+        { format: parsed.data.format },
+      );
 
-      /*
-       * The starters are published as well as created.
-       *
-       * A template that exists only as a draft renders nothing publicly, and until a template editor
-       * exists there is nowhere to press publish. Publishing a starter page nobody has edited yet
-       * carries no risk — there is no earlier version of it to overwrite — and it is what makes the
-       * blog's routes serve something the moment it is turned on.
-       */
-      await Promise.all([
-        templates.publish(context, projectId, "index", []),
-        templates.publish(context, projectId, "article", []),
-      ]);
-
-      const settings = await repository.saveSettings(context, projectId, {
-        ...current,
-        enabled: true,
-        format: parsed.data.format,
-        indexTemplateId: index.id,
-        articleTemplateId: article.id,
-      });
-
-      res.json({ data: settings });
+      res.json({ data: result.settings });
     } catch (error) {
       next(error);
     }
   });
 
-  /**
-   * The template a designer edits, created on first read.
-   *
-   * `loadOrCreate` rather than a 404: a blog that is on has both templates by construction, and a
-   * blog turned on before templates existed should not have to be turned off and on again to get
-   * one. Opening the editor is what most people will do first, so it is where the gap is closed.
-   */
   router.get("/templates/:kind", async (req, res, next) => {
     try {
       const context = await resolveWorkspace(req, "project:edit");
@@ -222,10 +196,25 @@ export function createBlogRouter(options: {
     }
   });
 
+  /**
+   * The settings, repairing an old blog on the way out.
+   *
+   * This is where most blogs enabled before template ids existed will be met: somebody opens the
+   * blog screen. Repairing here means the site stops being blocked at the moment a person looks at
+   * it, rather than staying blocked until they happen to press a button nobody told them about.
+   */
   router.get("/settings", async (req, res, next) => {
     try {
       const context = await resolveWorkspace(req);
-      res.json({ data: await repository.loadSettings(context, parseProjectId(param(req, "projectId"))) });
+      const projectId = parseProjectId(param(req, "projectId"));
+
+      if (templates === undefined) {
+        res.json({ data: await repository.loadSettings(context, projectId) });
+        return;
+      }
+
+      const result = await repairBlogTemplates({ repository, templates }, context, projectId);
+      res.json({ data: result.settings });
     } catch (error) {
       next(error);
     }

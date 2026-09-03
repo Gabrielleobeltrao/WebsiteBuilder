@@ -123,7 +123,7 @@ These are credible paths for the reported old-site failure, but the exact cause 
 
 ### Phase 2 — Blog lifecycle and publication truth
 
-- [ ] **P2-T1 Repair blogs created before template IDs existed.** Make template creation/backfill a tenant-safe, idempotent service operation used by activation and legacy reads. Persist missing `indexTemplateId` and `articleTemplateId` together without replacing existing templates, and add a dry-run audit for affected projects.
+- [x] **P2-T1 Repair blogs created before template IDs existed.** Make template creation/backfill a tenant-safe, idempotent service operation used by activation and legacy reads. Persist missing `indexTemplateId` and `articleTemplateId` together without replacing existing templates, and add a dry-run audit for affected projects.
   - Acceptance: opening or auditing an old enabled blog repairs only missing references; repeated repair is a no-op; site status no longer remains blocked after valid templates exist.
   - Verify: repository/API/site-status/publishing tests with pre-template blog settings and cross-tenant cases.
 
@@ -195,6 +195,15 @@ Append one row per completed task. Never rewrite previous rows.
 
 ```text
 YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
+2026-09-03 12:43 | P2-T1 | done | blog-api (29) + blog-repair (10), typecheck, test, build | pending
+  `repairBlogTemplates` is one tenant-safe operation used by activation and by the settings read,
+  where most legacy blogs will be met. Idempotent: an id already set is never replaced, an existing
+  template is loaded rather than recreated, and the settings write happens only when something is
+  missing. Both ids are persisted together, because a blog with one template is still blocked.
+  Starters are published, so a repaired blog serves a page rather than an empty one. A blog nobody
+  enabled is left alone. `auditBlogTemplates` is a dry run that lists affected projects without
+  touching them; it reads the settings collection without a workspace scope, which is the one
+  exception to the tenant rule in this repository and is kept separate and named for that reason.
 2026-09-02 22:56 | P1-T2 | done | responsive CSS tests, legacy journey, full test, typecheck, build, E2E 100 | 0659abc
   Nested contract: a free container is the containing block and its children are placed by coordinate
   against the container's width, not the canvas; flex and grid children stay in flow. Selectors are

@@ -301,3 +301,67 @@ describe("editing a template", () => {
     expect(reread.body.data.publishedDocument).toBeUndefined();
   });
 });
+
+/**
+ * A blog enabled before template ids existed.
+ *
+ * `enabled: true` and neither id, so `blogSetupIssues` reported two blocking problems for the rest
+ * of the project's life — and those block publication of the whole site, not just the blog.
+ * Templates were already created lazily on read, and the settings were never told, so the same two
+ * issues came back on the next check: a site that could not be published and a screen naming no
+ * action.
+ */
+describe("repairing a legacy blog", () => {
+  /** Turns the blog on the way the old settings PUT did: a flag and nothing else. */
+  const enableWithoutTemplates = async () => {
+    const current = await request(app).get(`${base}/settings`);
+    await request(app)
+      .put(`${base}/settings`)
+      .send({ ...current.body.data, enabled: true, indexTemplateId: undefined, articleTemplateId: undefined });
+  };
+
+  it("gives an old blog both template ids when somebody opens it", async () => {
+    await enableWithoutTemplates();
+
+    const opened = await request(app).get(`${base}/settings`);
+
+    expect(opened.status).toBe(200);
+    expect(opened.body.data.indexTemplateId).toEqual(expect.any(String));
+    expect(opened.body.data.articleTemplateId).toEqual(expect.any(String));
+  });
+
+  it("repairs once: opening it again writes nothing further", async () => {
+    await enableWithoutTemplates();
+    const first = await request(app).get(`${base}/settings`);
+    const second = await request(app).get(`${base}/settings`);
+
+    // Same ids, not a second pair — a repair that recreated templates would orphan the first two and
+    // discard anything designed in them.
+    expect(second.body.data.indexTemplateId).toBe(first.body.data.indexTemplateId);
+    expect(second.body.data.articleTemplateId).toBe(first.body.data.articleTemplateId);
+  });
+
+  it("never replaces a template reference that is already there", async () => {
+    await request(app).post(`${base}/activate`).send({ format: "grid" });
+    const activated = await request(app).get(`${base}/settings`);
+
+    const reread = await request(app).get(`${base}/settings`);
+    expect(reread.body.data.indexTemplateId).toBe(activated.body.data.indexTemplateId);
+  });
+
+  it("leaves a blog nobody turned on alone", async () => {
+    const settings = await request(app).get(`${base}/settings`);
+
+    // Creating templates for an unused module would invent state the customer never asked for.
+    expect(settings.body.data.enabled).toBe(false);
+    expect(settings.body.data.indexTemplateId).toBeUndefined();
+  });
+
+  it("publishes the starters, so a repaired blog serves something rather than an empty page", async () => {
+    await enableWithoutTemplates();
+    await request(app).get(`${base}/settings`);
+
+    const template = await request(app).get(`${base}/templates/article`);
+    expect(template.body.data.publishedDocument).toBeDefined();
+  });
+});
