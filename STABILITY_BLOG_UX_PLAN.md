@@ -101,6 +101,10 @@ These are credible paths for the reported old-site failure, but the exact cause 
 
 **Checkpoint 0:** The reported failure has a reproducible cause or a precise evidence-backed diagnostic result. No UX work starts while saving, previewing, or publishing that fixture still loses or hides text.
 
+- [!] **P0-T3 Confirm the incident on the affected account.** Open the reported site, edit a text block, save, reload, preview, publish, and load the public page. Compare the result with the fixture-derived reproduction and record whether the same boundary failed.
+  - Blocked: requires the owner's credentials and access to their production workspace. Nothing in this repository can reach that document, and the plan forbids reading, exporting or rewriting it without that access. The technical fixes do not depend on this task; what depends on it is the claim that the customer's incident is resolved, which nobody may make until it runs.
+  - Verify: owner performs the journey and reports the outcome; if it still fails, the refusal now names the page, section and element by id.
+
 ### Phase 1 — Editor, migration, and renderer correctness
 
 - [x] **P1-T1 Make document traversal complete and shared.** Introduce or reuse one typed traversal/update utility for pages, shared sections, and recursively nested container elements. Apply it to element migration, responsive migration, readiness, media/reference collection, and any other project-wide transform found to be top-level-only. Do not double-process shared references when a page resolves them.
@@ -191,7 +195,7 @@ Append one row per completed task. Never rewrite previous rows.
 
 ```text
 YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
-2026-09-02 22:56 | P1-T2 | done | responsive CSS tests, legacy journey, full test, typecheck, build, E2E 100 | pending
+2026-09-02 22:56 | P1-T2 | done | responsive CSS tests, legacy journey, full test, typecheck, build, E2E 100 | 0659abc
   Nested contract: a free container is the containing block and its children are placed by coordinate
   against the container's width, not the canvas; flex and grid children stay in flow. Selectors are
   id-only so nested rules cannot collide, and the walk is document order so the bytes stay stable.
@@ -199,7 +203,7 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   sits inside its parent at every viewport — the earlier fixture had no nested content, so the
   compiler could omit those rules and the suite stayed green. Seeding also exposed a second invalid
   stored document: the seed's button link lacked `newTab`, published for as long as it has existed.
-2026-09-02 22:49 | P1-T1 | done | shared traversal/migration/legacy tests, full test, typecheck, build | pending
+2026-09-02 22:49 | P1-T1 | done | shared traversal/migration/legacy tests, full test, typecheck, build | cc255bf
   One traversal (`mapDocumentElements`) now serves both migrations: pages, shared sections and nested
   containers, children before parents, object identity preserved so a load stays clean. Readiness had
   always walked all three, so it blocked publication on elements the migrations never visited — the
@@ -208,7 +212,7 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   shared-section assertion used a text block, which has never changed version and so returns
   identical whether visited or not; it now asserts a version-1 form, which genuinely migrates.
   Remaining `it.fails`: the compiled stylesheet still reaches only top-level elements (P1-T2).
-2026-09-02 22:43 | P0-T2 | done | shared diagnosis tests, backend boundary tests, full test, typecheck, build | pending
+2026-09-02 22:43 | P0-T2 | done | shared diagnosis tests, backend boundary tests, full test, typecheck, build | 62c17aa
   `diagnoseStoredProject` is the single read boundary: current / migrated / future / invalid, with
   issues located by page, section and element id rather than array index. `ProjectRepository.findById`
   and the publishing compiler both route through it; `saveDocument` and `publish` refuse a future or
@@ -217,7 +221,10 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   every published site invalid (the schema describes the document, storage keeps `activePublishedVersionId`
   beside it), and a renderer fixture had been storing a button whose link lacked `newTab` by calling
   the repository directly — invalid content that was being published until reads were parsed.
-2026-09-02 22:33 | P0-T1 | done | shared+backend focused tests, typecheck, test, build | pending
+2026-09-02 22:33 | P0-T1 | done (fixture from the report, not the affected account) | shared+backend focused tests, typecheck, test, build | de96af7
+  Scope: the fixture reproduces the *reported shape*. The affected project was never read, exported
+  or compared — no access to that account — so nothing here shows the real document failed or that it
+  now succeeds. Confirming the incident on the owner's site is P0-T3 below and remains owner-only.
   Failing boundary: publication, not saving or rendering. `service.publish` returns `blocked` for the
   legacy fixture with two `responsive-layout` blocking issues — `legacy-nested` (a container's child,
   100px past the right edge at 320-390) and `legacy-shared-text` (a shared section's text, 220px past
@@ -234,6 +241,8 @@ Record only material deviations or newly discovered architectural choices.
 
 ```text
 YYYY-MM-DD | decision | alternatives | reason | compatibility/rollback impact
+2026-09-03 | An element's location reports its immediate parent's layout, not the section's | keep passing the section mode down | the responsive migration decides from it whether an element is placed by coordinate; the section's mode says nothing about a flex container's children, and using it wrote phone overrides into documents for elements the browser already reflowed | corrective: only affects elements inside flex/grid containers, which should never have been migrated
+2026-09-03 | `UnsupportedDocumentError` extends `ApiProblem` | map it per route | one mapping existed and three routes did not use it, so preflight, preview and publish answered 500; an error that is already a problem cannot be forgotten by a new route | additive: the shared error handler already renders `ApiProblem`
 2026-09-02 | Nested free containers are the containing block for their children | measure every child against the canvas | CSS resolves `100%` and `right` against the nearest positioned ancestor, so any other rule would disagree with what the browser does and let a child overflow its own box while looking contained | additive: top-level output is unchanged, so existing published hashes are stable
 ```
 
