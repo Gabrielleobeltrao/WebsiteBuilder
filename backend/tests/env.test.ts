@@ -282,3 +282,37 @@ describe("a deployment platform sets blanks, not absences", () => {
     );
   });
 });
+
+/**
+ * Running beside other projects.
+ *
+ * The API and the renderer took their ports from the environment from the start; the web server's
+ * was a literal in the Vite config and the three origins that describe it were literals here. So a
+ * developer with something else on 5173 could move some of the stack and not the rest, and the
+ * half-moved state is worse than the clash: the dev server loads and sign-in fails, because the
+ * session cookie is issued for an origin the browser is not on.
+ */
+describe("moving the development ports", () => {
+  it("points the origins at the web port when nothing names them", () => {
+    const env = loadEnv({ WEB_PORT: "5273" });
+
+    expect(env.FRONTEND_ORIGIN).toBe("http://localhost:5273");
+    expect(env.PLATFORM_PUBLIC_ORIGIN).toBe("http://localhost:5273");
+    expect(env.BETTER_AUTH_URL).toBe("http://localhost:5273");
+  });
+
+  it("keeps the default port when nothing is set at all", () => {
+    const env = loadEnv({});
+
+    expect(env.WEB_PORT).toBe(5173);
+    expect(env.FRONTEND_ORIGIN).toBe("http://localhost:5173");
+  });
+
+  it("never replaces an origin somebody set", () => {
+    // Production names all three explicitly, and a derived value must not overwrite one of them.
+    const env = loadEnv({ WEB_PORT: "5273", FRONTEND_ORIGIN: "https://app.example.com" });
+
+    expect(env.FRONTEND_ORIGIN).toBe("https://app.example.com");
+    expect(env.PLATFORM_PUBLIC_ORIGIN).toBe("http://localhost:5273");
+  });
+});

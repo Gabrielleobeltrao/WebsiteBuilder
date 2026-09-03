@@ -41,6 +41,24 @@ export const SYSTEM_BINDING_FIELDS = [
   "category",
 ] as const;
 
+/**
+ * The system fields a post can actually supply a value for today.
+ *
+ * A subset of `SYSTEM_BINDING_FIELDS` on purpose. The schema keeps accepting every one of them —
+ * a stored template must not stop validating, and the set will grow as the post editor does — but a
+ * template designer is only offered the ones a post can fill. `category` is the one left out: it
+ * exists on the record and nothing anywhere in the product writes it, so binding a block to it is
+ * choosing a box that is guaranteed to render nothing. `cover` was in the same state until the post
+ * editor grew a picker for it.
+ *
+ * `publishedAt` is here despite not being typed by anyone: publishing sets it, so a post genuinely
+ * carries one. The test beside this asserts every field named here resolves for a real post, which
+ * is what keeps the list honest as the editor grows.
+ */
+export const RESOLVABLE_BINDING_FIELDS = ["title", "excerpt", "cover", "content", "author", "publishedAt"] as const;
+
+export type ResolvableBindingField = (typeof RESOLVABLE_BINDING_FIELDS)[number];
+
 export const dynamicBindingSchema = z.discriminatedUnion("source", [
   z.object({ source: z.literal("system"), field: z.enum(SYSTEM_BINDING_FIELDS) }).strict(),
   z.object({ source: z.literal("custom"), fieldId: z.string().min(1) }).strict(),

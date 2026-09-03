@@ -4,7 +4,7 @@ import {
   hasTimezone,
   ICON_NAMES,
   POST_COLLECTION_SORTS,
-  SYSTEM_BINDING_FIELDS,
+  RESOLVABLE_BINDING_FIELDS,
   SOCIAL_NETWORKS,
   socialUrlMatchesNetwork,
   VIDEO_PROVIDERS,
@@ -506,7 +506,9 @@ export function VisualElementInspector({
           <SelectField
             label={t("fields.postField")}
             value={binding.source === "system" ? binding.field : ""}
-            options={SYSTEM_BINDING_FIELDS.map((field) => ({
+            /* Only the fields a post can fill. Offering `cover` or `category` would be offering a
+               block that is guaranteed to draw nothing, because nothing in the product writes them. */
+            options={RESOLVABLE_BINDING_FIELDS.map((field) => ({
               value: field,
               label: t(`fields.postFields.${field}` as "fields.postFields.title"),
             }))}

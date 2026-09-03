@@ -60,6 +60,11 @@ export default {
     countLabel_other: "{{count}} posts",
   },
   editor: {
+    "coverLabel": "Imagem de capa",
+    "coverEmpty": "Sem capa.",
+    "coverChoose": "Escolher imagem",
+    "coverClose": "Fechar",
+    "coverRemove": "Remover",
     titleLabel: "Título",
     slugLabel: "Endereço",
     excerptLabel: "Resumo",

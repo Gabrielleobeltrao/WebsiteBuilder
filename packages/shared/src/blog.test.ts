@@ -6,10 +6,13 @@ import {
   blogPostInputSchema,
   blogSettingsSchema,
   DEFAULT_BLOG_SETTINGS,
+  dynamicBindingSchema,
   EMPTY_RICH_TEXT,
   normalizePostSlug,
   postPath,
+  RESOLVABLE_BINDING_FIELDS,
   richTextDocumentSchema,
+  SYSTEM_BINDING_FIELDS,
   type BlogFieldDefinition,
 } from "./blog";
 
@@ -179,5 +182,57 @@ describe("analyseFieldCompatibility", () => {
       publishedPosts: posts,
     });
     expect(issues).toEqual([]);
+  });
+});
+
+/**
+ * The fields a template designer is offered, held to the ones a post can actually fill.
+ *
+ * `SYSTEM_BINDING_FIELDS` names everything the model has room for. The offer is narrower, because
+ * `cover` and `category` have no field anywhere in the product that writes them — binding a block to
+ * either would be choosing a box guaranteed to draw nothing, which is the failure this codebase
+ * already keeps a whole suite for.
+ *
+ * This is the guard that keeps the two lists from drifting: when the post editor grows a cover
+ * picker, the field belongs in the offer, and until then it must not be there.
+ */
+describe("what a template may bind to", () => {
+  const filled = {
+    title: "Hello world",
+    excerpt: "A summary.",
+    content: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Body." }] }] },
+    authorName: "Ana",
+    coverMediaId: "aaaaaaaaaaaaaaaaaaaaaaaa",
+    publishedAt: "2026-08-01T10:00:00.000Z",
+  } as const;
+
+  const valueOf: Record<string, unknown> = {
+    title: filled.title,
+    excerpt: filled.excerpt,
+    content: filled.content,
+    cover: filled.coverMediaId,
+    author: filled.authorName,
+    publishedAt: filled.publishedAt,
+  };
+
+  it("offers only fields a fully written post carries a value for", () => {
+    for (const field of RESOLVABLE_BINDING_FIELDS) {
+      expect(valueOf[field], field).toBeDefined();
+    }
+  });
+
+  it("leaves out the fields nothing in the product writes", () => {
+    // Nothing in the product writes a category, so offering it is offering nothing.
+    expect(RESOLVABLE_BINDING_FIELDS).not.toContain("category");
+  });
+
+  it("stays a subset of what the schema accepts, so no stored template stops validating", () => {
+    for (const field of RESOLVABLE_BINDING_FIELDS) {
+      expect(SYSTEM_BINDING_FIELDS).toContain(field);
+      expect(dynamicBindingSchema.safeParse({ source: "system", field }).success, field).toBe(true);
+    }
+
+    // And the wider set still parses: a template bound to a cover before this narrowing keeps working.
+    expect(dynamicBindingSchema.safeParse({ source: "system", field: "cover" }).success).toBe(true);
   });
 });

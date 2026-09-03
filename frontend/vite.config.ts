@@ -3,23 +3,46 @@ import { fileURLToPath } from "node:url";
 
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+// `loadEnv` comes from vite itself; `vitest/config` re-exports `defineConfig` and not it.
+import { loadEnv } from "vite";
 import { defineConfig } from "vitest/config";
 
-export default defineConfig({
+/**
+ * Ports, from the same file the backend reads.
+ *
+ * The API and the renderer have taken their ports from the environment from the start; the web
+ * server's was written here and the proxy target beside it, so a developer with something else on
+ * 5173 or 3000 could move half of the stack and not the other half. Everything now comes from one
+ * `.env` at the repository root, which is where `npm run dev` already loads the backend's from.
+ */
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, fileURLToPath(new URL("..", import.meta.url)), "");
+  const webPort = Number(env.WEB_PORT || 5173);
+  const apiTarget = `http://localhost:${Number(env.API_PORT || 3000)}`;
+
+  return {
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   server: {
-    port: 5173,
+    port: webPort,
+    /*
+     * Fail rather than move.
+     *
+     * Vite's default is to take the next free port, and the backend's cookie origin, auth URL and
+     * CORS list are all pinned to the configured one — so a silent move produces a dev server that
+     * loads and cannot sign in, which is a much harder thing to work out than "port in use".
+     */
+    strictPort: true,
     // Same-origin API in development mirrors production, where the gateway proxies /api to the
     // private backend. Nothing in the app may ever build a cross-origin API URL.
-    proxy: { "/api": { target: "http://localhost:3000", changeOrigin: true } },
+    proxy: { "/api": { target: apiTarget, changeOrigin: true } },
   },
   // The E2E suite runs against the production build through this server, so it needs the same
   // proxy. Without it the built app would be tested with no API at all, which tests nothing.
   preview: {
-    proxy: { "/api": { target: "http://localhost:3000", changeOrigin: true } },
+    proxy: { "/api": { target: apiTarget, changeOrigin: true } },
   },
   test: {
     environment: "jsdom",
@@ -28,4 +51,5 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}"],
     css: false,
   },
+  };
 });

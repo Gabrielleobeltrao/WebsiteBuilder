@@ -26,9 +26,17 @@ const baseSchema = z.object({
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   API_PORT: port.default(3000),
   PUBLIC_RENDERER_PORT: port.default(3001),
-  FRONTEND_ORIGIN: blankAsAbsent(z.string().url().default("http://localhost:5173")),
+  /**
+   * The port the development web server listens on. Read by Vite from the same file.
+   *
+   * It exists here so the three origins below can follow it. Moving the web server used to mean
+   * editing four values that all said 5173, and missing one produced a dev server that loads and
+   * cannot sign in — the cookie is issued for an origin the browser is not on.
+   */
+  WEB_PORT: port.default(5173),
+  FRONTEND_ORIGIN: blankAsAbsent(z.string().url().optional()),
   PLATFORM_ROOT_DOMAIN: blankAsAbsent(z.string().min(3).default("localhost")),
-  PLATFORM_PUBLIC_ORIGIN: blankAsAbsent(z.string().url().default("http://localhost:5173")),
+  PLATFORM_PUBLIC_ORIGIN: blankAsAbsent(z.string().url().optional()),
   PLATFORM_RESERVED_SUBDOMAINS: z.string().default(""),
   /** How long a proxy may serve a published page before revalidating. */
   /**
@@ -72,7 +80,7 @@ const baseSchema = z.object({
   MONGODB_DB_NAME: blankAsAbsent(z.string().min(1).optional()),
   /** At least 32 bytes. Sessions signed with a weak secret are forgeable. */
   BETTER_AUTH_SECRET: blankAsAbsent(z.string().min(32).optional()),
-  BETTER_AUTH_URL: blankAsAbsent(z.string().url().default("http://localhost:5173")),
+  BETTER_AUTH_URL: blankAsAbsent(z.string().url().optional()),
   BETTER_AUTH_BASE_PATH: z.string().startsWith("/").default("/api/auth"),
 });
 
@@ -158,6 +166,19 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env, role: ServiceRo
     throw new EnvironmentError(parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`));
   }
   const env = parsed.data;
+
+  /*
+   * The three origins that are the web server, unless an operator says otherwise.
+   *
+   * They defaulted to a literal `http://localhost:5173`, so moving the dev server meant editing four
+   * values that all said 5173 — and missing one produced a server that loads and cannot sign in,
+   * because the session cookie is issued for an origin the browser is not on. Production sets all of
+   * these explicitly and is unaffected: a value that is present is never replaced.
+   */
+  const webOrigin = `http://localhost:${env.WEB_PORT}`;
+  env.FRONTEND_ORIGIN ??= webOrigin;
+  env.PLATFORM_PUBLIC_ORIGIN ??= webOrigin;
+  env.BETTER_AUTH_URL ??= webOrigin;
 
   // Values that may default in development but must be explicit in production. The secret carries
   // its minimum length here as well as in the schema: an optional field with a `min` reports

@@ -10,6 +10,8 @@ import { Link, useNavigate } from "react-router";
 
 import { blogApi } from "@/api/blog";
 import { ApiError } from "@/api/client";
+import { mediaUrl } from "@/api/media";
+import { MediaLibrary } from "@/features/media/MediaLibrary";
 import { RichTextEditor } from "@/components/common/RichTextEditor";
 
 /**
@@ -57,6 +59,7 @@ export function PostEditor({
     kind: "idle",
   });
   const [slugTouched, setSlugTouched] = useState(false);
+  const [pickingCover, setPickingCover] = useState(false);
 
   useEffect(() => {
     if (postId === undefined) return;
@@ -192,6 +195,58 @@ export function PostEditor({
             />
           )}
         </Field>
+
+        {/*
+          The cover, which the model has always carried and nothing could set.
+          
+          `coverMediaId` is in the post schema, the index cards draw it and the article draws it —
+          and no field anywhere in the product wrote one, so every post's cover was permanently
+          absent and a template block bound to it was guaranteed to render nothing.
+        */}
+        <div>
+          <p className="mb-1 block text-sm font-medium text-ink-700">{t("blog:editor.coverLabel")}</p>
+
+          {post.coverMediaId === undefined ? (
+            <p className="text-xs text-ink-500">{t("blog:editor.coverEmpty")}</p>
+          ) : (
+            <div className="flex items-center gap-3">
+              <img
+                src={mediaUrl(workspaceId, post.coverMediaId, 240)}
+                alt=""
+                className="h-16 w-24 rounded-md object-cover ring-1 ring-ink-200"
+              />
+              <button
+                type="button"
+                onClick={() => patch({ coverMediaId: undefined })}
+                className="rounded-md border border-ink-200 px-2 py-1 text-xs text-ink-700 hover:bg-ink-50"
+              >
+                {t("blog:editor.coverRemove")}
+              </button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setPickingCover((open) => !open)}
+            aria-expanded={pickingCover}
+            className="mt-2 rounded-md border border-ink-200 px-3 py-1.5 text-xs font-medium text-ink-700 hover:bg-ink-50"
+          >
+            {t(pickingCover ? "blog:editor.coverClose" : "blog:editor.coverChoose")}
+          </button>
+
+          {pickingCover && (
+            <div className="mt-2 max-h-72 overflow-y-auto rounded-md border border-ink-200 p-2">
+              <MediaLibrary
+                workspaceId={workspaceId}
+                projectId={projectId}
+                onSelect={(asset) => {
+                  patch({ coverMediaId: asset.id });
+                  setPickingCover(false);
+                }}
+              />
+            </div>
+          )}
+        </div>
 
         <div>
           <p className="mb-1 block text-sm font-medium text-ink-700">{t("blog:editor.contentLabel")}</p>
