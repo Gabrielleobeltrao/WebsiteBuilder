@@ -177,3 +177,83 @@ describe("preview writes nothing", () => {
     expect(requests).toEqual([]);
   });
 });
+
+/**
+ * Previewing a blog layout rather than a page.
+ *
+ * The template editor linked here with no parameter, so a designer who had just built an article
+ * layout was shown the site's home page — the ordinary site preview, answering a question they had
+ * not asked. A layout has no address of its own: it is named, and drawn against sample content.
+ */
+describe("previewing a blog layout", () => {
+  it("frames the layout's own render, not a page of the site", () => {
+    renderPreview("/preview/w1/p1?template=article");
+
+    expect(frame().getAttribute("src")).toBe(
+      "/api/v1/workspaces/w1/projects/p1/publishing/preview/blog-template/article?lang=en-US",
+    );
+  });
+
+  it("asks for the index layout when that is what was open", () => {
+    renderPreview("/preview/w1/p1?template=index");
+    expect(frame().getAttribute("src")).toContain("/blog-template/index");
+  });
+
+  it("says the content is an example, outside the frame", () => {
+    renderPreview("/preview/w1/p1?template=article");
+
+    // Outside on purpose: the framed document has to stay exactly what publication renders, so the
+    // warning cannot be written into it.
+    const notice = screen.getByRole("status");
+    expect(notice).toHaveTextContent(/sample content/i);
+    expect(frame().contains(notice)).toBe(false);
+  });
+
+  it("says nothing about samples when previewing the site itself", () => {
+    renderPreview("/preview/w1/p1");
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("returns to the template that was open, not to the site builder", () => {
+    renderPreview("/preview/w1/p1?template=index");
+
+    expect(screen.getByRole("link", { name: "Back to the builder" })).toHaveAttribute(
+      "href",
+      "/app/w1/sites/p1/blog/templates/index",
+    );
+  });
+
+  it("still previews at all three device widths", async () => {
+    const user = userEvent.setup();
+    renderPreview("/preview/w1/p1?template=article");
+
+    expect(frame().style.width).toBe("1440px");
+    await user.click(screen.getByRole("button", { name: "Tablet" }));
+    expect(frame().style.width).toBe("768px");
+    await user.click(screen.getByRole("button", { name: "Mobile" }));
+    expect(frame().style.width).toBe("390px");
+    // Switching device must not lose the layout being previewed.
+    expect(frame().getAttribute("src")).toContain("/blog-template/article");
+  });
+
+  it("asks the renderer for the reader's language", () => {
+    renderWithProviders(
+      <Routes>
+        <Route path="/preview/:workspaceId/:projectId" element={<PreviewRoute />} />
+      </Routes>,
+      { route: "/preview/w1/p1?template=article", locale: "pt-BR" },
+    );
+
+    expect((screen.getByTitle("Pré-visualização do site") as HTMLIFrameElement).getAttribute("src")).toContain(
+      "lang=pt-BR",
+    );
+  });
+
+  it("ignores a template name it does not know", () => {
+    renderPreview("/preview/w1/p1?template=sidebar");
+
+    // An unknown name is a link somebody typed. It falls back to the site preview rather than
+    // framing an address the API will refuse.
+    expect(frame().getAttribute("src")).toContain("/publishing/preview?path=");
+  });
+});

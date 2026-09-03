@@ -286,6 +286,14 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
               ...(article.publishedDocument === undefined ? {} : { article: article.publishedDocument }),
             };
           },
+          // The drafts, for previewing a layout that has not been published yet.
+          loadBlogTemplateDrafts: async (context, projectId) => {
+            const [index, article] = await Promise.all([
+              blogTemplates.loadOrCreate(context, projectId, "index"),
+              blogTemplates.loadOrCreate(context, projectId, "article"),
+            ]);
+            return { index: index.draftDocument, article: article.draftDocument };
+          },
           loadForms: async (context, projectId) =>
             (await forms.list(context, projectId)).map((form) => ({
               id: form.id,

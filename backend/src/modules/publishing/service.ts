@@ -5,6 +5,8 @@ import {
   compileSite,
   migrateDocumentElements,
   migrateDocumentResponsive,
+  postPath,
+  sampleBlogPosts,
   SCHEMA_VERSION,
   validateSubmission,
   type BuilderPage,
@@ -16,6 +18,7 @@ import {
   type PublishableForm,
   type PublishedSiteVersion,
   type Redirect,
+  type SupportedAppLocale,
 } from "@websitebuilder/shared";
 
 import { renderRouteHtml } from "../../renderer/html";
@@ -88,6 +91,18 @@ export class PublishingService {
        * that has not chosen a format blocks publication rather than going live broken.
        */
       loadBlogTemplates?: (
+        context: WorkspaceContext,
+        projectId: string,
+      ) => Promise<{ index?: BuilderPage; article?: BuilderPage }>;
+      /**
+       * The layouts as they are being edited, for previewing them.
+       *
+       * Publication reads the published document on purpose — a template change reaches the live
+       * site at the next publish and not before. A preview has to answer the opposite question:
+       * what does the layout I am working on look like. Reading the published one there would show
+       * a designer the version they just replaced, and tell them nothing about their own edit.
+       */
+      loadBlogTemplateDrafts?: (
         context: WorkspaceContext,
         projectId: string,
       ) => Promise<{ index?: BuilderPage; article?: BuilderPage }>;
@@ -213,13 +228,24 @@ export class PublishingService {
       runtimeSrc?: string;
       /** Where a preview's form posts. A route that validates and stores nothing. */
       formAction?: (formId: string) => string;
+      /**
+       * Previews a blog layout against representative posts instead of the site's own content.
+       *
+       * A template is a layout with holes in it, and a blog with nothing written yet has no record
+       * to fill them — so the article route does not exist and the index renders empty. Both are
+       * the states a designer most needs to see the layout in. The sample replaces the post list
+       * for this one render; nothing is stored and nothing published changes.
+       */
+      sample?: { kind: "index" | "article"; locale: SupportedAppLocale };
     },
   ): Promise<{ html: string; status: 200 | 404 } | null> {
     const compileInput = await this.buildCompileInput(context, projectId);
     if (compileInput === null) return null;
 
+    const path = input.sample === undefined ? input.path : await this.applySampleBlog(context, projectId, compileInput, input.sample);
+
     const routes = buildRouteManifest(compileInput);
-    const route = routes.find((candidate) => candidate.path === input.path && candidate.statusCode === 200);
+    const route = routes.find((candidate) => candidate.path === path && candidate.statusCode === 200);
     if (route === undefined) return { html: NOT_FOUND_HTML, status: 404 };
 
     return {
@@ -227,7 +253,7 @@ export class PublishingService {
       html: renderRouteHtml({
         route,
         document: compileInput.project,
-        canonicalUrl: `${input.canonicalOrigin}${input.path}`,
+        canonicalUrl: `${input.canonicalOrigin}${path}`,
         mediaBaseUrl: input.mediaBaseUrl,
         pageHref: input.pageHref,
         /*
@@ -293,6 +319,39 @@ export class PublishingService {
   }
 
   /** Everything the compiler needs, gathered once and scoped to the workspace throughout. */
+  /**
+   * Swaps the site's posts for representative ones and answers with the path to render.
+   *
+   * The blog is forced on for this render alone. Whether the blog is live is the blog dashboard's
+   * question; a designer looking at a layout is asking a different one, and answering it with "this
+   * page is not part of the site" would be the contradictory status this preview exists to remove.
+   */
+  private async applySampleBlog(
+    context: WorkspaceContext,
+    projectId: string,
+    compileInput: CompileInput,
+    sample: { kind: "index" | "article"; locale: SupportedAppLocale },
+  ): Promise<string> {
+    // A cover the workspace already owns, so the sample shows a real image rather than the broken
+    // one a made-up media id would produce. Without any media the layout simply previews uncovered.
+    const media = await this.deps.media.list(context, undefined, 1);
+    const cover = media[0]?.id;
+
+    const posts = sampleBlogPosts(sample.locale, cover === undefined ? {} : { coverMediaId: cover });
+    const drafts = (await this.deps.loadBlogTemplateDrafts?.(context, projectId)) ?? {};
+
+    compileInput.blog = {
+      ...compileInput.blog,
+      settings: { ...compileInput.blog.settings, enabled: true },
+      posts,
+      ...(drafts.index === undefined ? {} : { indexTemplate: drafts.index }),
+      ...(drafts.article === undefined ? {} : { articleTemplate: drafts.article }),
+    };
+
+    const basePath = compileInput.blog.settings.basePath;
+    return sample.kind === "index" ? basePath : postPath(basePath, posts[0]!.slug);
+  }
+
   private async buildCompileInput(context: WorkspaceContext, projectId: string): Promise<CompileInput | null> {
     /*
      * A snapshot is immutable and public. It must never be compiled from a record this build cannot

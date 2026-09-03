@@ -1,4 +1,11 @@
-import { API_BASE_PATH, DEVICE_ORDER, deviceReferenceWidth, type DeviceMode } from "@websitebuilder/shared";
+import {
+  API_BASE_PATH,
+  DEVICE_ORDER,
+  deviceReferenceWidth,
+  SUPPORTED_APP_LOCALES,
+  type DeviceMode,
+  type SupportedAppLocale,
+} from "@websitebuilder/shared";
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -20,7 +27,7 @@ import { useAuthoringCapability } from "@/features/editor/useAuthoringCapability
  * on the screen it is being viewed on. No diagnostics, no width slider, no save.
  */
 export function PreviewRoute() {
-  const { t } = useTranslation(["builder", "common"]);
+  const { t, i18n } = useTranslation(["builder", "common"]);
   const { workspaceId = "", projectId = "", "*": trailing = "" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const capability = useAuthoringCapability();
@@ -39,9 +46,26 @@ export function PreviewRoute() {
 
   const referenceWidth = deviceReferenceWidth(device);
   const path = trailing === "" ? "/" : `/${trailing}`;
-  const source = `${API_BASE_PATH}/workspaces/${encodeURIComponent(workspaceId)}/projects/${encodeURIComponent(
-    projectId,
-  )}/publishing/preview?path=${encodeURIComponent(path)}`;
+
+  /*
+   * A blog layout is previewed, not a page of the site.
+   *
+   * The template editor used to link here with no parameter at all, so a designer who had just
+   * built an article layout was shown the site's home page. A layout has no address of its own —
+   * it is one page drawn once per post — so it is named rather than routed to, and rendered against
+   * representative content by the endpoint below.
+   */
+  const requestedTemplate = searchParams.get("template");
+  const template = requestedTemplate === "index" || requestedTemplate === "article" ? requestedTemplate : null;
+
+  const base = `${API_BASE_PATH}/workspaces/${encodeURIComponent(workspaceId)}/projects/${encodeURIComponent(projectId)}/publishing`;
+  const language = (SUPPORTED_APP_LOCALES as readonly string[]).includes(i18n.language)
+    ? (i18n.language as SupportedAppLocale)
+    : "en-US";
+  const source =
+    template === null
+      ? `${base}/preview?path=${encodeURIComponent(path)}`
+      : `${base}/preview/blog-template/${template}?lang=${encodeURIComponent(language)}`;
 
   // Measured rather than assumed: the scale has to answer "does this fit on *this* screen", and the
   // window is not the frame's container.
@@ -79,8 +103,13 @@ export function PreviewRoute() {
       <PageMetadata title={t("builder:preview.title")} />
 
       <header className="flex items-center justify-between gap-4 border-b border-ink-200 bg-white px-4 py-2">
+        {/* Back to what was actually left: the template editor, not the site builder. */}
         <Link
-          to={`/app/${workspaceId}/sites/${projectId}/builder`}
+          to={
+            template === null
+              ? `/app/${workspaceId}/sites/${projectId}/builder`
+              : `/app/${workspaceId}/sites/${projectId}/blog/templates/${template}`
+          }
           className="flex items-center gap-1.5 text-xs font-medium text-ink-700"
         >
           <ArrowLeft aria-hidden className="size-4" />
@@ -108,6 +137,14 @@ export function PreviewRoute() {
           ))}
         </div>
       </header>
+
+      {/* Said plainly and outside the frame: the words in the page are an example, and the frame
+          itself must stay byte-identical to what publication renders. */}
+      {template !== null && (
+        <p role="status" className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900">
+          {t("builder:preview.sampleContent")}
+        </p>
+      )}
 
       <div ref={frameRef} className="flex min-h-0 flex-1 justify-center overflow-auto p-4">
         {/* Reserves the scaled size so the surrounding layout is not overlapped by a frame that is

@@ -7,6 +7,7 @@ export default {
     "templateBlocked": "Não deu para publicar: um campo novo deixaria posts incompletos.",
     "templateFailed": "Não conseguimos publicar o layout.",
     backToSites: "Voltar para sites",
+    backToBlog: "Voltar para o blog",
     undo: "Desfazer",
     redo: "Refazer",
     save: "Salvar",
@@ -471,6 +472,7 @@ export default {
       "title": "Pré-visualização",
       "back": "Voltar ao construtor",
       "frame": "Pré-visualização do site",
+      "sampleContent": "Conteúdo de exemplo. Seus posts entram nestes lugares quando você publicar.",
       "diagnostics": {
         "title": "{{count}} ponto para conferir",
         "title_other": "{{count}} pontos para conferir",

@@ -311,8 +311,17 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
 
       <header className="flex items-center justify-between gap-4 border-b border-ink-100 px-4 py-2">
         <div className="flex min-w-0 items-center gap-3">
-          <Link to={`/app/${workspaceId}/sites`} className="text-xs font-medium text-ink-600 underline">
-            {t("builder:topBar.backToSites")}
+          {/* Back to where this was opened from: a template belongs to the blog, and the site list
+              is two screens away from the layout somebody was just editing. */}
+          <Link
+            to={
+              store.target.kind === "blogTemplate"
+                ? `/app/${workspaceId}/sites/${projectId}/blog`
+                : `/app/${workspaceId}/sites`
+            }
+            className="text-xs font-medium text-ink-600 underline"
+          >
+            {t(store.target.kind === "blogTemplate" ? "builder:topBar.backToBlog" : "builder:topBar.backToSites")}
           </Link>
           <h1 className="truncate font-display text-sm font-semibold text-ink-900">{store.history.present.name}</h1>
           <select
@@ -355,9 +364,16 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
             <Redo2 aria-hidden className="size-4" />
           </button>
           {/* One preview. Which device it opens in is the device switcher's job, not a second
-              button's — two preview buttons was the product asking the same question twice. */}
+              button's — two preview buttons was the product asking the same question twice.
+
+              A template previews itself. Sending it to the site's preview showed a designer the
+              home page, which answers a question they did not ask about work they cannot see. */}
           <Link
-            to={`/preview/${workspaceId}/${projectId}`}
+            to={
+              store.target.kind === "blogTemplate"
+                ? `/preview/${workspaceId}/${projectId}?template=${store.target.templateKind}`
+                : `/preview/${workspaceId}/${projectId}`
+            }
             className="flex items-center gap-1.5 rounded-md border border-ink-200 px-3 py-1.5 text-xs
               font-medium text-ink-700"
           >

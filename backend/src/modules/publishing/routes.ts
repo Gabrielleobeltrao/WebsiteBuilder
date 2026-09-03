@@ -1,4 +1,4 @@
-import { API_BASE_PATH, FORM_RESULT_PARAMS, resourceIdSchema } from "@websitebuilder/shared";
+import { API_BASE_PATH, FORM_RESULT_PARAMS, resourceIdSchema, SUPPORTED_APP_LOCALES } from "@websitebuilder/shared";
 import express, { Router } from "express";
 import { ObjectId } from "mongodb";
 
@@ -104,6 +104,57 @@ export function createPublishingRouter(options: {
         .set("content-type", "text/html; charset=utf-8")
         .set("content-security-policy", DRAFT_PREVIEW_CSP)
         // A draft is nobody's search result, and it must not sit in a shared cache.
+        .set("x-robots-tag", "noindex, nofollow")
+        .set("cache-control", "private, no-store")
+        .set("referrer-policy", "no-referrer")
+        .send(result.html);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * Preview of a blog layout, against representative posts.
+   *
+   * It sits on this router rather than the blog's because it is the same render as the draft
+   * preview — the same renderer, the same responsive CSS, the same policy headers, the same frame.
+   * Duplicating that on another router would give the template a second rendering path, which is
+   * exactly how a preview stops predicting what publication will do.
+   */
+  router.get("/preview/blog-template/:kind", async (req, res, next) => {
+    try {
+      const context = await resolveWorkspace(req);
+      const projectId = parseId(param(req, "projectId"), "Project not found");
+      const workspaceId = param(req, "workspaceId");
+
+      const kind = param(req, "kind");
+      if (kind !== "index" && kind !== "article") throw new ApiProblem("VALIDATION_ERROR", "Unknown template kind");
+
+      // The reader's own language. Sample copy is content on the page, so it is rendered by the
+      // backend and cannot reach the application's locale resources.
+      const requested = typeof req.query.lang === "string" ? req.query.lang : "";
+      const locale = (SUPPORTED_APP_LOCALES as readonly string[]).includes(requested)
+        ? (requested as (typeof SUPPORTED_APP_LOCALES)[number])
+        : "en-US";
+
+      const base = `${API_BASE_PATH}/workspaces/${encodeURIComponent(workspaceId)}/projects/${encodeURIComponent(projectId)}/publishing/preview`;
+
+      const result = await service.previewRoute(context, projectId, {
+        // Replaced by the sample's own path; a template preview is not addressed by URL.
+        path: "/",
+        sample: { kind, locale },
+        runtimeSrc: `${API_BASE_PATH}/workspaces/${encodeURIComponent(workspaceId)}/projects/${encodeURIComponent(projectId)}/publishing/runtime.js?v=${RUNTIME_VERSION}`,
+        pageHref: (target) => `${base}?path=${encodeURIComponent(target)}`,
+        mediaBaseUrl: `${API_BASE_PATH}/workspaces/${encodeURIComponent(workspaceId)}/media`,
+        canonicalOrigin: publicOrigin,
+        formAction: (formId) => `${base.replace(/\/preview$/, "")}/preview/forms/${encodeURIComponent(formId)}`,
+      });
+      if (result === null) throw new ApiProblem("NOT_FOUND", "Project not found");
+
+      res
+        .status(result.status)
+        .set("content-type", "text/html; charset=utf-8")
+        .set("content-security-policy", DRAFT_PREVIEW_CSP)
         .set("x-robots-tag", "noindex, nofollow")
         .set("cache-control", "private, no-store")
         .set("referrer-policy", "no-referrer")

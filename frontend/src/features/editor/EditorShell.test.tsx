@@ -422,3 +422,56 @@ describe("hooks", () => {
     expect(await screen.findByRole("group", { name: "Page canvas" })).toBeInTheDocument();
   });
 });
+
+/**
+ * The chrome around a blog layout.
+ *
+ * The same shell edits a site and a blog template, and every control in the top bar used to be
+ * written for the site. So Preview opened the site's home page, and Back left for a list of sites
+ * two screens away from the layout somebody was editing.
+ */
+describe("editing a blog template", () => {
+  const openTemplate = (templateKind: "index" | "article") => {
+    useEditorStore.getState().loadFromProject(project());
+    act(() => {
+      useEditorStore.setState({
+        target: { kind: "blogTemplate", templateKind, version: 1, fieldDefinitions: [] },
+      });
+    });
+    return render();
+  };
+
+  it("previews the layout, not the site's home page", () => {
+    openTemplate("article");
+
+    expect(screen.getByRole("link", { name: /preview/i })).toHaveAttribute(
+      "href",
+      "/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa?template=article",
+    );
+  });
+
+  it("previews the index layout when that is what is open", () => {
+    openTemplate("index");
+    expect(screen.getByRole("link", { name: /preview/i })).toHaveAttribute("href", expect.stringContaining("template=index"));
+  });
+
+  it("goes back to the blog it belongs to", () => {
+    openTemplate("article");
+
+    expect(screen.getByRole("link", { name: "Back to the blog" })).toHaveAttribute(
+      "href",
+      "/app/w1/sites/aaaaaaaaaaaaaaaaaaaaaaaa/blog",
+    );
+  });
+
+  it("leaves the site's own chrome alone", () => {
+    useEditorStore.getState().loadFromProject(project());
+    render();
+
+    expect(screen.getByRole("link", { name: /preview/i })).toHaveAttribute(
+      "href",
+      "/preview/w1/aaaaaaaaaaaaaaaaaaaaaaaa",
+    );
+    expect(screen.getByRole("link", { name: "Back to sites" })).toBeInTheDocument();
+  });
+});

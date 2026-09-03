@@ -7,6 +7,7 @@ export default {
     "templateBlocked": "Not published: a newly required field would leave posts incomplete.",
     "templateFailed": "We could not publish the layout.",
     backToSites: "Back to sites",
+    backToBlog: "Back to the blog",
     undo: "Undo",
     redo: "Redo",
     save: "Save",
@@ -471,6 +472,7 @@ export default {
       "title": "Preview",
       "back": "Back to the builder",
       "frame": "Site preview",
+      "sampleContent": "Sample content. Your own posts fill these places once you publish.",
       "diagnostics": {
         "title": "{{count}} thing to check",
         "title_other": "{{count}} things to check",

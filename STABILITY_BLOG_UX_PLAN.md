@@ -141,7 +141,7 @@ These are credible paths for the reported old-site failure, but the exact cause 
   - Acceptance: the catalog cannot insert a block unsupported by that template kind; existing stored blocks continue to render and remain removable/editable even if no longer offered for new insertion.
   - Verify: registry/catalog/i18n tests and backward-compatibility fixture tests.
 
-- [ ] **P3-T2 Add template-aware sample preview.** Preview the article layout with a clearly labelled representative post and the index with representative cards, through the same renderer and responsive CSS used by publication. Make Back, Preview, Save, and conflict actions template-aware.
+- [x] **P3-T2 Add template-aware sample preview.** Preview the article layout with a clearly labelled representative post and the index with representative cards, through the same renderer and responsive CSS used by publication. Make Back, Preview, Save, and conflict actions template-aware.
   - Acceptance: the template editor no longer opens ordinary site preview; Desktop/Tablet/Mobile preview shows bound title, cover, body, author, and date; preview never changes live output.
   - Verify: template route, preview route, renderer parity, accessibility, and three-viewport tests.
 
@@ -284,6 +284,19 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   longer existed, which returned an empty list and satisfied `not.toContain` vacuously; it now asserts
   the list is non-empty first. Gates: typecheck 0 errors, shared 43 files / 711 tests, backend 51 / 779,
   frontend 65 / 779, build exit 0.
+2026-09-03 | P3-T2 | Template-aware sample preview | The template editor's Preview opened `/preview/:ws/:pid`, the
+  site's own home page. Pointed at the right address it would still have shown nothing: a template is a
+  layout with holes in it, and a blog with no posts has no article route at all and an empty index — the
+  two states a layout is designed in. `GET publishing/preview/blog-template/:kind` now renders the layout
+  against three representative posts through `previewRoute`, so it is the same renderer, responsive CSS,
+  policy headers and frame as the draft preview. It reads the *draft* template through a new
+  `loadBlogTemplateDrafts` dep, because publication deliberately reads the published one and a designer
+  previewing their own edit would otherwise be shown the version they just replaced. The cover uses a
+  media asset the workspace owns, never an invented id. Back and Preview in the top bar and Back in the
+  preview shell are template-aware; Save and conflict recovery already were (P1-T3). Gates: typecheck 0,
+  shared 43 files / 711 tests, backend 52 / 789, frontend 65 / 791, build exit 0. One unrelated flake in
+  the concurrent run — `app.test.ts` "skips the proxies", socket hang up — passed alone and on a repeat of
+  the full backend suite; no timeout was changed.
 ```
 
 ## 8. Decision Log
@@ -292,6 +305,8 @@ Record only material deviations or newly discovered architectural choices.
 
 ```text
 YYYY-MM-DD | decision | alternatives | reason | compatibility/rollback impact
+2026-09-03 | Sample post copy lives in `packages/shared`, in both languages, rather than in the frontend locale resources | render the sample in the browser; ship English only | it is content inside a document the backend renderer produces, which cannot reach the application's locale files; the endpoint takes the reader's language and both locales sit side by side so neither can be updated alone | additive: no existing copy moved, and the samples are never stored or published
+2026-09-03 | A template preview forces the blog on for that one render | refuse to preview while the blog is off | whether the blog is live is the blog dashboard's question; answering "what does this layout look like" with "this page is not part of the site" is the contradictory status Checkpoint 3 exists to remove | render-only: nothing is written, and the stored setting is untouched
 2026-09-03 | An element's location reports its immediate parent's layout, not the section's | keep passing the section mode down | the responsive migration decides from it whether an element is placed by coordinate; the section's mode says nothing about a flex container's children, and using it wrote phone overrides into documents for elements the browser already reflowed | corrective: only affects elements inside flex/grid containers, which should never have been migrated
 2026-09-03 | `UnsupportedDocumentError` extends `ApiProblem` | map it per route | one mapping existed and three routes did not use it, so preflight, preview and publish answered 500; an error that is already a problem cannot be forgotten by a new route | additive: the shared error handler already renders `ApiProblem`
 2026-09-02 | Nested free containers are the containing block for their children | measure every child against the canvas | CSS resolves `100%` and `right` against the nearest positioned ancestor, so any other rule would disagree with what the browser does and let a child overflow its own box while looking contained | additive: top-level output is unchanged, so existing published hashes are stable
