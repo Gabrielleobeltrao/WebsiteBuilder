@@ -233,6 +233,88 @@ describe("media", () => {
   });
 });
 
+/**
+ * A post's custom fields, on the published page.
+ *
+ * A template can bind a slot to one of its own fields, and the post form fills them in — but the
+ * snapshot did not carry the values, so the live article drew nothing. The value existed on both
+ * sides of a boundary that dropped it.
+ */
+describe("custom fields", () => {
+  const definitions = [
+    { id: "field-1", key: "subtitle", label: "Subtitle", type: "shortText" as const, required: false },
+    { id: "field-2", key: "art", label: "Art", type: "image" as const, required: false },
+  ];
+
+  it("carries the values into the snapshot", () => {
+    const snapshot = compileSite(
+      input({
+        blog: {
+          settings: blogOn,
+          posts: [post({ customFieldValues: { "field-1": "A subtitle" } })],
+          fieldDefinitions: definitions,
+        },
+      }),
+    ).snapshot;
+
+    expect(snapshot?.blog?.posts[0]?.customFieldValues).toEqual({ "field-1": "A subtitle" });
+  });
+
+  it("freezes the definitions beside them, so a later rename resolves nothing differently", () => {
+    const snapshot = compileSite(
+      input({ blog: { settings: blogOn, posts: [post()], fieldDefinitions: definitions } }),
+    ).snapshot;
+
+    expect(snapshot?.blog?.fieldDefinitions).toEqual(definitions);
+  });
+
+  it("counts an image field's asset as referenced media", () => {
+    const snapshot = compileSite(
+      input({
+        blog: {
+          settings: blogOn,
+          posts: [post({ customFieldValues: { "field-2": "media-in-a-field" } })],
+          fieldDefinitions: definitions,
+        },
+      }),
+    ).snapshot;
+
+    expect(snapshot?.referencedMediaIds).toContain("media-in-a-field");
+  });
+
+  it("blocks publication when that asset is not the workspace's", () => {
+    // The same rule a cover follows. Without it a post could publish a page pointing at bytes the
+    // customer does not own, which is the one thing the ownership check exists to prevent.
+    const result = compileSite(
+      input({
+        mediaExists: (id) => id !== "someone-elses-media",
+        blog: {
+          settings: blogOn,
+          posts: [post({ customFieldValues: { "field-2": "someone-elses-media" } })],
+          fieldDefinitions: definitions,
+        },
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.report.issues.map((issue) => issue.code)).toContain("missing-media");
+  });
+
+  it("does not treat a text field's value as a media id", () => {
+    const snapshot = compileSite(
+      input({
+        blog: {
+          settings: blogOn,
+          posts: [post({ customFieldValues: { "field-1": "A subtitle" } })],
+          fieldDefinitions: definitions,
+        },
+      }),
+    ).snapshot;
+
+    expect(snapshot?.referencedMediaIds).not.toContain("A subtitle");
+  });
+});
+
 describe("failure atomicity", () => {
   it("returns no snapshot at all when anything blocks", () => {
     for (const broken of [

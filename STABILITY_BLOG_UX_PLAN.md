@@ -145,7 +145,7 @@ These are credible paths for the reported old-site failure, but the exact cause 
   - Acceptance: the template editor no longer opens ordinary site preview; Desktop/Tablet/Mobile preview shows bound title, cover, body, author, and date; preview never changes live output.
   - Verify: template route, preview route, renderer parity, accessibility, and three-viewport tests.
 
-- [ ] **P3-T3 Stabilize the post form around the V1 contract.** Make title, derived/editable slug, excerpt, cover picker, rich-text body, author, SEO, draft/ready state, save status, conflict recovery, and unsaved-navigation protection consistent. Preserve stored custom fields but remove any visible path that cannot round-trip through public output.
+- [x] **P3-T3 Stabilize the post form around the V1 contract.** Make title, derived/editable slug, excerpt, cover picker, rich-text body, author, SEO, draft/ready state, save status, conflict recovery, and unsaved-navigation protection consistent. Preserve stored custom fields but remove any visible path that cannot round-trip through public output.
   - Acceptance: a new and an old post can be edited without raw IDs or JSON; empty optional media never emits a broken request; every field used by the article template is authorable or system-generated.
   - Verify: PostEditor route/component/API tests, media ownership tests, lifecycle tests, and browser journey through site publication.
 
@@ -297,6 +297,23 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   shared 43 files / 711 tests, backend 52 / 789, frontend 65 / 791, build exit 0. One unrelated flake in
   the concurrent run — `app.test.ts` "skips the proxies", socket hang up — passed alone and on a repeat of
   the full backend suite; no timeout was changed.
+2026-09-03 | P3-T3 | Stabilize the post form around the V1 contract | Four faults, one of them the reported
+  "blog does not work": `status` has been in the model since the first commit and the public feed filters
+  on it, and no control anywhere set it, so every post ever written stayed a draft and a site published
+  with an empty blog. There is now a draft/published choice, with the server-stamped publication date
+  shown and not editable. Custom fields are drawn by their declared type: rich text through the rich-text
+  editor and media through the picker, instead of `String(value)` in a text box that showed a raw asset id
+  or "[object Object]" and destroyed the document on save; gallery and link keep their stored value and
+  say they cannot be filled in here. An empty media field renders no `<img>` at all, so no
+  `/media//content` request is made. The form tracks what the server confirmed: "Saved" stops being
+  claimed at the next keystroke, closing the tab on unsaved work warns, and a save carries the
+  `updatedAt` it read — a stale write now answers 409 `REVISION_CONFLICT` and the author is offered the
+  newer version instead of silently losing a paragraph. Custom values did not reach public output at all:
+  `PublishablePost` did not carry them and the published renderer was given no way to resolve them, so a
+  bound slot drew nothing live. Values and the definitions that explain them are now frozen in the
+  snapshot, an image field's asset counts as referenced media and blocks publication when the workspace
+  does not own it. Gates: typecheck 0, shared 43 files / 716 tests, backend 52 / 794, frontend 65 / 802,
+  build exit 0. The browser journey named in Verify belongs to P5-T1 and is not claimed here.
 ```
 
 ## 8. Decision Log
@@ -305,6 +322,8 @@ Record only material deviations or newly discovered architectural choices.
 
 ```text
 YYYY-MM-DD | decision | alternatives | reason | compatibility/rollback impact
+2026-09-03 | A post's stale write is detected by its own `updatedAt`, not by a revision counter | add a revision field to every post | posts have no counter and adding one is a stored-data change with a migration for every existing blog; `updatedAt` already changes on every write and is already returned to the client | additive: a request that omits `expectedUpdatedAt` still writes, so nothing existing breaks
+2026-09-03 | Custom field values and their definitions are frozen into the published snapshot | resolve them live from the template at request time | a snapshot that reads anything live is not immutable, and a definition renamed after publication would change what an already-published article resolves | additive: a snapshot written before this carries no values and resolves them as absent, which is what it already did
 2026-09-03 | Sample post copy lives in `packages/shared`, in both languages, rather than in the frontend locale resources | render the sample in the browser; ship English only | it is content inside a document the backend renderer produces, which cannot reach the application's locale files; the endpoint takes the reader's language and both locales sit side by side so neither can be updated alone | additive: no existing copy moved, and the samples are never stored or published
 2026-09-03 | A template preview forces the blog on for that one render | refuse to preview while the blog is off | whether the blog is live is the blog dashboard's question; answering "what does this layout look like" with "this page is not part of the site" is the contradictory status Checkpoint 3 exists to remove | render-only: nothing is written, and the stored setting is untouched
 2026-09-03 | An element's location reports its immediate parent's layout, not the section's | keep passing the section mode down | the responsive migration decides from it whether an element is placed by coordinate; the section's mode says nothing about a flex container's children, and using it wrote phone overrides into documents for elements the browser already reflowed | corrective: only affects elements inside flex/grid containers, which should never have been migrated

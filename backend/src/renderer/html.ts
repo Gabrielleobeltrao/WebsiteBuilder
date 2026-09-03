@@ -2,10 +2,13 @@ import {
   consentCopyFor,
   PUBLISHED_BASE_CSS,
   renderablePage,
+  resolveBinding,
   resolveSafeLinkHref,
   runtimeCapabilitiesFor,
   walkElements,
   type BuilderProject,
+  type DynamicBinding,
+  type PostSample,
   type PublishableBlog,
   type PublishedForm,
   type RouteManifestEntry,
@@ -117,6 +120,10 @@ export function renderRouteHtml(input: {
    * a page in this document. Both addresses were published and both answered with an empty body.
    */
   const blogBody = renderBlogRoute(route, input.blog);
+  // The post this route is about, if it is about one. The renderer context resolves the template's
+  // custom fields against it, so it has to be known before the context is built.
+  const routePost =
+    route.kind === "blogPost" ? input.blog?.posts.find((candidate) => candidate.id === route.resourceId) : undefined;
 
   const href = input.pageHref ?? ((path: string) => path);
   const pathByPageId = new Map(
@@ -155,6 +162,28 @@ export function renderRouteHtml(input: {
       if (page !== null) trail.push({ label: page.name, href: null });
       return trail;
     },
+    /*
+     * Custom fields, resolved against the definitions frozen in this snapshot.
+     *
+     * Without this a slot bound to one of the template's own fields drew nothing on the live page,
+     * however carefully the designer bound it and the author filled it in: the renderer resolves a
+     * custom binding through this function and there was none on the published path.
+     */
+    ...(input.blog?.fieldDefinitions === undefined
+      ? {}
+      : {
+          resolveBinding: (binding: DynamicBinding) => {
+            if (routePost === undefined) return undefined;
+
+            const resolved = resolveBinding(
+              binding,
+              { ...routePost, categoryIds: [], customFieldValues: routePost.customFieldValues ?? {} } as PostSample,
+              input.blog?.fieldDefinitions ?? [],
+            );
+            if (resolved.state !== "value") return undefined;
+            return resolved.kind === "text" ? resolved.text : resolved.kind === "media" ? resolved.mediaId : undefined;
+          },
+        }),
     ...(input.forms === undefined
       ? {}
       : {

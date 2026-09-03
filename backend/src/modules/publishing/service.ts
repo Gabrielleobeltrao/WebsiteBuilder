@@ -9,6 +9,7 @@ import {
   sampleBlogPosts,
   SCHEMA_VERSION,
   validateSubmission,
+  type BlogFieldDefinition,
   type BuilderPage,
   type BuilderProject,
   type CompileInput,
@@ -93,7 +94,7 @@ export class PublishingService {
       loadBlogTemplates?: (
         context: WorkspaceContext,
         projectId: string,
-      ) => Promise<{ index?: BuilderPage; article?: BuilderPage }>;
+      ) => Promise<{ index?: BuilderPage; article?: BuilderPage; fieldDefinitions?: BlogFieldDefinition[] }>;
       /**
        * The layouts as they are being edited, for previewing them.
        *
@@ -378,7 +379,7 @@ export class PublishingService {
       this.deps.loadRedirects?.(context, projectId) ?? Promise.resolve([]),
       this.deps.collectModuleFacts?.({ workspaceId: context.workspaceId, projectId }) ?? Promise.resolve({}),
       this.deps.loadBlogTemplates?.(context, projectId) ??
-        Promise.resolve({} as { index?: BuilderPage; article?: BuilderPage }),
+        Promise.resolve({} as { index?: BuilderPage; article?: BuilderPage; fieldDefinitions?: BlogFieldDefinition[] }),
     ]);
 
     // Ownership comes from the workspace's own media list, so a snapshot can never reference an
@@ -419,9 +420,13 @@ export class PublishingService {
           publishedAt: post.publishedAt,
           updatedAt: post.updatedAt,
           seo: { title: post.seoTitle, description: post.seoDescription },
+          // The template's own fields. Without them a slot a designer bound and an author filled in
+          // renders nothing on the live article.
+          customFieldValues: post.customFieldValues,
         })),
         ...(blogTemplates.index === undefined ? {} : { indexTemplate: blogTemplates.index }),
         ...(blogTemplates.article === undefined ? {} : { articleTemplate: blogTemplates.article }),
+        ...(blogTemplates.fieldDefinitions === undefined ? {} : { fieldDefinitions: blogTemplates.fieldDefinitions }),
       },
       cms: { collections, items },
       redirects,

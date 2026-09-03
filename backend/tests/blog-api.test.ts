@@ -127,6 +127,47 @@ describe("posts", () => {
     expect((await request(app).get(`${base}/posts/nope`)).status).toBe(404);
   });
 
+  /**
+   * Two people, or two tabs, writing the same post.
+   *
+   * A post has no revision counter, so its own `updatedAt` is what a stale write is caught by.
+   * Without the check the second save wins silently and the first author is never told a paragraph
+   * of theirs is gone.
+   */
+  it("refuses a save based on a version somebody has already replaced", async () => {
+    const created = await request(app).post(`${base}/posts`).send(post());
+    const id = created.body.data.id;
+    const openedAt = created.body.data.updatedAt;
+
+    const first = await request(app)
+      .put(`${base}/posts/${id}`)
+      .send({ ...post({ excerpt: "Written by the first tab" }), expectedUpdatedAt: openedAt });
+    expect(first.status).toBe(200);
+
+    const second = await request(app)
+      .put(`${base}/posts/${id}`)
+      .send({ ...post({ excerpt: "Written by the second tab" }), expectedUpdatedAt: openedAt });
+
+    expect(second.status).toBe(409);
+    expect(second.body.error.code).toBe("REVISION_CONFLICT");
+    // Refused, not partially applied: the first author's text is still what is stored.
+    expect((await request(app).get(`${base}/posts/${id}`)).body.data.excerpt).toBe("Written by the first tab");
+  });
+
+  it("still writes when no version is claimed, and accepts the current one", async () => {
+    const created = await request(app).post(`${base}/posts`).send(post());
+    const id = created.body.data.id;
+
+    const blind = await request(app).put(`${base}/posts/${id}`).send(post({ excerpt: "No claim" }));
+    expect(blind.status).toBe(200);
+
+    const informed = await request(app)
+      .put(`${base}/posts/${id}`)
+      .send({ ...post({ excerpt: "Claimed" }), expectedUpdatedAt: blind.body.data.updatedAt });
+    expect(informed.status).toBe(200);
+    expect(informed.body.data.excerpt).toBe("Claimed");
+  });
+
   it("deletes once and then answers 404", async () => {
     const created = await request(app).post(`${base}/posts`).send(post());
     expect((await request(app).delete(`${base}/posts/${created.body.data.id}`)).status).toBe(204);

@@ -12,7 +12,7 @@ import { z } from "zod";
 import { ApiProblem, zodProblem } from "../../middleware/errors";
 import type { WorkspaceResolver } from "../projects/routes";
 import { repairBlogTemplates } from "./repair";
-import { BlogRepository, SlugTakenError } from "./repository";
+import { BlogRepository, PostConflictError, SlugTakenError } from "./repository";
 import type { TemplateRepository } from "./templates";
 
 /** A blog is turned on with a format chosen, never without one. */
@@ -282,14 +282,27 @@ export function createBlogRouter(options: {
   router.put("/posts/:postId", async (req, res, next) => {
     try {
       const context = await resolveWorkspace(req, "project:edit");
-      const parsed = blogPostInputSchema.safeParse(req.body);
+      // Split off before parsing: the post schema is strict, and this field is about the request
+      // rather than about the post.
+      const { expectedUpdatedAt, ...body } = (req.body ?? {}) as Record<string, unknown>;
+      const parsed = blogPostInputSchema.safeParse(body);
       if (!parsed.success) throw zodProblem(parsed.error);
+
+      /*
+       * The version the author was looking at.
+       *
+       * Sent beside the post rather than inside it because `blogPostInputSchema` is also the create
+       * contract, where there is nothing to have changed yet. A request that omits it still writes:
+       * the guarantee belongs to the editor, which always reads before it writes.
+       */
+      const expected = typeof expectedUpdatedAt === "string" ? expectedUpdatedAt : undefined;
 
       const updated = await repository.update(
         context,
         parseProjectId(param(req, "projectId")),
         param(req, "postId"),
         parsed.data,
+        expected,
       );
       if (updated === null) throw new ApiProblem("NOT_FOUND", "Post not found");
       res.json({ data: updated });
@@ -377,7 +390,12 @@ export function createPublicBlogRouter(options: { repository: BlogRepository }):
 }
 
 function mapBlogError(error: unknown): unknown {
-  return error instanceof SlugTakenError
-    ? new ApiProblem("SLUG_TAKEN", "That address is already used by another post")
-    : error;
+  if (error instanceof SlugTakenError) {
+    return new ApiProblem("SLUG_TAKEN", "That address is already used by another post");
+  }
+  // The same code the builder answers a stale document write with, so one client rule covers both.
+  if (error instanceof PostConflictError) {
+    return new ApiProblem("REVISION_CONFLICT", "The post changed since it was loaded");
+  }
+  return error;
 }

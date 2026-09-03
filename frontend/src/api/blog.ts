@@ -61,8 +61,23 @@ export const blogApi = {
     return apiRequest<BlogPost>(`${scope(workspaceId, projectId)}/posts`, { method: "POST", body: input });
   },
 
-  updatePost(workspaceId: string, projectId: string, postId: string, input: BlogPostInput) {
-    return apiRequest<BlogPost>(`${scope(workspaceId, projectId)}/posts/${postId}`, { method: "PUT", body: input });
+  /**
+   * `expectedUpdatedAt` is the version the author was looking at.
+   *
+   * A post carries no revision counter, so its own `updatedAt` is what a stale write is caught by.
+   * Without it two tabs overwrite each other silently and the loser is never told.
+   */
+  updatePost(
+    workspaceId: string,
+    projectId: string,
+    postId: string,
+    input: BlogPostInput,
+    expectedUpdatedAt?: string,
+  ) {
+    return apiRequest<BlogPost>(`${scope(workspaceId, projectId)}/posts/${postId}`, {
+      method: "PUT",
+      body: expectedUpdatedAt === undefined ? input : { ...input, expectedUpdatedAt },
+    });
   },
 
   setPostStatus(workspaceId: string, projectId: string, postId: string, status: "published" | "draft") {

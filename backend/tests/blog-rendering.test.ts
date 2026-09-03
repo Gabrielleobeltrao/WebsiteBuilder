@@ -301,3 +301,86 @@ describe("a post with nothing optional filled in", () => {
     expect(html).toContain("The first thing we published.");
   });
 });
+
+/**
+ * A slot bound to one of the template's own fields.
+ *
+ * `dynamicField` can bind a system field or a custom one. The system half worked; the custom half
+ * drew nothing on a published page, however carefully the designer bound it and the author filled
+ * it in — the snapshot did not carry the values, and the published renderer was handed no way to
+ * resolve them. Both sides of the boundary had the data and the boundary dropped it.
+ */
+describe("a template bound to a custom field", () => {
+  const definitions = [
+    { id: "field-1", key: "subtitle", label: "Subtitle", type: "shortText" as const, required: false },
+  ];
+
+  const custom = (binding: unknown, display: string, id: string) => ({
+    ...(elementDefinition("dynamicField").defaults() as Record<string, unknown>),
+    id,
+    name: "",
+    type: "dynamicField",
+    version: elementDefinition("dynamicField").schemaVersion,
+    binding,
+    display,
+    geometry: { x: 0, y: 0, width: 480, height: 64, rotation: 0 },
+    responsiveLayout: {
+      width: { value: 480, unit: "px" },
+      height: { value: 64, unit: "px" },
+      horizontalConstraint: "left",
+      verticalConstraint: "top",
+      visible: true,
+    },
+    zIndex: 1,
+    locked: false,
+    hidden: false,
+  });
+
+  const layout = () => {
+    const template = createPage({ name: "Article" });
+    template.sections[0]!.elements = [
+      custom({ source: "field", fieldId: "field-1" }, "text", "the-subtitle") as never,
+    ];
+    return template;
+  };
+
+  it("draws the author's value", () => {
+    const html = render(
+      "blogPost",
+      blog({
+        articleTemplate: layout(),
+        fieldDefinitions: definitions,
+        posts: [normalizePublishablePost({ ...post(), customFieldValues: { "field-1": "The subtitle" } } as never)],
+      }),
+    );
+
+    expect(html).toContain("The subtitle");
+  });
+
+  it("draws nothing rather than crashing when the snapshot predates the values", () => {
+    // Every article published before this existed carries no `customFieldValues` at all.
+    const html = render(
+      "blogPost",
+      blog({ articleTemplate: layout(), fieldDefinitions: definitions, posts: [post()] }),
+    );
+
+    expect(html).toContain("<!doctype html>");
+    expect(html).not.toContain("undefined");
+  });
+
+  it("says nothing at all when the field the binding names was deleted", () => {
+    const html = render(
+      "blogPost",
+      blog({
+        articleTemplate: layout(),
+        fieldDefinitions: [],
+        posts: [normalizePublishablePost({ ...post(), customFieldValues: { "field-1": "Orphaned" } } as never)],
+      }),
+    );
+
+    // A published page shows what the post has. Naming a missing field belongs on a canvas, where
+    // there is a designer to tell.
+    expect(html).not.toContain("Orphaned");
+    expect(html).not.toContain("field-1");
+  });
+});

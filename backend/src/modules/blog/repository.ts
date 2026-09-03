@@ -34,6 +34,19 @@ export class SlugTakenError extends Error {
   }
 }
 
+/**
+ * Somebody else saved this post since it was read.
+ *
+ * Answered rather than merged: the two versions are prose, and a machine choosing between them
+ * would quietly destroy one person's paragraph. The author is told, and decides.
+ */
+export class PostConflictError extends Error {
+  constructor() {
+    super("The post changed since it was loaded");
+    this.name = "PostConflictError";
+  }
+}
+
 export type PostListFilter = {
   status?: "draft" | "published";
   search?: string;
@@ -194,9 +207,21 @@ export class BlogRepository {
     projectId: string,
     postId: string,
     input: BlogPostInput,
+    /**
+     * The version the author was looking at, as its `updatedAt`.
+     *
+     * A post has no revision counter, so this is what a stale write can be detected by. Without it
+     * two tabs, or one person on two devices, silently overwrite each other and the loser is never
+     * told — the same failure the builder's revision check exists to prevent. Omitted, the write
+     * proceeds: the check belongs to callers that read the post first.
+     */
+    expectedUpdatedAt?: string,
   ): Promise<BlogPost | null> {
     const existing = await this.findById(context, projectId, postId);
     if (existing === null) return null;
+    if (expectedUpdatedAt !== undefined && existing.updatedAt !== expectedUpdatedAt) {
+      throw new PostConflictError();
+    }
 
     const slug =
       input.slug && input.slug !== existing.slug

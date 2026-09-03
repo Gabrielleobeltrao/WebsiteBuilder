@@ -284,6 +284,9 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
             return {
               ...(index.publishedDocument === undefined ? {} : { index: index.publishedDocument }),
               ...(article.publishedDocument === undefined ? {} : { article: article.publishedDocument }),
+              // As of the last publication, matching the documents above: a definition renamed
+              // since then must not change what an already-published article resolves.
+              fieldDefinitions: article.publishedFieldDefinitions,
             };
           },
           // The drafts, for previewing a layout that has not been published yet.

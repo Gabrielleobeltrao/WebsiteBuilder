@@ -1,4 +1,4 @@
-import { postPath, type BlogSettings, type RichTextDocument } from "./blog";
+import { postPath, type BlogFieldDefinition, type BlogSettings, type RichTextDocument } from "./blog";
 import type { PublishedForm } from "./forms";
 import { normalizeCollectionSlug, type CmsCollectionInput, type CmsItemStatus } from "./cms";
 import { auditPageBlocks, type BlockFinding } from "./block-readiness";
@@ -50,6 +50,15 @@ export type PublishablePost = {
   publishedAt?: string;
   updatedAt: string;
   seo?: { title?: string; description?: string };
+  /**
+   * The template's own fields, keyed by definition id.
+   *
+   * Carried for the same reason the body is: a template block bound to one of them has to render
+   * something on the published page, and reading it live would mean a version was not immutable.
+   * Without it a designer could bind a slot, an author could fill it in, and the live article drew
+   * nothing — the value existed on both sides of a snapshot that did not carry it.
+   */
+  customFieldValues?: Record<string, unknown>;
 };
 
 /**
@@ -64,6 +73,8 @@ export type PublishableBlog = {
   posts: readonly PublishablePost[];
   indexTemplate?: BuilderPage;
   articleTemplate?: BuilderPage;
+  /** What a post's custom values mean, frozen with them so a renamed field still resolves. */
+  fieldDefinitions?: readonly BlogFieldDefinition[];
 };
 
 export type PublishableCmsItem = {
@@ -94,6 +105,7 @@ export type CompileInput = {
     /** The pages the blog's own routes render through. Without them those routes serve nothing. */
     indexTemplate?: BuilderPage;
     articleTemplate?: BuilderPage;
+    fieldDefinitions?: readonly BlogFieldDefinition[];
   };
   cms: { collections: readonly PublishableCollection[]; items: readonly PublishableCmsItem[] };
   redirects: readonly Redirect[];
@@ -291,6 +303,15 @@ export function normalizePublishablePost(post: PublishablePost): PublishablePost
   };
 
   const next: PublishablePost = { ...post };
+  // An empty map is left out rather than stored as {}: Mongo reads an absent field back as
+  // undefined, and a snapshot that disagreed with its own read-back is the hash mismatch that
+  // refused every publication once already.
+  if (post.customFieldValues !== undefined && post.customFieldValues !== null && Object.keys(post.customFieldValues).length > 0) {
+    next.customFieldValues = post.customFieldValues;
+  } else {
+    delete next.customFieldValues;
+  }
+
   for (const key of ["coverMediaId", "authorName", "excerpt", "publishedAt"] as const) {
     const value = text(next[key]);
     if (value === undefined) delete next[key];
@@ -353,6 +374,11 @@ export function compileSite(input: CompileInput): CompileResult {
         posts: input.blog.posts.filter((post) => post.status === "published"),
         ...(input.blog.indexTemplate === undefined ? {} : { indexTemplate: input.blog.indexTemplate }),
         ...(input.blog.articleTemplate === undefined ? {} : { articleTemplate: input.blog.articleTemplate }),
+        // Frozen with the posts: a definition renamed after this publication must not change what
+        // an already-published article resolves.
+        ...(input.blog.fieldDefinitions === undefined || input.blog.fieldDefinitions.length === 0
+          ? {}
+          : { fieldDefinitions: input.blog.fieldDefinitions }),
       }
     : undefined;
 
@@ -515,8 +541,18 @@ function collectMediaIds(input: CompileInput): string[] {
   if (input.project.seo.organization?.logoMediaId !== undefined) ids.add(input.project.seo.organization.logoMediaId);
 
   if (input.blog.settings.enabled) {
+    // Which custom values are media is decided by the template's definitions; a bare string tells
+    // nobody. An image field naming an asset the workspace does not own must block publication for
+    // the same reason a cover does.
+    const imageFields = (input.blog.fieldDefinitions ?? []).filter((definition) => definition.type === "image");
+
     for (const post of publishedOnly(input.blog.posts)) {
       if (post.coverMediaId !== undefined) ids.add(post.coverMediaId);
+
+      for (const definition of imageFields) {
+        const value = post.customFieldValues?.[definition.id];
+        if (typeof value === "string" && value !== "") ids.add(value);
+      }
     }
   }
 
