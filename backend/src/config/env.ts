@@ -24,16 +24,24 @@ function blankAsAbsent<T extends z.ZodTypeAny>(schema: T) {
 const baseSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
-  API_PORT: port.default(3000),
-  PUBLIC_RENDERER_PORT: port.default(3001),
+  /*
+   * Development ports, chosen to be unusual rather than conventional.
+   *
+   * 3000, 3001 and 5173 are what every other project on a developer's machine also picks, so
+   * `npm run dev` collided with whatever else they had running and the stack came up half-started.
+   * Deployment pins these explicitly in `docker-compose.production.yml`, where the container network
+   * has no such competition — so moving the defaults moves development only.
+   */
+  API_PORT: port.default(7411),
+  PUBLIC_RENDERER_PORT: port.default(7412),
   /**
    * The port the development web server listens on. Read by Vite from the same file.
    *
    * It exists here so the three origins below can follow it. Moving the web server used to mean
-   * editing four values that all said 5173, and missing one produced a dev server that loads and
-   * cannot sign in — the cookie is issued for an origin the browser is not on.
+   * editing four values that all said the same number, and missing one produced a dev server that
+   * loads and cannot sign in — the cookie is issued for an origin the browser is not on.
    */
-  WEB_PORT: port.default(5173),
+  WEB_PORT: port.default(7410),
   FRONTEND_ORIGIN: blankAsAbsent(z.string().url().optional()),
   PLATFORM_ROOT_DOMAIN: blankAsAbsent(z.string().min(3).default("localhost")),
   PLATFORM_PUBLIC_ORIGIN: blankAsAbsent(z.string().url().optional()),

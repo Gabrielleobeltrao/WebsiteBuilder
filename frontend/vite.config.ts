@@ -12,15 +12,16 @@ import { defineConfig } from "vitest/config";
  *
  * The API and the renderer have taken their ports from the environment from the start; the web
  * server's was written here and the proxy target beside it, so a developer with something else on
- * 5173 or 3000 could move half of the stack and not the other half.
+ * those ports could move half of the stack and not the other half. The defaults are deliberately
+ * unusual numbers: the conventional ones are what every other project on the machine also takes.
  *
  * Read from `frontend/.env` rather than a file at the repository root, because deployment gives each
  * service its own environment and a root file exists on no machine that runs this in production.
  */
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, fileURLToPath(new URL(".", import.meta.url)), "");
-  const webPort = Number(env.WEB_PORT || 5173);
-  const apiTarget = `http://localhost:${Number(env.API_PORT || 3000)}`;
+  const webPort = Number(env.WEB_PORT || 7410);
+  const apiTarget = `http://localhost:${Number(env.API_PORT || 7411)}`;
 
   return {
   plugins: [react(), tailwindcss()],

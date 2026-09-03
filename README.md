@@ -109,9 +109,9 @@ npm run dev
 
 | Process | Check |
 |---|---|
-| API | `curl -sf http://localhost:3000/api/v1/health` |
-| Public renderer | `curl -sf http://localhost:3001/healthz` |
-| Frontend | `curl -sf http://localhost:5173/` |
+| API | `curl -sf http://localhost:7411/api/v1/health` |
+| Public renderer | `curl -sf http://localhost:7412/healthz` |
+| Frontend | `curl -sf http://localhost:7410/` |
 
 Install once at the root. A nested `npm install` creates a second lockfile and is always wrong.
 

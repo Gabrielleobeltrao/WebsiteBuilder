@@ -56,9 +56,9 @@ together. Ready when all three answer:
 
 | Process | Check |
 |---|---|
-| API | `curl -sf http://localhost:3000/api/v1/health` |
-| Public renderer | `curl -sf http://localhost:3001/healthz` |
-| Frontend | `curl -sf http://localhost:5173/` |
+| API | `curl -sf http://localhost:7411/api/v1/health` |
+| Public renderer | `curl -sf http://localhost:7412/healthz` |
+| Frontend | `curl -sf http://localhost:7410/` |
 
 No environment file is needed for the public shell; the database is reported as `not_configured`
 until `MONGODB_URI` and `MONGODB_DB_NAME` are set.

@@ -72,7 +72,7 @@ EXPOSE 3000
 # Probes this service's own endpoint and port. A renderer answering here, or an API that never
 # started, both fail — which is the point of a health check.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.API_PORT||3000)+'/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.API_PORT||7411)+'/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 # Exec form, so node is PID 1 and receives SIGTERM directly. Behind a shell it never would, and the
 # graceful shutdown this service implements would be skipped on every deploy.
@@ -85,6 +85,6 @@ FROM runtime-base AS renderer
 EXPOSE 3001
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PUBLIC_RENDERER_PORT||3001)+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PUBLIC_RENDERER_PORT||7412)+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "backend/dist/renderer-server.js"]

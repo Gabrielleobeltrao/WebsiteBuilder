@@ -5,9 +5,9 @@ import { createLogger } from "../src/config/logger";
 export function testEnv(overrides: Partial<NodeJS.ProcessEnv> = {}): Env {
   return loadEnv({
     NODE_ENV: "test",
-    FRONTEND_ORIGIN: "http://localhost:5173",
+    FRONTEND_ORIGIN: "http://localhost:7410",
     PLATFORM_ROOT_DOMAIN: "localhost",
-    PLATFORM_PUBLIC_ORIGIN: "http://localhost:5173",
+    PLATFORM_PUBLIC_ORIGIN: "http://localhost:7410",
     ...overrides,
   } as NodeJS.ProcessEnv);
 }

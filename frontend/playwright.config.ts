@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 4173;
-const RENDERER_PORT = 3001;
+const PORT = 7413;
+const RENDERER_PORT = 7412;
 
 /** The hostname the seed publishes to. Must match `e2e/support/seed-published-site.ts`. */
 const PUBLISHED_SITE_HOST = `e2e-site.localhost:${RENDERER_PORT}`;
@@ -59,7 +59,7 @@ export default defineConfig({
   webServer: [
     {
       command: "node e2e/support/start-servers.mjs",
-      url: "http://localhost:3000/api/v1/health",
+      url: "http://localhost:7411/api/v1/health",
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
     },

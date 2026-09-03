@@ -17,9 +17,9 @@ import { dirname, join } from "node:path";
 const here = dirname(fileURLToPath(import.meta.url));
 const backendDir = join(here, "..", "..", "..", "backend");
 
-const API_PORT = "3000";
-const RENDERER_PORT = "3001";
-const PLATFORM_ORIGIN = "http://localhost:4173";
+const API_PORT = "7411";
+const RENDERER_PORT = "7412";
+const PLATFORM_ORIGIN = "http://localhost:7413";
 
 const mongo = await MongoMemoryServer.create();
 

@@ -8,10 +8,10 @@ import { expect, test, type Page, type Request } from "@playwright/test";
  * visitor's browser sends and what a customer's page does while it happens.
  */
 
-const RENDERER = "http://localhost:3001";
-const TRACKED = "http://e2e-tracked.localhost:3001";
-const CONSENT = "http://e2e-consent.localhost:3001";
-const UNTRACKED = "http://e2e-site.localhost:3001";
+const RENDERER = "http://localhost:7412";
+const TRACKED = "http://e2e-tracked.localhost:7412";
+const CONSENT = "http://e2e-consent.localhost:7412";
+const UNTRACKED = "http://e2e-site.localhost:7412";
 
 type Batch = { events: Array<{ type: string; [key: string]: unknown }>; [key: string]: unknown };
 
@@ -65,7 +65,7 @@ test.describe("a site that measures", () => {
 
     // A published page that reached a third party would be a promise broken on the visitor's
     // behalf, whatever the third party did with it.
-    expect([...hosts]).toEqual(["e2e-tracked.localhost:3001"]);
+    expect([...hosts]).toEqual(["e2e-tracked.localhost:7412"]);
   });
 
   test("reports scroll depth as it is reached, and only once each", async ({ page }) => {

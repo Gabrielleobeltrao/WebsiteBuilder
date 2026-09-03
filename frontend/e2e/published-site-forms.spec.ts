@@ -6,7 +6,7 @@ import { expect, test } from "@playwright/test";
  * Written out rather than imported from the seed: importing that module here would run it, and it
  * opens a database. The other published-site specs name their hosts the same way.
  */
-const HOME = "http://e2e-form.localhost:3001/";
+const HOME = "http://e2e-form.localhost:7412/";
 
 /**
  * A visitor filling in a form on a published site.

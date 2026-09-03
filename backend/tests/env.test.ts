@@ -6,8 +6,8 @@ describe("loadEnv", () => {
   it("applies development defaults", () => {
     const env = loadEnv({} as NodeJS.ProcessEnv);
     expect(env.NODE_ENV).toBe("development");
-    expect(env.API_PORT).toBe(3000);
-    expect(env.PUBLIC_RENDERER_PORT).toBe(3001);
+    expect(env.API_PORT).toBe(7411);
+    expect(env.PUBLIC_RENDERER_PORT).toBe(7412);
     expect(env.isProduction).toBe(false);
   });
 
@@ -288,7 +288,7 @@ describe("a deployment platform sets blanks, not absences", () => {
  *
  * The API and the renderer took their ports from the environment from the start; the web server's
  * was a literal in the Vite config and the three origins that describe it were literals here. So a
- * developer with something else on 5173 could move some of the stack and not the rest, and the
+ * developer with something else on the web port could move some of the stack and not the rest, and the
  * half-moved state is worse than the clash: the dev server loads and sign-in fails, because the
  * session cookie is issued for an origin the browser is not on.
  */
@@ -304,8 +304,8 @@ describe("moving the development ports", () => {
   it("keeps the default port when nothing is set at all", () => {
     const env = loadEnv({});
 
-    expect(env.WEB_PORT).toBe(5173);
-    expect(env.FRONTEND_ORIGIN).toBe("http://localhost:5173");
+    expect(env.WEB_PORT).toBe(7410);
+    expect(env.FRONTEND_ORIGIN).toBe("http://localhost:7410");
   });
 
   it("never replaces an origin somebody set", () => {
