@@ -90,3 +90,40 @@ test.describe("what the page does at a width nobody authored", () => {
     expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
   });
 });
+
+/**
+ * A container's children, in a browser.
+ *
+ * Every check above walks `[data-element-id]`, which includes nested elements — but the fixture had
+ * none, so the compiler could omit their rules and the suite stayed green. The published page now
+ * carries text inside a free container, and the question is the one a reader asks: is it where it
+ * was put, and is it on the screen.
+ */
+for (const viewport of VIEWPORTS) {
+  test.describe(`text inside a container at ${viewport.width}px`, () => {
+    test.use({ viewport: { width: viewport.width, height: viewport.height } });
+
+    test("is visible and placed inside its container", async ({ page }) => {
+      await page.goto("/");
+
+      const child = page.locator('[data-element-id="nested-paragraph"]');
+      await expect(child).toBeVisible();
+      await expect(child).toHaveText("Text inside a container");
+
+      const boxes = await page.evaluate(() => {
+        const rect = (id: string) => document.querySelector(`[data-element-id="${id}"]`)?.getBoundingClientRect();
+        const parent = rect("nested-box");
+        const child = rect("nested-paragraph");
+        return parent === undefined || child === undefined
+          ? null
+          : { parent: { left: parent.left, right: parent.right }, child: { left: child.left, right: child.right } };
+      });
+
+      expect(boxes).not.toBeNull();
+      // Without a compiled rule the child was drawn at the container's origin with no offset, which
+      // is what "the text disappeared behind something else" looks like from the outside.
+      expect(boxes!.child.left).toBeGreaterThan(boxes!.parent.left);
+      expect(Math.round(boxes!.child.right)).toBeLessThanOrEqual(Math.round(boxes!.parent.right) + 1);
+    });
+  });
+}

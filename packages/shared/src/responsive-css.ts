@@ -2,7 +2,7 @@ import { DEVICE_MODES, DEVICE_ORDER, deviceReferenceWidth, type DeviceMode } fro
 import { serializeFlexLayout, serializeGridLayout, readFlexLayout, readGridLayout } from "./layout";
 import { DESIGN_WIDTH, serializeLength, type Geometry, type ResponsiveElementLayout } from "./responsive";
 import { resolveElementForDevice, resolveSectionForDevice } from "./resolve";
-import type { BuilderElement } from "./elements";
+import type { BuilderElement, SectionLayoutMode } from "./elements";
 import type { BuilderPage, BuilderSection } from "./project";
 
 /**
@@ -175,8 +175,31 @@ function sectionSelector(pageId: string, sectionId: string): string {
  * resolves to something different. A media query that restates its parent's values is bytes on a
  * visitor's connection for no change in what they see.
  */
-function compileElement(pageId: string, section: BuilderSection, element: BuilderElement): string {
-  const free = section.layoutMode === "free";
+/**
+ * The nested container contract.
+ *
+ * A container declares how it places what is inside it, exactly as a section does, and the renderer
+ * already sets the box up for it: a free container is `position: relative`, a flex or grid one is a
+ * flex or grid box. What was missing was the other half — the compiled rules — so a child was drawn
+ * and never placed.
+ *
+ * free  the child is positioned by coordinate inside the container, and the width its constraints
+ *       are measured against is the container's, not the canvas. A child anchored to the right edge
+ *       means the right edge of the box it is in.
+ * flex  the child is in normal flow. Width and height only; the parent decides position.
+ * grid  the same.
+ *
+ * Only ids appear in a selector, so a nested rule cannot collide with a top-level one, and the walk
+ * is in document order, so the bytes are the same every time and a content hash stays meaningful.
+ */
+function compileElement(
+  pageId: string,
+  layoutMode: SectionLayoutMode,
+  element: BuilderElement,
+  /** Free containers between this element and the section, outermost first. */
+  ancestors: readonly BuilderElement[],
+): string {
+  const free = layoutMode === "free";
   const selector = elementSelector(pageId, element.id);
   const parts: string[] = [];
   let previous: string | null = null;
@@ -190,9 +213,28 @@ function compileElement(pageId: string, section: BuilderSection, element: Builde
       overrides: element.breakpointOverrides,
     });
 
+    /*
+     * The containing block a constraint is measured against.
+     *
+     * The canvas at the top level; the innermost free container below it, because that is the box
+     * CSS resolves `100%` and `right` against. Only the innermost matters — the ones outside it
+     * decide where that box is, not how wide it is.
+     */
+    const innermost = ancestors.at(-1);
+    const containingWidth =
+      innermost === undefined
+        ? resolved.referenceWidth
+        : resolveElementForDevice({
+            device,
+            width: deviceReferenceWidth(device),
+            base: innermost.responsiveLayout,
+            geometry: innermost.geometry,
+            overrides: innermost.breakpointOverrides,
+          }).authoredGeometry.width;
+
     const declarations = [
       ...(free
-        ? freePlacement(resolved.authoredGeometry, resolved.layout, resolved.referenceWidth)
+        ? freePlacement(resolved.authoredGeometry, resolved.layout, containingWidth)
         : flowPlacement(resolved.layout)),
       ...(resolved.style === null ? [] : styleDeclarations(resolved.style)),
     ];
@@ -255,12 +297,30 @@ const kebab = (property: string) => property.replace(/[A-Z]/g, (letter) => `-${l
 export function compilePageCss(page: BuilderPage): string {
   const parts: string[] = [];
 
+  const compileLevel = (
+    elements: readonly BuilderElement[],
+    layoutMode: SectionLayoutMode,
+    ancestors: readonly BuilderElement[],
+  ): void => {
+    for (const element of elements) {
+      parts.push(compileElement(page.id, layoutMode, element, ancestors));
+
+      // A container's children were rendered and never compiled, so in a free container they were
+      // drawn with no placement at all — every one of them at the box's origin, on top of each other.
+      if (element.type === "container") {
+        compileLevel(
+          element.children,
+          element.layout,
+          element.layout === "free" ? [...ancestors, element] : ancestors,
+        );
+      }
+    }
+  };
+
   for (const section of page.sections) {
     if (section.hidden) continue;
     parts.push(compileSection(page.id, section));
-    for (const element of section.elements) {
-      parts.push(compileElement(page.id, section, element));
-    }
+    compileLevel(section.elements, section.layoutMode, []);
   }
 
   return parts.filter((part) => part !== "").join("\n");

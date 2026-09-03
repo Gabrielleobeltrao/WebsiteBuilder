@@ -88,7 +88,11 @@ async function main(): Promise<void> {
     // complete on load.
     home.canvas = { ...home.canvas, minHeight: 4000 };
     home.sections = [
-      section("hero", 800, [heading("Published by the E2E fixture"), button("cta-primary", "Read more", "/about")]),
+      section("hero", 800, [
+        heading("Published by the E2E fixture"),
+        button("cta-primary", "Read more", "/about"),
+        nestedBox("nested-box", "nested-paragraph", "Text inside a container"),
+      ]),
       section("middle", 1600, [heading("Halfway down")]),
       section("foot", 1600, [heading("The bottom")]),
     ];
@@ -161,6 +165,39 @@ function section(id: string, height: number, elements: unknown[]) {
   } as never;
 }
 
+/**
+ * A container holding text, which is the shape whose rules the compiler used to omit.
+ *
+ * The renderer always drew a container's children and the stylesheet never placed them, so in a free
+ * container every child landed at the box's origin. That is invisible to a test that only looks at
+ * top-level blocks, which is what every browser check here did.
+ */
+function nestedBox(id: string, childId: string, text: string) {
+  return {
+    ...base(id, 240, 40, 600, 220),
+    type: "container",
+    layout: "free",
+    layoutByBreakpoint: {},
+    children: [
+      {
+        ...base(childId, 24, 24, 400, 60),
+        type: "text",
+        tag: "p",
+        content: text,
+        style: {
+          fontFamily: "Inter",
+          fontSize: { value: 18, unit: "px" },
+          fontWeight: 400,
+          fontStyle: "normal",
+          textAlign: "left",
+          color: "#0d1424",
+          lineHeight: 1.4,
+        },
+      },
+    ],
+  };
+}
+
 function heading(text: string) {
   return {
     ...base(`heading-${text.slice(0, 8)}`, 40, 40, 900, 60),
@@ -184,7 +221,9 @@ function button(id: string, text: string, path: string) {
     ...base(id, 40, 140, 220, 52),
     type: "button",
     text,
-    link: { kind: "external", url: `https://example.test${path}` },
+    // `newTab` is required by the link schema. The seed reached storage through the repository, so
+    // nothing validated this until reads were given a parse boundary.
+    link: { kind: "external", url: `https://example.test${path}`, newTab: false },
     style: {
       fontSize: { value: 16, unit: "px" },
       fontWeight: 600,

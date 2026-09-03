@@ -4,7 +4,7 @@ import { DEVICE_MODES } from "./devices";
 import { compilePageCss, PUBLISHED_BASE_CSS } from "./responsive-css";
 import { flexSectionFixture, freeSectionFixture, gridSectionFixture, pageWith } from "./responsive-fixtures";
 import { migrateDocumentResponsive } from "./responsive-migration";
-import { fixtureButton, fixtureSection } from "./responsive-fixtures";
+import { fixtureButton, fixtureSection, fixtureText } from "./responsive-fixtures";
 
 const cssFor = (page: ReturnType<typeof pageWith>) => compilePageCss(page);
 
@@ -176,5 +176,84 @@ describe("the published defaults", () => {
     // ever told. The diagnostics report it instead.
     expect(PUBLISHED_BASE_CSS).not.toContain("overflow-x:hidden");
     expect(PUBLISHED_BASE_CSS).not.toContain("overflow:hidden");
+  });
+});
+
+/**
+ * What a container's children get.
+ *
+ * The renderer has always drawn them and the compiler never placed them, so in a free container
+ * every child was drawn at the box's origin, stacked on top of the others. The contract is the one
+ * the renderer already sets up: a free container is the containing block, a flex or grid one puts
+ * its children in flow.
+ */
+describe("a container's children", () => {
+  const nestedPage = (containerLayout: "free" | "flex" | "grid") => {
+    const child = fixtureText({ id: "child", x: 20, y: 30, width: 200, content: "Inside" });
+    const container = {
+      id: "box",
+      name: "",
+      type: "container",
+      geometry: { x: 100, y: 100, width: 600, height: 400, rotation: 0 },
+      responsiveLayout: {
+        width: { value: 600, unit: "px" },
+        height: { value: 400, unit: "px" },
+        horizontalConstraint: "left",
+        verticalConstraint: "top",
+        visible: true,
+      },
+      zIndex: 1,
+      locked: false,
+      hidden: false,
+      layout: containerLayout,
+      layoutByBreakpoint: {},
+      children: [child],
+    } as never;
+
+    return pageWith([fixtureSection("outer", "free", [container])]);
+  };
+
+  it("places a child of a free container, instead of leaving it unpositioned", () => {
+    const css = cssFor(nestedPage("free"));
+
+    expect(css).toContain('[data-element-id="child"]');
+    expect(css).toMatch(/\[data-element-id="child"\]\{[^}]*position:absolute/);
+    expect(css).toMatch(/\[data-element-id="child"\]\{[^}]*left:20px/);
+  });
+
+  it("measures a child's containment against the container, not the canvas", () => {
+    const css = cssFor(nestedPage("free"));
+    const rule = /\[data-element-id="child"\]\{([^}]*)\}/.exec(css)?.[1] ?? "";
+
+    // `100%` inside a positioned container is the container's width. A ceiling computed against the
+    // canvas would let a child overflow its own box and still look contained.
+    expect(rule).toContain("max-width:calc(100% - 20px)");
+  });
+
+  it("leaves a child of a flex container in flow", () => {
+    const css = cssFor(nestedPage("flex"));
+    const rule = /\[data-element-id="child"\]\{([^}]*)\}/.exec(css)?.[1] ?? "";
+
+    // The parent decides position; the compiler must not fight it with coordinates.
+    expect(rule).not.toContain("position:absolute");
+    expect(rule).not.toContain("left:");
+    expect(rule).not.toContain("top:");
+  });
+
+  it("leaves a child of a grid container in flow", () => {
+    const rule = /\[data-element-id="child"\]\{([^}]*)\}/.exec(cssFor(nestedPage("grid")))?.[1] ?? "";
+    expect(rule).not.toContain("position:absolute");
+  });
+
+  it("keeps the top-level rule it always emitted", () => {
+    const css = cssFor(nestedPage("free"));
+    expect(css).toMatch(/\[data-element-id="box"\]\{[^}]*position:absolute/);
+  });
+
+  it("is deterministic, so a content hash still means something", () => {
+    // The same page, compiled twice. Two separate fixtures would differ by their generated page ids
+    // and prove nothing about the compiler.
+    const page = nestedPage("free");
+    expect(cssFor(page)).toBe(cssFor(page));
   });
 });

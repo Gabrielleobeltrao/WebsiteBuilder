@@ -100,7 +100,7 @@ describe("responsive migration", () => {
 });
 
 describe("the compiled stylesheet", () => {
-  it.fails("emits a rule for a container's child, which the renderer draws", () => {
+  it("emits a rule for a container's child, which the renderer draws", () => {
     const css = compilePageCss(document().pages[0]! as never);
 
     // The child is rendered either way. Without a rule it is drawn with no placement at all, which

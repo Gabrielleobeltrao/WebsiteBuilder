@@ -107,7 +107,7 @@ These are credible paths for the reported old-site failure, but the exact cause 
   - Acceptance: the same element shape is migrated and audited identically in a page, shared header/footer, or nested container; unchanged documents retain object identity where current callers depend on it.
   - Verify: shared tests covering all three locations, idempotence, and future-element reporting.
 
-- [ ] **P1-T2 Compile responsive placement and style rules for nested container children.** Define the nested container layout contract and make preview/public CSS include every rendered child without selector collisions. Preserve top-level output and deterministic content hashes.
+- [x] **P1-T2 Compile responsive placement and style rules for nested container children.** Define the nested container layout contract and make preview/public CSS include every rendered child without selector collisions. Preserve top-level output and deterministic content hashes.
   - Acceptance: nested text remains visible after save/reload and at Desktop/Tablet/Mobile widths; free, flex, and grid parents behave according to the documented contract; compiled CSS is deterministic.
   - Verify: responsive CSS tests, renderer parity tests, and browser viewport coverage for nested content.
 
@@ -191,6 +191,14 @@ Append one row per completed task. Never rewrite previous rows.
 
 ```text
 YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
+2026-09-02 22:56 | P1-T2 | done | responsive CSS tests, legacy journey, full test, typecheck, build, E2E 100 | pending
+  Nested contract: a free container is the containing block and its children are placed by coordinate
+  against the container's width, not the canvas; flex and grid children stay in flow. Selectors are
+  id-only so nested rules cannot collide, and the walk is document order so the bytes stay stable.
+  The E2E fixture now carries text inside a free container and asserts in a browser that the child
+  sits inside its parent at every viewport — the earlier fixture had no nested content, so the
+  compiler could omit those rules and the suite stayed green. Seeding also exposed a second invalid
+  stored document: the seed's button link lacked `newTab`, published for as long as it has existed.
 2026-09-02 22:49 | P1-T1 | done | shared traversal/migration/legacy tests, full test, typecheck, build | pending
   One traversal (`mapDocumentElements`) now serves both migrations: pages, shared sections and nested
   containers, children before parents, object identity preserved so a load stays clean. Readiness had
@@ -226,6 +234,7 @@ Record only material deviations or newly discovered architectural choices.
 
 ```text
 YYYY-MM-DD | decision | alternatives | reason | compatibility/rollback impact
+2026-09-02 | Nested free containers are the containing block for their children | measure every child against the canvas | CSS resolves `100%` and `right` against the nearest positioned ancestor, so any other rule would disagree with what the browser does and let a child overflow its own box while looking contained | additive: top-level output is unchanged, so existing published hashes are stable
 ```
 
 ## 9. Completion definition

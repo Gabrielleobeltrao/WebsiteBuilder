@@ -134,9 +134,7 @@ describe("an old document, edited and published", () => {
     expect(page.text).toContain(LEGACY_SHARED_TEXT);
   });
 
-  // Still expected to fail: the compiled stylesheet reaches only top-level section elements, which
-  // is P1-T2. The migration half of the failure is fixed and asserted by the test above.
-  it.fails("places every paragraph it draws, rather than drawing some with no rule", async () => {
+  it("places every paragraph it draws, rather than drawing some with no rule", async () => {
     const { projectId } = await storedLegacySite();
     expect((await service.publish(A, projectId)).status).toBe("published");
 
