@@ -71,7 +71,8 @@ const EMPTY_RESPONSIVE: MigrationReport = { changed: [] };
  * `pages.0.sections.2.elements.1.content` names a position in an array, which tells whoever reads
  * the error nothing: array indices move. The ids do not, and they are what the editor addresses.
  */
-type StoredSection = { id?: string; elements?: Array<{ id?: string }> };
+type StoredElement = { id?: string; children?: StoredElement[] };
+type StoredSection = { id?: string; elements?: StoredElement[] };
 type StoredRecord = {
   pages?: Array<{ id?: string; sections?: StoredSection[] }>;
   sharedSections?: StoredSection[];
@@ -91,7 +92,7 @@ function locate(raw: unknown, path: ReadonlyArray<string | number>): DocumentPat
     const section = record.sharedSections?.[path[1]];
     if (section?.id !== undefined) located.sectionId = section.id;
     if (path[2] === "elements" && typeof path[3] === "number") {
-      const element = section?.elements?.[path[3]];
+      const element = deepest(section?.elements?.[path[3]], path.slice(4));
       if (element?.id !== undefined) located.elementId = element.id;
     }
     return located;
@@ -106,10 +107,30 @@ function locate(raw: unknown, path: ReadonlyArray<string | number>): DocumentPat
   if (section?.id !== undefined) located.sectionId = section.id;
 
   if (path[4] !== "elements" || typeof path[5] !== "number") return located;
-  const element = section?.elements?.[path[5]];
+  const element = deepest(section?.elements?.[path[5]], path.slice(6));
   if (element?.id !== undefined) located.elementId = element.id;
 
   return located;
+}
+
+/**
+ * The innermost element the path reaches.
+ *
+ * A container holds several blocks, so reporting the container for a problem in one of them sends
+ * somebody to the box and leaves them to guess which child the message is about. The path already
+ * says — `children.0.zIndex` — it was simply not being followed.
+ */
+function deepest(element: StoredElement | undefined, rest: ReadonlyArray<string | number>): StoredElement | undefined {
+  let current = element;
+
+  for (let index = 0; index + 1 < rest.length; index += 2) {
+    if (rest[index] !== "children" || typeof rest[index + 1] !== "number") break;
+    const child = current?.children?.[rest[index + 1] as number];
+    if (child === undefined) break;
+    current = child;
+  }
+
+  return current;
 }
 
 /**

@@ -133,6 +133,40 @@ describe("a document that does not parse", () => {
     expect(JSON.stringify(diagnosis.issues)).toContain(LEGACY_SHARED_ID.slice(0, 6));
   });
 
+  it("names the child inside a container, not only the container", () => {
+    const source = legacyProjectDocument();
+    const container = source.pages[0]!.sections[0]!.elements[1]! as { children: Array<{ zIndex: unknown; id: string }> };
+    container.children[0]!.zIndex = "first";
+
+    const diagnosis = diagnoseStoredProject(stored(source));
+
+    expect(diagnosis.status).toBe("invalid");
+    // Reporting the container alone would send somebody to a box holding several blocks and leave
+    // them to guess which one the message is about.
+    const issue = diagnosis.issues[0]!;
+    expect(issue.path.elementId).toBe("legacy-nested");
+    expect(issue.path.sectionId).toBe("legacy-section");
+  });
+
+  it("names a child nested two containers deep", () => {
+    const source = legacyProjectDocument();
+    const outer = source.pages[0]!.sections[0]!.elements[1]! as { children: unknown[] };
+    const inner = { ...(outer.children[0] as object) } as Record<string, unknown>;
+    outer.children[0] = {
+      ...(outer.children[0] as object),
+      id: "middle-box",
+      type: "container",
+      layout: "free",
+      layoutByBreakpoint: {},
+      children: [{ ...inner, id: "deep-child", zIndex: "first" }],
+    };
+
+    const diagnosis = diagnoseStoredProject(stored(source));
+
+    expect(diagnosis.status).toBe("invalid");
+    expect(diagnosis.issues.some((issue) => issue.path.elementId === "deep-child")).toBe(true);
+  });
+
   it("refuses a record that is not a document at all", () => {
     for (const value of [null, 42, "a document", []]) {
       expect(diagnoseStoredProject(value).status).toBe("invalid");
