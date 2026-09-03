@@ -44,9 +44,10 @@ beforeAll(async () => {
           repository: projects,
           resolveWorkspace: createSeededWorkspaceResolver({ workspaceId: A.workspaceId, userId: A.userId }),
           loadOwnedMediaIds: async () => ownedMedia,
-          loadActiveSourceRevision: async ({ workspaceId, projectId }) => {
+          loadActivePublication: async ({ workspaceId, projectId }) => {
             const active = await publishing.findActiveForProject(projectId);
-            return active === null || active.workspaceId !== workspaceId ? null : active.sourceRevision;
+            if (active === null || active.workspaceId !== workspaceId) return null;
+            return { sourceRevision: active.sourceRevision, publishedAt: active.createdAt };
           },
         }),
       },

@@ -11,6 +11,9 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
+import { siteStatusApi } from "@/api/site-status";
+import { OverflowMenu } from "@/components/common/OverflowMenu";
+
 import { blogApi, type PostPage } from "@/api/blog";
 import { publishingApi } from "@/api/publishing";
 import { ApiError } from "@/api/client";
@@ -57,6 +60,22 @@ export function BlogDashboard({
    */
   const [liveHost, setLiveHost] = useState<string | null>(null);
 
+  /** When the snapshot a visitor is receiving was published, or null when nothing is live. */
+  const [activePublishedAt, setActivePublishedAt] = useState<string | null>(null);
+
+  /**
+   * Where a post stands with the site, as opposed to with itself.
+   *
+   * A draft is nowhere by definition. A published post is on the site only if the site was published
+   * after the post last changed — otherwise the snapshot visitors are served predates it, and saying
+   * "published" would be describing the post while the reader is asking about their site.
+   */
+  const liveStateOf = (post: BlogPost): "live" | "waiting" | "changed" | "neverPublished" => {
+    if (post.status !== "published") return activePublishedAt === null ? "neverPublished" : "waiting";
+    if (activePublishedAt === null) return "neverPublished";
+    return Date.parse(post.updatedAt) <= Date.parse(activePublishedAt) ? "live" : "changed";
+  };
+
   const load = useCallback(
     async (signal?: AbortSignal) => {
       setState({ status: "loading" });
@@ -80,6 +99,16 @@ export function BlogDashboard({
           setLiveHost(primary?.hostname ?? null);
         } catch {
           setLiveHost(null);
+        }
+
+        // When the site last published, so a post can say where it stands with the site rather than
+        // only with itself. Forgiving for the same reason: a status that cannot be read is not an
+        // error screen, it is one fewer thing this page can claim.
+        try {
+          const status = await siteStatusApi.load(workspaceId, projectId, signal ? { signal } : {});
+          setActivePublishedAt(status.activePublishedAt);
+        } catch {
+          setActivePublishedAt(null);
         }
 
         // Asked for separately because the list is filtered and paginated: counting its rows would
@@ -133,29 +162,14 @@ export function BlogDashboard({
           <h1 className="font-display text-2xl font-semibold tracking-tight text-ink-950">{t("blog:title")}</h1>
           <p className="mt-1 text-sm text-ink-600">{t("blog:description")}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {/* The layout every article is drawn with, edited in the same builder as the site. Placed
-              beside "new post" because designing the shape and writing into it are the two things
-              somebody comes to this screen to do. */}
-          <Link
-            to={`${basePath}/templates/article`}
-            className="rounded-md border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50"
-          >
-            {t("blog:templates.article")}
-          </Link>
-          <Link
-            to={`${basePath}/templates/index`}
-            className="rounded-md border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50"
-          >
-            {t("blog:templates.index")}
-          </Link>
-          <Link
-            to={`${basePath}/posts/new`}
-            className="rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-700"
-          >
-            {t("blog:posts.create")}
-          </Link>
-        </div>
+        {/* One primary action. The two layouts were beside it as equals, so the header asked three
+            questions at once and none of them looked more important than the others. */}
+        <Link
+          to={`${basePath}/posts/new`}
+          className="rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-700"
+        >
+          {t("blog:posts.create")}
+        </Link>
       </div>
 
       {settings !== null && (
@@ -166,7 +180,39 @@ export function BlogDashboard({
         />
       )}
 
-      <div className="mt-6 flex flex-wrap items-end gap-3">
+      {/*
+        Designing the shape, and writing into it.
+
+        Two jobs, so two sections rather than five buttons in one header. The layouts stay visible —
+        they are how the blog gets a look at all — without competing with the action somebody
+        performs every week.
+      */}
+      <section aria-labelledby="blog-layouts" className="mt-8">
+        <h2 id="blog-layouts" className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+          {t("blog:templates.section")}
+        </h2>
+        <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+          {(["index", "article"] as const).map((kind) => (
+            <li key={kind}>
+              <Link
+                to={`${basePath}/templates/${kind}`}
+                className="flex h-full flex-col gap-1 rounded-lg border border-ink-200 bg-white p-4
+                  hover:border-ink-300 hover:bg-ink-50"
+              >
+                <span className="font-medium text-ink-900">{t(`blog:templates.${kind}`)}</span>
+                <span className="text-xs text-ink-600">{t(`blog:templates.${kind}Hint`)}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section aria-labelledby="blog-posts" className="mt-8">
+      <h2 id="blog-posts" className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+        {t("blog:posts.section")}
+      </h2>
+
+      <div className="mt-3 flex flex-wrap items-end gap-3">
         <div role="group" aria-label={t("blog:posts.all")} className="flex gap-1">
           {(["all", "draft", "published"] as const).map((value) => (
             <button
@@ -253,6 +299,17 @@ export function BlogDashboard({
                       >
                         {t(`blog:posts.status.${post.status}`)}
                       </span>
+                      {/*
+                        What the *site* is serving, which is not what the post's own status says.
+
+                        A post marked published is included in the next snapshot; until the site is
+                        published it is on nobody's screen. Both facts were collapsed into the word
+                        "Published", so somebody who published a post and looked at their site was
+                        told two contradictory things at once.
+                      */}
+                      <span className="text-ink-600">
+                        {t(`blog:posts.liveState.${liveStateOf(post)}` as "blog:posts.liveState.live")}
+                      </span>
                       <span>
                         {post.status === "published" && post.publishedAt
                           ? t("blog:posts.publishedOn", { when: formatRelative(post.publishedAt) })
@@ -262,63 +319,72 @@ export function BlogDashboard({
                     </p>
                   </div>
 
-                  <div className="flex shrink-0 flex-wrap gap-2">
-                    {/*
-                      The post's own page, by the best route that actually exists.
-                      
-                      A published post on a site with a live address gets the real page. A published
-                      post on a site with no address yet gets the draft preview, which renders the
-                      same article without needing a hostname. A draft gets neither, because an
-                      unpublished post claims no route anywhere — offering a button to it would send
-                      someone to the site's 404 and look like a bug rather than a status.
-                    */}
-                    {post.status === "published" &&
-                      (liveHost !== null ? (
-                        <a
-                          href={`https://${liveHost}${postPath(settings?.basePath ?? "/blog", post.slug)}`}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
-                        >
-                          {t("blog:posts.viewPage")}
-                        </a>
-                      ) : (
-                        <Link
-                          to={`/preview/${workspaceId}/${projectId}${postPath(settings?.basePath ?? "/blog", post.slug)}`}
-                          className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
-                        >
-                          {t("blog:posts.previewPage")}
-                        </Link>
-                      ))}
+                  <div className="flex shrink-0 items-center gap-2">
+                    {/* The one action somebody came for, always visible and always one tap. */}
                     <Link
                       to={`${basePath}/posts/${post.id}/edit`}
                       className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
                     >
                       {t("blog:posts.edit")}
                     </Link>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void run(() =>
-                          blogApi.setPostStatus(
-                            workspaceId,
-                            projectId,
-                            post.id,
-                            post.status === "published" ? "draft" : "published",
-                          ),
-                        )
-                      }
-                      className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
-                    >
-                      {post.status === "published" ? t("blog:posts.unpublish") : t("blog:posts.publish")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPendingDelete(post)}
-                      className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
-                    >
-                      {t("blog:posts.delete")}
-                    </button>
+
+                    {/* Everything else. Four buttons per row wrapped into a block taller than the
+                        post on a phone, which is where a list is read most. */}
+                    <OverflowMenu label={t("blog:posts.moreFor", { title: post.title })}>
+                      {/*
+                        The post's own page, by the best route that actually exists.
+
+                        A published post on a site with a live address gets the real page. A
+                        published post on a site with no address yet gets the draft preview, which
+                        renders the same article without needing a hostname. A draft gets neither,
+                        because an unpublished post claims no route anywhere — offering a button to
+                        it would send someone to the site's 404 and look like a bug rather than a
+                        status.
+                      */}
+                      {post.status === "published" &&
+                        (liveHost !== null ? (
+                          <a
+                            href={`https://${liveHost}${postPath(settings?.basePath ?? "/blog", post.slug)}`}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="rounded px-3 py-2 text-left text-sm text-ink-700 hover:bg-ink-50"
+                          >
+                            {t("blog:posts.viewPage")}
+                          </a>
+                        ) : (
+                          <Link
+                            to={`/preview/${workspaceId}/${projectId}${postPath(settings?.basePath ?? "/blog", post.slug)}`}
+                            className="rounded px-3 py-2 text-left text-sm text-ink-700 hover:bg-ink-50"
+                          >
+                            {t("blog:posts.previewPage")}
+                          </Link>
+                        ))}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void run(() =>
+                            blogApi.setPostStatus(
+                              workspaceId,
+                              projectId,
+                              post.id,
+                              post.status === "published" ? "draft" : "published",
+                            ),
+                          )
+                        }
+                        className="rounded px-3 py-2 text-left text-sm text-ink-700 hover:bg-ink-50"
+                      >
+                        {post.status === "published" ? t("blog:posts.unpublish") : t("blog:posts.publish")}
+                      </button>
+                      {/* Still confirmed, and still the only red control: folding an action away
+                          must not make it easier to do by accident. */}
+                      <button
+                        type="button"
+                        onClick={() => setPendingDelete(post)}
+                        className="rounded px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50"
+                      >
+                        {t("blog:posts.delete")}
+                      </button>
+                    </OverflowMenu>
                   </div>
                 </li>
               ))}
@@ -326,6 +392,7 @@ export function BlogDashboard({
           </>
         )}
       </div>
+      </section>
 
       <ConfirmDialog
         open={pendingDelete !== null}

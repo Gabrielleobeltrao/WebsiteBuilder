@@ -50,8 +50,17 @@ export function createProjectsRouter(options: {
   attachCardSummaries?: (context: WorkspaceContext, projects: ProjectSummary[]) => Promise<ProjectSummary[]>;
   /** The workspace's own media ids, so a missing image is told apart from an unchecked one. */
   loadOwnedMediaIds?: (input: { workspaceId: string }) => Promise<Set<string>>;
-  /** The revision the active published snapshot was compiled from, or null when nothing is live. */
-  loadActiveSourceRevision?: (input: { workspaceId: string; projectId: string }) => Promise<number | null>;
+  /**
+   * The publication a visitor is currently receiving, or null when nothing is live.
+   *
+   * When it happened matters as much as what it was compiled from: a post written after the site
+   * was last published is saved, published as a post, and still not on the site — three states the
+   * blog dashboard has to be able to tell apart.
+   */
+  loadActivePublication?: (input: {
+    workspaceId: string;
+    projectId: string;
+  }) => Promise<{ sourceRevision: number; publishedAt: string } | null>;
   collectModuleFacts?: (input: {
     workspaceId: string;
     projectId: string;
@@ -59,7 +68,7 @@ export function createProjectsRouter(options: {
   /** The document currently serving visitors, so the projection can say what is actually live. */
   loadPublishedDocument?: (input: { workspaceId: string; projectId: string }) => Promise<BuilderProject | null>;
 }): Router {
-  const { repository, resolveWorkspace, collectModuleFacts, loadPublishedDocument, loadOwnedMediaIds, loadActiveSourceRevision } = options;
+  const { repository, resolveWorkspace, collectModuleFacts, loadPublishedDocument, loadOwnedMediaIds, loadActivePublication } = options;
   // mergeParams: the router is mounted under /workspaces/:workspaceId.
   const router = Router({ mergeParams: true });
 
@@ -115,11 +124,11 @@ export function createProjectsRouter(options: {
       const project = await repository.findById(context, projectId);
       if (project === null) throw new ApiProblem("NOT_FOUND", "Project not found");
 
-      const [facts, published, ownedMedia, activeRevision] = await Promise.all([
+      const [facts, published, ownedMedia, activePublication] = await Promise.all([
         collectModuleFacts?.({ workspaceId: context.workspaceId, projectId }) ?? Promise.resolve({}),
         loadPublishedDocument?.({ workspaceId: context.workspaceId, projectId }) ?? Promise.resolve(null),
         loadOwnedMediaIds?.({ workspaceId: context.workspaceId }) ?? Promise.resolve(null),
-        loadActiveSourceRevision?.({ workspaceId: context.workspaceId, projectId }) ?? Promise.resolve(null),
+        loadActivePublication?.({ workspaceId: context.workspaceId, projectId }) ?? Promise.resolve(null),
       ]);
 
       /*
@@ -142,8 +151,12 @@ export function createProjectsRouter(options: {
           ...reconcileSiteStatus({ project, facts, published }),
           readiness,
           // What a visitor is receiving, against what the person has saved since.
-          activeSourceRevision: activeRevision,
-          pendingPublication: activeRevision === null ? project.revision > 0 : project.revision > activeRevision,
+          activeSourceRevision: activePublication?.sourceRevision ?? null,
+          // When they received it. A post saved after this moment is not on the site, whatever the
+          // post's own status says.
+          activePublishedAt: activePublication?.publishedAt ?? null,
+          pendingPublication:
+            activePublication === null ? project.revision > 0 : project.revision > activePublication.sourceRevision,
         },
       });
     } catch (error) {

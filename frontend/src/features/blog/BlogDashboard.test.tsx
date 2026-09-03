@@ -32,9 +32,11 @@ function mockApi(options: {
   posts?: BlogPost[];
   /** The site's live hostname, or none — which is the state of a site nobody has published. */
   liveHost?: string | null;
+  /** When the snapshot visitors are receiving was published, or none when nothing is live. */
+  activePublishedAt?: string | null;
   onRequest?: (url: string, init?: RequestInit) => void;
 }) {
-  const { enabled = true, posts = [], liveHost = null, onRequest } = options;
+  const { enabled = true, posts = [], liveHost = null, activePublishedAt = null, onRequest } = options;
   const spy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     onRequest?.(url, init);
@@ -58,6 +60,20 @@ function mockApi(options: {
             ],
       );
     }
+    if (url.includes("/status")) {
+      return ok({
+        projectId: "p1",
+        revision: 1,
+        features: [],
+        blocked: false,
+        blockingIssueCount: 0,
+        warningCount: 0,
+        readiness: {},
+        activeSourceRevision: activePublishedAt === null ? null : 1,
+        activePublishedAt,
+        pendingPublication: false,
+      });
+    }
     if (init?.method && init.method !== "GET") return ok(post());
     return ok({ items: posts, total: posts.length, page: 1, perPage: 20 });
   });
@@ -67,6 +83,14 @@ function mockApi(options: {
 
 const render = () =>
   renderWithProviders(<BlogDashboard workspaceId="w1" projectId="p1" basePath="/app/w1/sites/p1/blog" />);
+
+/** Opens a post row's overflow menu, where every action but Edit now lives. */
+async function openPostMenu(title = "Release notes") {
+  const user = userEvent.setup();
+  await screen.findByRole("heading", { level: 2, name: title });
+  await user.click(await screen.findByRole("button", { name: `More actions for ${title}` }));
+  return user;
+}
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -123,9 +147,9 @@ describe("post list", () => {
 
     expect(await screen.findByRole("heading", { level: 2, name: "Release notes" })).toBeInTheDocument();
 
-    // Scope to the list: "Ready" is also a filter button, and asserting globally would pass
-    // even if the badge were missing.
-    const items = screen.getAllByRole("listitem");
+    // Scope to the posts section: "Ready" is also a filter button, and the layouts are a list of
+    // their own — asserting globally would pass even if the badge were missing.
+    const items = within(screen.getByRole("region", { name: "Posts" })).getAllByRole("listitem");
     expect(within(items[0]!).getByText("Draft")).toBeInTheDocument();
     // "Ready", not "Published": nothing is public until the site itself is published.
     expect(within(items[1]!).getByText("Ready")).toBeInTheDocument();
@@ -160,9 +184,8 @@ describe("post actions", () => {
   it("publishes a draft", async () => {
     const requests: string[] = [];
     mockApi({ posts: [post()], onRequest: (url, init) => requests.push(`${init?.method ?? "GET"} ${url}`) });
-    const user = userEvent.setup();
     render();
-    await screen.findByRole("heading", { level: 2, name: "Release notes" });
+    const user = await openPostMenu();
 
     await user.click(screen.getByRole("button", { name: "Mark as ready" }));
     expect(requests.some((request) => request.startsWith("POST") && request.endsWith("/publish"))).toBe(true);
@@ -174,9 +197,8 @@ describe("post actions", () => {
       posts: [post({ status: "published", publishedAt: "2026-08-02T00:00:00.000Z" })],
       onRequest: (url, init) => requests.push(`${init?.method ?? "GET"} ${url}`),
     });
-    const user = userEvent.setup();
     render();
-    await screen.findByRole("heading", { level: 2, name: "Release notes" });
+    const user = await openPostMenu();
 
     await user.click(screen.getByRole("button", { name: "Back to draft" }));
     expect(requests.some((request) => request.endsWith("/unpublish"))).toBe(true);
@@ -185,9 +207,8 @@ describe("post actions", () => {
   it("requires confirmation before deleting and states the consequence", async () => {
     const requests: string[] = [];
     mockApi({ posts: [post()], onRequest: (url, init) => requests.push(`${init?.method ?? "GET"} ${url}`) });
-    const user = userEvent.setup();
     render();
-    await screen.findByRole("heading", { level: 2, name: "Release notes" });
+    const user = await openPostMenu();
 
     await user.click(screen.getByRole("button", { name: "Delete" }));
     const dialog = screen.getByRole("dialog", { name: "Delete this post?" });
@@ -223,8 +244,9 @@ describe("seeing a post's own page", () => {
   it("opens the real page when the site is serving one", async () => {
     mockApi({ posts: [post({ status: "published" })], liveHost: "acme.example.com" });
     render();
+    await openPostMenu();
 
-    const link = await screen.findByRole("link", { name: "View the page" });
+    const link = screen.getByRole("link", { name: "View the page" });
     expect(link).toHaveAttribute("href", "https://acme.example.com/blog/release-notes");
     // Another origin, so the site opens beside the dashboard rather than replacing it.
     expect(link).toHaveAttribute("target", "_blank");
@@ -234,17 +256,17 @@ describe("seeing a post's own page", () => {
   it("falls back to the draft preview while the site has no address", async () => {
     mockApi({ posts: [post({ status: "published" })], liveHost: null });
     render();
+    await openPostMenu();
 
     // The article renders the same either way; the preview simply does not need a hostname.
-    const link = await screen.findByRole("link", { name: "Preview" });
+    const link = screen.getByRole("link", { name: "Preview" });
     expect(link).toHaveAttribute("href", "/preview/w1/p1/blog/release-notes");
   });
 
   it("offers nothing for a draft, because an unpublished post has no page anywhere", async () => {
     mockApi({ posts: [post({ status: "draft" })], liveHost: "acme.example.com" });
     render();
-
-    await screen.findByRole("link", { name: "Edit" });
+    await openPostMenu();
     expect(screen.queryByRole("link", { name: "View the page" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Preview" })).toBeNull();
   });
@@ -270,11 +292,12 @@ describe("designing the blog's layouts", () => {
     mockApi({ posts: [] });
     render();
 
-    expect(await screen.findByRole("link", { name: "Post layout" })).toHaveAttribute(
+    const layouts = await screen.findByRole("region", { name: "Layouts" });
+    expect(within(layouts).getByRole("link", { name: /Post layout/ })).toHaveAttribute(
       "href",
       "/app/w1/sites/p1/blog/templates/article",
     );
-    expect(screen.getByRole("link", { name: "List layout" })).toHaveAttribute(
+    expect(within(layouts).getByRole("link", { name: /List layout/ })).toHaveAttribute(
       "href",
       "/app/w1/sites/p1/blog/templates/index",
     );
@@ -287,5 +310,142 @@ describe("designing the blog's layouts", () => {
     // The activation screen asks one question. A layout to design is not an answer to it.
     await screen.findByRole("heading", { level: 2, name: "This site has no blog yet" });
     expect(screen.queryByRole("link", { name: "Post layout" })).toBeNull();
+  });
+});
+
+/**
+ * What a post row says, and how much of it is a button.
+ *
+ * Every row carried four controls — view, edit, publish, delete — so a list of ten posts was forty
+ * controls, and on a phone they wrapped into a block taller than the post they belonged to. The one
+ * action people came for stays out; the rest fold away.
+ */
+describe("the actions on a post", () => {
+  const rows = () => within(screen.getByRole("region", { name: "Posts" })).getAllByRole("listitem");
+
+  it("keeps Edit one tap away and folds the rest behind a menu", async () => {
+    mockApi({ posts: [post()] });
+    render();
+    await screen.findByRole("heading", { level: 2, name: "Release notes" });
+
+    const row = rows()[0]!;
+    expect(within(row).getByRole("link", { name: "Edit" })).toHaveAttribute(
+      "href",
+      "/app/w1/sites/p1/blog/posts/aaaaaaaaaaaaaaaaaaaaaaaa/edit",
+    );
+    // Closed, the row offers Edit and the menu itself. Nothing else competes with them.
+    expect(within(row).queryByRole("button", { name: "Delete" })).toBeNull();
+    expect(within(row).getByRole("button", { name: "More actions for Release notes" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
+  it("opens the menu from the keyboard and names which post it belongs to", async () => {
+    mockApi({ posts: [post()] });
+    const user = userEvent.setup();
+    render();
+    await screen.findByRole("heading", { level: 2, name: "Release notes" });
+
+    // Named per row: "More" on ten rows is ten controls a screen reader cannot tell apart.
+    const toggle = within(rows()[0]!).getByRole("button", { name: "More actions for Release notes" });
+    toggle.focus();
+    await user.keyboard("{Enter}");
+
+    expect(within(rows()[0]!).getByRole("button", { name: "Delete" })).toBeInTheDocument();
+    expect(within(rows()[0]!).getByRole("button", { name: "Mark as ready" })).toBeInTheDocument();
+  });
+
+  it("closes on Escape and gives focus back to the control that opened it", async () => {
+    mockApi({ posts: [post()] });
+    const user = userEvent.setup();
+    render();
+    await screen.findByRole("heading", { level: 2, name: "Release notes" });
+
+    const toggle = within(rows()[0]!).getByRole("button", { name: "More actions for Release notes" });
+    await user.click(toggle);
+    await user.keyboard("{Escape}");
+
+    expect(within(rows()[0]!).queryByRole("button", { name: "Delete" })).toBeNull();
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it("still asks before deleting, because folding an action away must not make it easier", async () => {
+    mockApi({ posts: [post()] });
+    const user = userEvent.setup();
+    render();
+    await screen.findByRole("heading", { level: 2, name: "Release notes" });
+
+    await user.click(within(rows()[0]!).getByRole("button", { name: "More actions for Release notes" }));
+    await user.click(within(rows()[0]!).getByRole("button", { name: "Delete" }));
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+});
+
+/**
+ * A post's own status, and whether the site is serving it.
+ *
+ * Two different facts that were collapsed into the word "Published", so somebody who published a
+ * post and then looked at their site was told two contradictory things at once.
+ */
+describe("what a post row says about the site", () => {
+  const firstRow = () => within(screen.getByRole("region", { name: "Posts" })).getAllByRole("listitem")[0]!;
+
+  it("says the site has never been published, rather than that the post is live", async () => {
+    mockApi({ posts: [post({ status: "published", publishedAt: "2026-08-02T00:00:00.000Z" })], activePublishedAt: null });
+    render();
+    await screen.findByRole("heading", { level: 2, name: "Release notes" });
+
+    expect(within(firstRow()).getByText("The site has never been published")).toBeInTheDocument();
+  });
+
+  it("says a post is on the site once the site was published after it changed", async () => {
+    mockApi({
+      posts: [post({ status: "published", updatedAt: "2026-08-05T00:00:00.000Z" })],
+      activePublishedAt: "2026-08-06T00:00:00.000Z",
+    });
+    render();
+    await screen.findByRole("heading", { level: 2, name: "Release notes" });
+
+    expect(within(firstRow()).getByText("On the site")).toBeInTheDocument();
+  });
+
+  it("says a post changed since the site was published, which is work waiting to go out", async () => {
+    mockApi({
+      posts: [post({ status: "published", updatedAt: "2026-08-07T00:00:00.000Z" })],
+      activePublishedAt: "2026-08-06T00:00:00.000Z",
+    });
+    render();
+    await screen.findByRole("heading", { level: 2, name: "Release notes" });
+
+    expect(within(firstRow()).getByText("Changed since the site was published")).toBeInTheDocument();
+  });
+
+  it("keeps the post's own status beside it rather than instead of it", async () => {
+    mockApi({
+      posts: [post({ status: "draft" })],
+      activePublishedAt: "2026-08-06T00:00:00.000Z",
+    });
+    render();
+    await screen.findByRole("heading", { level: 2, name: "Release notes" });
+
+    // Draft is about the post; the site line is about the site. Both, separately.
+    expect(within(firstRow()).getByText("Draft")).toBeInTheDocument();
+    expect(within(firstRow()).getByText("Waiting for the site to be published")).toBeInTheDocument();
+  });
+});
+
+describe("the two jobs, in Portuguese", () => {
+  it("names both sections and keeps one primary action", async () => {
+    mockApi({ posts: [post()] });
+    renderWithProviders(<BlogDashboard workspaceId="w1" projectId="p1" basePath="/app/w1/sites/p1/blog" />, {
+      locale: "pt-BR",
+    });
+
+    expect(await screen.findByRole("region", { name: "Layouts" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Posts" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Novo post" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mais ações para Release notes" })).toBeInTheDocument();
   });
 });

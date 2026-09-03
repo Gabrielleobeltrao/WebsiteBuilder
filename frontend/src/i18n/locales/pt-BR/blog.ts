@@ -1,7 +1,10 @@
 export default {
   templates: {
+    section: "Layouts",
     article: "Layout do post",
+    articleHint: "Como cada post é desenhado.",
     index: "Layout da lista",
+    indexHint: "Como a lista de posts é desenhada.",
   },
   title: "Blog",
   description: "Escreva, publique e gerencie posts sem abrir o construtor visual.",
@@ -38,6 +41,14 @@ export default {
     viewPage: "Ver a página",
     previewPage: "Pré-visualizar",
     create: "Novo post",
+    section: "Posts",
+    moreFor: "Mais ações para {{title}}",
+    liveState: {
+      live: "No site",
+      waiting: "Esperando a publicação do site",
+      changed: "Alterado depois da publicação do site",
+      neverPublished: "O site nunca foi publicado",
+    },
     search: "Buscar posts",
     all: "Todos",
     draft: "Rascunhos",

@@ -161,7 +161,7 @@ These are credible paths for the reported old-site failure, but the exact cause 
   - Acceptance: Blog is visible without scrolling past settings; status badges come from server facts; every displayed destination exists; there is one dominant action per section.
   - Verify: SiteDashboard/module-route/i18n/accessibility tests at phone, tablet, and desktop widths.
 
-- [ ] **P4-T3 Reduce action noise in the Blog dashboard.** Use one primary “New post” action, clear tabs/sections for Posts and Layouts, concise post rows/cards, and an accessible overflow menu for secondary actions. Show Ready/Draft, live snapshot state, and changes waiting to publish separately.
+- [x] **P4-T3 Reduce action noise in the Blog dashboard.** Use one primary “New post” action, clear tabs/sections for Posts and Layouts, concise post rows/cards, and an accessible overflow menu for secondary actions. Show Ready/Draft, live snapshot state, and changes waiting to publish separately.
   - Acceptance: index/article layout entry points are prominent but not competing primary buttons; destructive delete remains confirmed; quick Edit is direct; mobile controls do not wrap into an unreadable button cloud.
   - Verify: BlogDashboard interaction, focus/menu, status-copy, i18n, and viewport tests.
 
@@ -339,6 +339,18 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   list against the declared routes rather than a second list kept by hand, and a module with no route
   renders no card. Rename and delete moved below a rule of their own. Gates: typecheck 0, shared 43 files /
   716 tests, backend 53 / 809, frontend 65 / 822, build exit 0.
+2026-09-03 | P4-T3 | Reduced action noise in the blog dashboard | The header asked three questions at once —
+  two layout links weighted beside New post — and every row carried four controls, so ten posts was forty
+  controls that wrapped into a block taller than the post on a phone. There is one primary action now;
+  the layouts are their own section of two cards above the posts, and the posts are a section of their
+  own. A row keeps Edit visible and folds view, publish/unpublish and delete into `OverflowMenu` — a
+  button with `aria-expanded`/`aria-controls` rather than a `role="menu"` that would owe its users arrow
+  keys and typeahead — labelled per post, closing on Escape with focus returned, and delete still
+  confirmed and still the only red control. A row also separates two facts that were both called
+  "Published": the post's own status, and whether the site is serving it — on the site, changed since the
+  site was published, waiting, or the site was never published — derived from a new `activePublishedAt`
+  on the status endpoint, since the snapshot a visitor receives is what decides it. Gates: typecheck 0,
+  shared 43 files / 716 tests, backend 53 / 809, frontend 65 / 831, build exit 0.
 ```
 
 ## 8. Decision Log
@@ -347,6 +359,7 @@ Record only material deviations or newly discovered architectural choices.
 
 ```text
 YYYY-MM-DD | decision | alternatives | reason | compatibility/rollback impact
+2026-09-03 | The overflow menu is a disclosure button, not an ARIA menu | implement `role="menu"` with full keyboard support | an ARIA menu owes its users arrow keys, typeahead and focus containment, and a partial one is worse than the plain disclosure it replaces; the site cards already use this exact pattern | additive: one shared component, and the actions behind it are the same controls with the same confirmations
 2026-09-03 | The site card reports known blockers, not a verdict | run the full readiness audit per row | the audit walks the builder document, and running it for a page of 200 sites would move megabytes to render a list; two grouped queries answer the blockers customers actually hit (no address, blog on with unpublished layouts) | truthful-by-construction: the card says which check it ran and points at the site's dashboard for the rest
 2026-09-03 | A post's stale write is detected by its own `updatedAt`, not by a revision counter | add a revision field to every post | posts have no counter and adding one is a stored-data change with a migration for every existing blog; `updatedAt` already changes on every write and is already returned to the client | additive: a request that omits `expectedUpdatedAt` still writes, so nothing existing breaks
 2026-09-03 | Custom field values and their definitions are frozen into the published snapshot | resolve them live from the template at request time | a snapshot that reads anything live is not immutable, and a definition renamed after publication would change what an already-published article resolves | additive: a snapshot written before this carries no values and resolves them as absent, which is what it already did

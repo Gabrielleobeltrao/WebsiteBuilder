@@ -210,9 +210,10 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
         // public snapshot was compiled from.
         loadOwnedMediaIds: async ({ workspaceId }) =>
           new Set((await media.list({ workspaceId, userId: "" }, undefined, 1000)).map((asset) => asset.id)),
-        loadActiveSourceRevision: async ({ workspaceId, projectId }) => {
+        loadActivePublication: async ({ workspaceId, projectId }) => {
           const active = await publishing.findActiveForProject(projectId);
-          return active === null || active.workspaceId !== workspaceId ? null : active.sourceRevision;
+          if (active === null || active.workspaceId !== workspaceId) return null;
+          return { sourceRevision: active.sourceRevision, publishedAt: active.createdAt };
         },
         // Scoped twice: the caller's workspace is verified by the resolver, and the snapshot is
         // used only when it belongs to that same workspace.

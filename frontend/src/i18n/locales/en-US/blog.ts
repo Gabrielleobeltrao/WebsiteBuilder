@@ -1,7 +1,10 @@
 export default {
   templates: {
+    section: "Layouts",
     article: "Post layout",
+    articleHint: "How every post is drawn.",
     index: "List layout",
+    indexHint: "How the list of posts is drawn.",
   },
   title: "Blog",
   description: "Write, publish and manage posts without opening the visual builder.",
@@ -38,6 +41,14 @@ export default {
     viewPage: "View the page",
     previewPage: "Preview",
     create: "New post",
+    section: "Posts",
+    moreFor: "More actions for {{title}}",
+    liveState: {
+      live: "On the site",
+      waiting: "Waiting for the site to be published",
+      changed: "Changed since the site was published",
+      neverPublished: "The site has never been published",
+    },
     search: "Search posts",
     all: "All",
     draft: "Drafts",

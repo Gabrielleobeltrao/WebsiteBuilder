@@ -19,6 +19,13 @@ export type SiteStatus = {
   readiness: Partial<Record<AuditCategory, CategoryResult>>;
   /** The revision the live snapshot was compiled from, or null when nothing is published. */
   activeSourceRevision: number | null;
+  /**
+   * When that snapshot was published, or null when nothing is live.
+   *
+   * A post written after this moment is saved, may be published as a post, and is still not on the
+   * site — the blog dashboard needs all three states to say anything true about a post.
+   */
+  activePublishedAt: string | null;
   /** Whether the person has saved work a visitor is not receiving yet. */
   pendingPublication: boolean;
 };
