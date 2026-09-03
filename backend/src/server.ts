@@ -170,6 +170,9 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
     {
       path: "/workspaces/:workspaceId/projects/:projectId/blog",
       router: createBlogRouter({
+        // The project has to be this workspace's before any blog collection is touched: the blog's own
+        // unique indexes are keyed by project, not by workspace.
+        projectExists: async (context, projectId) => (await projects.findById(context, projectId)) !== null,
         repository: blog,
         templates: blogTemplates,
         resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),

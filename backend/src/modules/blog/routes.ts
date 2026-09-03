@@ -76,9 +76,35 @@ export function createBlogRouter(options: {
    * make sure a blog that is on is a blog that can serve something.
    */
   templates?: TemplateRepository;
+  /**
+   * Confirms the project in the path belongs to the caller's workspace.
+   *
+   * Every query below is scoped by workspace, so another tenant could never *read* this blog — but
+   * nothing checked that the project id was theirs at all, and the collections beneath are not all
+   * keyed the same way. `blogPosts` is unique on `{projectId, slug}` and `blogTemplates` on
+   * `{projectId, kind}`, neither of which carries the workspace: one tenant naming another's project
+   * id could take slugs out of their space, and asking for a template answered with a duplicate-key
+   * failure instead of "no such project". Resolving the project first makes the workspace the only
+   * way in, which is what every other module already does.
+   */
+  projectExists?: (context: { workspaceId: string; userId: string }, projectId: string) => Promise<boolean>;
 }): Router {
-  const { repository, resolveWorkspace, templates } = options;
+  const { repository, resolveWorkspace, templates, projectExists } = options;
   const router = Router({ mergeParams: true });
+
+  /** The project id, once the caller's workspace has been shown to own it. */
+  async function ownedProjectId(
+    req: { params: unknown },
+    context: { workspaceId: string; userId: string },
+  ): Promise<string> {
+    const projectId = parseProjectId(param(req, "projectId"));
+    if (projectExists !== undefined && !(await projectExists(context, projectId))) {
+      // The same answer an unknown id gets. Telling a caller that a project exists but is not theirs
+      // is telling them something about another tenant.
+      throw new ApiProblem("NOT_FOUND", "Project not found");
+    }
+    return projectId;
+  }
 
   /**
    * Turns the blog on, with a format, in one step.
@@ -94,7 +120,7 @@ export function createBlogRouter(options: {
   router.post("/activate", async (req, res, next) => {
     try {
       const context = await resolveWorkspace(req, "project:edit");
-      const projectId = parseProjectId(param(req, "projectId"));
+      const projectId = await ownedProjectId(req, context);
 
       const parsed = activationSchema.safeParse(req.body);
       if (!parsed.success) throw zodProblem(parsed.error);
@@ -116,7 +142,7 @@ export function createBlogRouter(options: {
   router.get("/templates/:kind", async (req, res, next) => {
     try {
       const context = await resolveWorkspace(req, "project:edit");
-      const projectId = parseProjectId(param(req, "projectId"));
+      const projectId = await ownedProjectId(req, context);
       const kind = templateKindSchema.safeParse(param(req, "kind"));
       if (!kind.success) throw new ApiProblem("NOT_FOUND", "Template not found");
       if (templates === undefined) throw new ApiProblem("SERVICE_UNAVAILABLE", "Templates are not available");
@@ -130,7 +156,7 @@ export function createBlogRouter(options: {
   router.put("/templates/:kind", async (req, res, next) => {
     try {
       const context = await resolveWorkspace(req, "project:edit");
-      const projectId = parseProjectId(param(req, "projectId"));
+      const projectId = await ownedProjectId(req, context);
       const kind = templateKindSchema.safeParse(param(req, "kind"));
       if (!kind.success) throw new ApiProblem("NOT_FOUND", "Template not found");
       if (templates === undefined) throw new ApiProblem("SERVICE_UNAVAILABLE", "Templates are not available");
@@ -171,7 +197,7 @@ export function createBlogRouter(options: {
   router.post("/templates/:kind/publish", async (req, res, next) => {
     try {
       const context = await resolveWorkspace(req, "publish:execute");
-      const projectId = parseProjectId(param(req, "projectId"));
+      const projectId = await ownedProjectId(req, context);
       const kind = templateKindSchema.safeParse(param(req, "kind"));
       if (!kind.success) throw new ApiProblem("NOT_FOUND", "Template not found");
       if (templates === undefined) throw new ApiProblem("SERVICE_UNAVAILABLE", "Templates are not available");
@@ -206,7 +232,7 @@ export function createBlogRouter(options: {
   router.get("/settings", async (req, res, next) => {
     try {
       const context = await resolveWorkspace(req);
-      const projectId = parseProjectId(param(req, "projectId"));
+      const projectId = await ownedProjectId(req, context);
 
       if (templates === undefined) {
         res.json({ data: await repository.loadSettings(context, projectId) });
@@ -226,7 +252,7 @@ export function createBlogRouter(options: {
       const parsed = blogSettingsSchema.safeParse(req.body);
       if (!parsed.success) throw zodProblem(parsed.error);
 
-      res.json({ data: await repository.saveSettings(context, parseProjectId(param(req, "projectId")), parsed.data) });
+      res.json({ data: await repository.saveSettings(context, await ownedProjectId(req, context), parsed.data) });
     } catch (error) {
       next(error);
     }
@@ -238,7 +264,7 @@ export function createBlogRouter(options: {
       const status = req.query.status === "draft" || req.query.status === "published" ? req.query.status : undefined;
 
       res.json({
-        data: await repository.list(context, parseProjectId(param(req, "projectId")), {
+        data: await repository.list(context, await ownedProjectId(req, context), {
           ...(status ? { status } : {}),
           ...(typeof req.query.search === "string" ? { search: req.query.search } : {}),
           ...(typeof req.query.categoryId === "string" ? { categoryId: req.query.categoryId } : {}),
@@ -257,7 +283,7 @@ export function createBlogRouter(options: {
       const parsed = blogPostInputSchema.safeParse(req.body);
       if (!parsed.success) throw zodProblem(parsed.error);
 
-      const created = await repository.create(context, parseProjectId(param(req, "projectId")), parsed.data);
+      const created = await repository.create(context, await ownedProjectId(req, context), parsed.data);
       res.status(201).json({ data: created });
     } catch (error) {
       next(mapBlogError(error));
@@ -269,7 +295,7 @@ export function createBlogRouter(options: {
       const context = await resolveWorkspace(req);
       const post = await repository.findById(
         context,
-        parseProjectId(param(req, "projectId")),
+        await ownedProjectId(req, context),
         param(req, "postId"),
       );
       if (post === null) throw new ApiProblem("NOT_FOUND", "Post not found");
@@ -299,7 +325,7 @@ export function createBlogRouter(options: {
 
       const updated = await repository.update(
         context,
-        parseProjectId(param(req, "projectId")),
+        await ownedProjectId(req, context),
         param(req, "postId"),
         parsed.data,
         expected,
@@ -320,7 +346,7 @@ export function createBlogRouter(options: {
         const context = await resolveWorkspace(req, "project:edit");
         const updated = await repository.setStatus(
           context,
-          parseProjectId(param(req, "projectId")),
+          await ownedProjectId(req, context),
           param(req, "postId"),
           status,
         );
@@ -337,7 +363,7 @@ export function createBlogRouter(options: {
       const context = await resolveWorkspace(req, "project:edit");
       const deleted = await repository.delete(
         context,
-        parseProjectId(param(req, "projectId")),
+        await ownedProjectId(req, context),
         param(req, "postId"),
       );
       if (!deleted) throw new ApiProblem("NOT_FOUND", "Post not found");

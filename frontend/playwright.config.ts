@@ -31,7 +31,12 @@ export default defineConfig({
       // The visual editor is desktop-only by design, and mobile access to it is read-only preview.
       // Running the authoring journey here would be testing a state the product deliberately
       // refuses to enter.
-      testIgnore: ["**/mvp-flow.spec.ts", "**/published-site*.spec.ts", "**/visual-regression.spec.ts"],
+      testIgnore: [
+        "**/mvp-flow.spec.ts",
+        "**/blog-journey.spec.ts",
+        "**/published-site*.spec.ts",
+        "**/visual-regression.spec.ts",
+      ],
     },
     {
       // Published customer pages, served by the public renderer on their own hostname rather than

@@ -303,6 +303,7 @@ function toPost(document: PostDocument): BlogPost {
   return { ...rest, id: _id.toHexString() };
 }
 
-function isDuplicateKey(error: unknown): boolean {
+/** Mongo's unique-index violation, the one error a racing insert is allowed to recover from. */
+export function isDuplicateKey(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === 11000;
 }

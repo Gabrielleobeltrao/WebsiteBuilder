@@ -27,6 +27,17 @@ async function signUp(page: Page): Promise<string> {
   return email;
 }
 
+/**
+ * Into the builder from the site list.
+ *
+ * The card is collapsed to a name, a status and one destination; editing lives in its disclosure,
+ * which is what keeps ten sites from being forty controls.
+ */
+async function openBuilder(page: Page): Promise<void> {
+  await page.getByRole("button", { name: /^Details for / }).first().click();
+  await page.getByRole("link", { name: "Edit" }).first().click();
+}
+
 async function createSite(page: Page, name: string): Promise<void> {
   // Signing in lands on the overview; sites are one click away in the navigation.
   await page.getByRole("link", { name: "Sites" }).first().click();
@@ -42,7 +53,7 @@ test.describe("the MVP flow", () => {
     await createSite(page, "Acme Studio");
 
     // Open the builder.
-    await page.getByRole("link", { name: "Open" }).first().click();
+    await openBuilder(page);
     await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
 
     // A second page, so preview navigation has somewhere to go.
@@ -71,7 +82,7 @@ test.describe("the MVP flow", () => {
     await signUp(page);
     await createSite(page, "Language Test");
 
-    await page.getByRole("link", { name: "Open" }).first().click();
+    await openBuilder(page);
     await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
 
     await page.getByRole("tab", { name: "Add elements" }).click();
@@ -136,7 +147,7 @@ test.describe("preview", () => {
     await signUp(page);
     await createSite(page, "Preview Site");
 
-    await page.getByRole("link", { name: "Open" }).first().click();
+    await openBuilder(page);
     await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
 
     const workspacePath = new URL(page.url()).pathname.split("/").slice(0, 3).join("/");
@@ -144,7 +155,7 @@ test.describe("preview", () => {
     // The card has to have rendered before its link is clicked: the list loads asynchronously, and
     // clicking during that render resolves the point to whatever occupied it a moment earlier.
     await expect(page.getByText("Preview Site")).toBeVisible({ timeout: 20_000 });
-    await page.getByRole("link", { name: "Open" }).first().click();
+    await openBuilder(page);
     await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
     await expect(page.getByRole("tab", { name: "Add elements" })).toBeVisible({ timeout: 20_000 });
 
@@ -162,7 +173,7 @@ test.describe("preview", () => {
     await signUp(page);
     await createSite(page, "Viewport Test");
 
-    await page.getByRole("link", { name: "Open" }).first().click();
+    await openBuilder(page);
     await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
     await page.getByRole("link", { name: "Preview" }).click();
     await expect(page).toHaveURL(/\/preview\//, { timeout: 20_000 });
@@ -194,7 +205,7 @@ test.describe("preview", () => {
     await signUp(page);
     await createSite(page, "Navigation Test");
 
-    await page.getByRole("link", { name: "Open" }).first().click();
+    await openBuilder(page);
     await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
 
     await page.getByRole("link", { name: "Preview" }).click();
@@ -215,7 +226,7 @@ test.describe("building a page from the catalog", () => {
     await signUp(page);
     await createSite(page, "Catalog Site");
 
-    await page.getByRole("link", { name: "Open" }).first().click();
+    await openBuilder(page);
     await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
     await page.getByRole("tab", { name: "Add elements" }).click();
 
@@ -250,7 +261,7 @@ test.describe("building a page from the catalog", () => {
     await signUp(page);
     await createSite(page, "Readiness Site");
 
-    await page.getByRole("link", { name: "Open" }).first().click();
+    await openBuilder(page);
     await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
 
     // A video with no identifier renders an empty frame, which reaches a visitor as a broken site.
@@ -288,7 +299,7 @@ test.describe("previewing from a phone", () => {
     await expect(page.getByText("Phone Preview")).toBeVisible({ timeout: 20_000 });
 
     // The builder refuses to open on a phone, and offers preview instead. That is the route here.
-    await page.getByRole("link", { name: "Open" }).first().click();
+    await openBuilder(page);
     await page.getByRole("link", { name: "Mobile preview" }).click();
     await expect(page).toHaveURL(/\/preview\//, { timeout: 20_000 });
 
@@ -325,7 +336,7 @@ test.describe("previewing from a phone", () => {
       if (request.method() !== "GET" && request.url().includes("/api/")) writes.push(request.url());
     });
 
-    await page.getByRole("link", { name: "Open" }).first().click();
+    await openBuilder(page);
     await page.getByRole("link", { name: "Mobile preview" }).click();
     await expect(page).toHaveURL(/\/preview\//, { timeout: 20_000 });
     await page.getByRole("button", { name: "Tablet", exact: true }).click();
@@ -348,10 +359,11 @@ test.describe("reaching the live site from a phone", () => {
     await expect(page.getByText("Phone Site")).toBeVisible();
 
     // The state most customers see first, and the one a link would lie about.
-    await expect(page.getByText(/Not published yet/)).toBeVisible();
+    await expect(page.getByText("Draft", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: "Visit site" })).toHaveCount(0);
 
-    // And the action that changes it, one tap from the same card.
+    // And the action that changes it, from the same card's disclosure.
+    await page.getByRole("button", { name: /^Details for / }).first().click();
     await page.getByRole("link", { name: "Publish" }).first().click();
     await expect(page).toHaveURL(/\/publish$/, { timeout: 20_000 });
     await expect(page.getByRole("heading", { level: 1, name: "Publish" })).toBeVisible();
@@ -367,8 +379,11 @@ test.describe("reaching the live site from a phone", () => {
     await expect(page.getByText("This site does not have a public address yet.")).toHaveCount(0);
 
     await page.goto(`${new URL(page.url()).pathname.split("/").slice(0, 3).join("/")}/sites`);
+    await page.getByRole("button", { name: /^Details for / }).first().click();
     await expect(page.getByRole("link", { name: "Visit site" })).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText(/Not published yet/)).toHaveCount(0);
+    // Exact: a string matcher is a case-insensitive substring, and the disclosure's own
+    // "matches the draft" would satisfy a loose one whatever the card said.
+    await expect(page.getByText("Draft", { exact: true })).toHaveCount(0);
   });
 });
 

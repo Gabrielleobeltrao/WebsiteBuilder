@@ -167,7 +167,7 @@ These are credible paths for the reported old-site failure, but the exact cause 
 
 ### Phase 5 — End-to-end proof and handoff
 
-- [ ] **P5-T1 Add critical integration and browser journeys.** Cover: legacy text edit/save/reload/preview/publish/public; project -> template -> project save isolation; old-blog template repair; article/index authoring; blog change remains pending until site publish; failed publish preserves live version; site-card disclosure; dashboard Blog discovery; and cross-tenant rejection.
+- [x] **P5-T1 Add critical integration and browser journeys.** Cover: legacy text edit/save/reload/preview/publish/public; project -> template -> project save isolation; old-blog template repair; article/index authoring; blog change remains pending until site publish; failed publish preserves live version; site-card disclosure; dashboard Blog discovery; and cross-tenant rejection.
   - Acceptance: each journey asserts persisted data and rendered output, not only button presence; tests run against a real permitted MongoDB runtime and fail when the corresponding production boundary is broken.
   - Verify: focused suites, then `npm run test` and `npm run test:e2e` with recorded counts and environment.
 
@@ -351,6 +351,27 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   site was published, waiting, or the site was never published — derived from a new `activePublishedAt`
   on the status endpoint, since the snapshot a visitor receives is what decides it. Gates: typecheck 0,
   shared 43 files / 716 tests, backend 53 / 809, frontend 65 / 831, build exit 0.
+2026-09-03 | P5-T1 | Critical integration and browser journeys | `blog-authoring-journey.test.ts` runs the
+  whole sequence against a real MongoDB: design a layout, publish it, write a post, publish the site, and
+  assert the *rendered* HTML of the published route — the designed blocks with the post's values, not the
+  fallback article. It also proves the snapshot keeps serving the old post until the site is published
+  again, that a draft post reaches no route, that a template draft stays off the site until published,
+  and that a template save leaves the project document byte-identical and the reverse. Two real defects
+  came out of it, both now fixed: the blog routes never checked that the project in the path belonged to
+  the caller's workspace — and `blogPosts` is unique on `{projectId, slug}` and `blogTemplates` on
+  `{projectId, kind}`, neither carrying the workspace, so one tenant naming another's project id could
+  take slugs out of their space, and asking for a template answered with a duplicate-key crash instead of
+  404; and `loadOrCreate` raced with itself, so two callers asking for the same not-yet-created layout at
+  once made one of them fail. `blog-journey.spec.ts` covers the same ground in a browser: finding the blog
+  from the site dashboard with no URL known, writing and marking a post published, and previewing the
+  article layout against sample content at three widths. Existing journeys already covered the legacy
+  document (P0-T1), template repair (P2-T1), failed publish preserving the live version, and the card
+  disclosure and Blog discovery in the component suites. Gates: typecheck 0, shared 43 files / 716 tests,
+  backend 54 / 820, frontend 65 / 831, build exit 0, e2e 103 passed across desktop/mobile/published-site.
+  Environment note: with Playwright managing the preview server itself, that server exited part-way
+  through the first full run and every spec after it failed with ERR_CONNECTION_REFUSED; the 103-pass run
+  used a preview server started outside Playwright on the same build. Three e2e selectors were stale
+  after P4 and were updated, not weakened.
 ```
 
 ## 8. Decision Log
@@ -359,6 +380,7 @@ Record only material deviations or newly discovered architectural choices.
 
 ```text
 YYYY-MM-DD | decision | alternatives | reason | compatibility/rollback impact
+2026-09-03 | The blog router resolves the project inside the caller's workspace before touching any blog collection | rely on the per-query workspace scope alone | the scope stops another tenant reading, but the collections beneath are keyed by project alone, so a foreign project id could still take slugs and crashed on templates; every other module already resolves the project first | additive: the check is injected, so a router constructed without it behaves as before and the server always passes it
 2026-09-03 | The overflow menu is a disclosure button, not an ARIA menu | implement `role="menu"` with full keyboard support | an ARIA menu owes its users arrow keys, typeahead and focus containment, and a partial one is worse than the plain disclosure it replaces; the site cards already use this exact pattern | additive: one shared component, and the actions behind it are the same controls with the same confirmations
 2026-09-03 | The site card reports known blockers, not a verdict | run the full readiness audit per row | the audit walks the builder document, and running it for a page of 200 sites would move megabytes to render a list; two grouped queries answer the blockers customers actually hit (no address, blog on with unpublished layouts) | truthful-by-construction: the card says which check it ran and points at the site's dashboard for the rest
 2026-09-03 | A post's stale write is detected by its own `updatedAt`, not by a revision counter | add a revision field to every post | posts have no counter and adding one is a stored-data change with a migration for every existing blog; `updatedAt` already changes on every write and is already returned to the client | additive: a request that omits `expectedUpdatedAt` still writes, so nothing existing breaks

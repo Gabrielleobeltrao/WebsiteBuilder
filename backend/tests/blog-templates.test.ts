@@ -199,3 +199,18 @@ describe("public reads", () => {
     expect(await repository.findPublished(PROJECT, "article")).toBeNull();
   });
 });
+
+describe("two callers asking for the same template at once", () => {
+  it("both get it, rather than one getting a duplicate-key failure", async () => {
+    // `{projectId, kind}` is unique, which is what stops a project ending up with two of the same
+    // layout — so a template that did not exist yet and was asked for twice at once made one of the
+    // callers fail. Two tabs opening the same layout is enough to hit it.
+    const [first, second] = await Promise.all([
+      repository.loadOrCreate(tenantA, PROJECT, "index"),
+      repository.loadOrCreate(tenantA, PROJECT, "index"),
+    ]);
+
+    expect(first.id).toBe(second.id);
+    expect(await repository.loadOrCreate(tenantA, PROJECT, "index")).toMatchObject({ id: first.id });
+  });
+});

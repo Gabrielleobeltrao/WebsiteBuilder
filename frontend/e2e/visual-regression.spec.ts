@@ -68,10 +68,13 @@ async function openBuilder(page: Page): Promise<void> {
   await page.getByRole("button", { name: "New site" }).click();
   await page.getByLabel("Site name").fill(site);
   await page.getByRole("button", { name: "Create site" }).click();
-  // The card has to exist before there is an "Open" on it; without this the click races the list.
+  // The card has to exist before there is anything on it to click; without this the click races
+  // the list. Editing lives in the card's disclosure, which is what keeps ten sites from being
+  // forty controls.
   await expect(page.getByText(site)).toBeVisible({ timeout: 20_000 });
 
-  await page.getByRole("link", { name: "Open" }).first().click();
+  await page.getByRole("button", { name: /^Details for / }).first().click();
+  await page.getByRole("link", { name: "Edit" }).first().click();
   await expect(page).toHaveURL(/\/builder/, { timeout: 20_000 });
   await expect(page.getByRole("tab", { name: "Add elements" })).toBeVisible({ timeout: 20_000 });
 }

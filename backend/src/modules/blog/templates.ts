@@ -9,6 +9,7 @@ import {
 import { ObjectId, type Collection, type Db } from "mongodb";
 
 import type { WorkspaceContext } from "../projects/repository";
+import { isDuplicateKey } from "./repository";
 
 /**
  * Blog template storage and the draft/published lifecycle.
@@ -74,8 +75,24 @@ export class TemplateRepository {
       updatedAt: now,
     };
 
-    const result = await this.templates.insertOne(document as TemplateDocument);
-    return toTemplate({ ...document, _id: result.insertedId } as TemplateDocument);
+    try {
+      const result = await this.templates.insertOne(document as TemplateDocument);
+      return toTemplate({ ...document, _id: result.insertedId } as TemplateDocument);
+    } catch (error) {
+      /*
+       * Somebody else created it between the read and the write.
+       *
+       * `{projectId, kind}` is unique, which is what stops a project from ending up with two of the
+       * same template — so two tabs opening the same layout, or one request that resolves templates
+       * down two paths at once, raced and one of them got a duplicate-key failure instead of the
+       * template. Reading it back is the whole recovery: the row that won is the row both callers
+       * wanted.
+       */
+      if (!isDuplicateKey(error)) throw error;
+      const existing = await this.templates.findOne({ workspaceId: context.workspaceId, projectId, kind });
+      if (existing === null) throw error;
+      return toTemplate(existing);
+    }
   }
 
   /**
