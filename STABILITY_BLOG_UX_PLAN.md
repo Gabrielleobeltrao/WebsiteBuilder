@@ -157,7 +157,7 @@ These are credible paths for the reported old-site failure, but the exact cause 
   - Acceptance: collapsed cards show name, concise status, and one action; disclosure works by keyboard and screen reader; absent analytics is labelled unavailable rather than zero; phone layout does not overflow.
   - Verify: project summary/API query-count tests, SitesPage loading/error/empty/disclosure tests, accessibility, and phone viewport test.
 
-- [ ] **P4-T2 Rebuild the site dashboard hierarchy.** Put Edit site and Publish changes at the top, followed by status/pending changes and a responsive destination grid for Pages, Blog, Forms, CMS, Media, Analytics, and Domains. Show Blog as an active card or a clear “Start blog” card, not a footer link. Keep settings/destructive controls visually separated.
+- [x] **P4-T2 Rebuild the site dashboard hierarchy.** Put Edit site and Publish changes at the top, followed by status/pending changes and a responsive destination grid for Pages, Blog, Forms, CMS, Media, Analytics, and Domains. Show Blog as an active card or a clear “Start blog” card, not a footer link. Keep settings/destructive controls visually separated.
   - Acceptance: Blog is visible without scrolling past settings; status badges come from server facts; every displayed destination exists; there is one dominant action per section.
   - Verify: SiteDashboard/module-route/i18n/accessibility tests at phone, tablet, and desktop widths.
 
@@ -327,6 +327,18 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   turns measurement on, and a site never published reports `unavailable` rather than zero. Blockers are
   named as the known ones, because a list cannot run the full audit without loading every document.
   Gates: typecheck 0, shared 43 files / 716 tests, backend 53 / 809, frontend 65 / 808, build exit 0.
+2026-09-03 | P4-T2 | Rebuilt the site dashboard hierarchy | Publishing was a pill in a row of six, weighted
+  exactly like Domains; it is now one of the two top actions and the emphasised one whenever
+  `pendingPublication` says a visitor is behind. The status section states, from the revision the live
+  snapshot was compiled from, whether visitors have this work, are behind it, or the site has never been
+  published. The two navigations became one destination grid — Pages, Blog, Forms, CMS, Media, Analytics,
+  Domains — one column on a phone, two from `sm`, three from `lg`. A module nobody has started is the same
+  card saying "Not in use yet" rather than being absent with its only door in a footer sentence, which is
+  how "where is the blog" got answered by a link the asker could not see. Badges still come only from the
+  server's reconciled projection. `FIXED_DESTINATIONS` is exported so the route test checks the grid's own
+  list against the declared routes rather than a second list kept by hand, and a module with no route
+  renders no card. Rename and delete moved below a rule of their own. Gates: typecheck 0, shared 43 files /
+  716 tests, backend 53 / 809, frontend 65 / 822, build exit 0.
 ```
 
 ## 8. Decision Log

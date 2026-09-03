@@ -2,7 +2,7 @@ import { featureElementTypes, SITE_FEATURE_KEYS } from "@websitebuilder/shared";
 import { describe, expect, it } from "vitest";
 
 import routes from "@/app/routes.tsx?raw";
-import { MODULE_ROUTES } from "@/features/sites/SiteDashboard";
+import { FIXED_DESTINATIONS, MODULE_ROUTES } from "@/features/sites/SiteDashboard";
 
 /**
  * Every destination the site dashboard can offer has to exist.
@@ -49,4 +49,19 @@ describe("a module nobody has used yet", () => {
       expect(path === null || declared(feature), feature).toBe(true);
     }
   });
+});
+
+/**
+ * The destinations every site has, not only the optional modules.
+ *
+ * The dashboard shows them in the same grid and they fail the same way: a card leading to a route
+ * this build does not declare lands on "page not found", and the card looks exactly as trustworthy
+ * as the ones that work.
+ */
+describe("the site dashboard's fixed destinations", () => {
+  for (const [name, path] of Object.entries(FIXED_DESTINATIONS)) {
+    it(`${name} points at a declared route`, () => {
+      expect(routes.includes(`sites/:projectId/${path}"`), `${name} -> ${path}`).toBe(true);
+    });
+  }
 });

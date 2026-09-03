@@ -45,6 +45,19 @@ function badgeFor(feature: SiteFeatureState): { key: string; tone: string } | nu
   return null;
 }
 
+/**
+ * The destinations every site has, as paths under the site.
+ *
+ * Exported so the route test reads the same list the grid renders: a second list kept by hand is
+ * how Forms shipped a link to a route nobody had declared.
+ */
+export const FIXED_DESTINATIONS = {
+  pages: "builder",
+  media: "media",
+  analytics: "analytics",
+  domains: "settings/domains",
+} as const;
+
 export function SiteDashboard({
   workspaceId,
   projectId,
@@ -85,17 +98,50 @@ export function SiteDashboard({
   }, [load]);
 
   const base = `/app/${workspaceId}/sites/${projectId}`;
-  const visibleModules =
-    state.status === "ready" ? state.site.features.filter((feature) => isVisibleInNavigation(feature.lifecycle)) : [];
+  // Saved work a visitor is not receiving yet. It decides which of the two top actions is the loud one.
+  const pendingPublication = state.status === "ready" && state.site.pendingPublication;
+  /**
+   * Every place this site contains, in the order somebody looks for them.
+   *
+   * The optional modules keep their server-decided state — a badge comes from the reconciled
+   * projection and never from a local flag — but they are always *shown*, because a module nobody
+   * has started is exactly the one its owner is hunting for. Only destinations that exist are
+   * listed: a card leading to a route this build does not serve is worse than no card.
+   */
+  const featureBy = new Map(
+    state.status === "ready" ? state.site.features.map((feature) => [feature.feature, feature]) : [],
+  );
 
-  // Untouched modules that have somewhere to go. Derived rather than listed, so a module gaining a
-  // destination gains its way in without anybody remembering to add it here.
-  const startable =
-    state.status === "ready"
-      ? state.site.features.filter(
-          (feature) => !isVisibleInNavigation(feature.lifecycle) && MODULE_ROUTES[feature.feature] !== null,
-        )
-      : [];
+  const moduleDestination = (key: SiteFeatureKey) => {
+    const route = MODULE_ROUTES[key];
+    if (route === null) return null;
+
+    const feature = featureBy.get(key);
+    const inUse = feature !== undefined && isVisibleInNavigation(feature.lifecycle);
+    return {
+      key,
+      to: `${base}/${route}`,
+      badge: inUse && feature !== undefined ? badgeFor(feature) : null,
+      startable: !inUse,
+    };
+  };
+
+  const fixed = (key: keyof typeof FIXED_DESTINATIONS) => ({
+    key,
+    to: `${base}/${FIXED_DESTINATIONS[key]}`,
+    badge: null,
+    startable: false,
+  });
+
+  const destinations = [
+    fixed("pages"),
+    moduleDestination("blog"),
+    moduleDestination("forms"),
+    moduleDestination("cms"),
+    fixed("media"),
+    fixed("analytics"),
+    fixed("domains"),
+  ].filter((destination) => destination !== null);
 
   return (
     <div>
@@ -104,7 +150,15 @@ export function SiteDashboard({
           <h1 className="font-display text-2xl font-semibold tracking-tight text-ink-950">{projectName}</h1>
           <p className="mt-1 text-sm text-ink-600">{t("dashboard:site.overview")}</p>
         </div>
-        <div className="flex gap-2">
+        {/*
+          The two things somebody opens this page to do.
+
+          Publishing was a pill in a row of six, the same size and weight as Domains — so the action
+          that puts a change in front of visitors looked exactly like the one nobody uses twice a
+          year, and people asked where publishing had gone. It is one of the two top actions now,
+          and it is the emphasised one whenever there is saved work a visitor has not received.
+        */}
+        <div className="flex flex-wrap gap-2">
           <Link
             to={`/preview/${workspaceId}/${projectId}`}
             className="rounded-md border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50"
@@ -113,9 +167,23 @@ export function SiteDashboard({
           </Link>
           <Link
             to={`${base}/builder`}
-            className="rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-700"
+            className={
+              pendingPublication
+                ? "rounded-md border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50"
+                : "rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-700"
+            }
           >
             {t("dashboard:site.editSite")}
+          </Link>
+          <Link
+            to={`${base}/publish`}
+            className={
+              pendingPublication
+                ? "rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-700"
+                : "rounded-md border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50"
+            }
+          >
+            {t("dashboard:site.publishChanges")}
           </Link>
         </div>
       </div>
@@ -161,6 +229,18 @@ export function SiteDashboard({
                 {t("dashboard:site.issues", { count: state.site.blockingIssueCount })}
               </p>
             )}
+
+            {/* Whether a visitor is seeing this work. Read from the revision the live snapshot was
+                compiled from, not from a local guess about whether anything was typed. */}
+            <p className="mt-2 text-xs text-ink-600">
+              {t(
+                state.site.activeSourceRevision === null
+                  ? "dashboard:site.neverPublished"
+                  : state.site.pendingPublication
+                    ? "dashboard:site.pendingPublication"
+                    : "dashboard:site.upToDate",
+              )}
+            </p>
           </section>
 
           {/* Readiness sits above the counts: what still needs attention matters more than how many
@@ -172,14 +252,10 @@ export function SiteDashboard({
               <ReadinessPanel categories={state.site.readiness ?? {}} currentRevision={state.site.revision} />
           </div>
 
-          <dl className="mt-6 grid gap-4 sm:grid-cols-3">
+          <dl className="mt-6 grid gap-4 sm:grid-cols-2">
             <div className="rounded-lg border border-ink-200 bg-white p-4">
               <dt className="text-xs text-ink-500">{t("dashboard:site.cards.pages")}</dt>
               <dd className="mt-1 font-display text-2xl font-semibold text-ink-900">{pageCount}</dd>
-            </div>
-            <div className="rounded-lg border border-ink-200 bg-white p-4">
-              <dt className="text-xs text-ink-500">{t("dashboard:site.cards.modules")}</dt>
-              <dd className="mt-1 font-display text-2xl font-semibold text-ink-900">{visibleModules.length}</dd>
             </div>
             <div className="rounded-lg border border-ink-200 bg-white p-4">
               <dt className="text-xs text-ink-500">{t("dashboard:site.cards.lastUpdate")}</dt>
@@ -187,110 +263,53 @@ export function SiteDashboard({
             </div>
           </dl>
 
-          <nav aria-label={t("dashboard:site.core")} className="mt-8">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-500">{t("dashboard:site.core")}</h2>
-            <ul className="mt-2 flex flex-wrap gap-2">
-              <li>
-                <Link
-                  to={`${base}/builder`}
-                  className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
-                >
-                  {t("dashboard:site.pages")}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to={`${base}/media`}
-                  className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
-                >
-                  {t("dashboard:media.title")}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to={`${base}/cms`}
-                  className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
-                >
-                  {t("cms:collections.title")}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to={`${base}/publish`}
-                  className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
-                >
-                  {t("publishing:publish.title")}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to={`${base}/analytics`}
-                  className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
-                >
-                  {t("analytics:title")}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to={`${base}/settings/domains`}
-                  className="rounded-md border border-ink-200 px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-50"
-                >
-                  {t("publishing:domains.title")}
-                </Link>
-              </li>
-            </ul>
-          </nav>
+          {/*
+            Everything in this site, in one grid.
 
-          <nav aria-label={t("dashboard:site.optional")} className="mt-6">
+            It used to be two lists with different rules: a row of six pills for what every site
+            has, and below it a second list that only showed a module once it was already in use —
+            with the way to *start* one reduced to a sentence of underlined words under it. So the
+            answer to "where is the blog" was a footer link, on a site that did not have a blog yet,
+            which is exactly the site whose owner is asking. Every destination is a card now, and a
+            module nobody has started is the same card saying so.
+          */}
+          <nav aria-label={t("dashboard:site.destinations")} className="mt-8">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-500">
-              {t("dashboard:site.optional")}
+              {t("dashboard:site.destinations")}
             </h2>
-            {visibleModules.length === 0 ? (
-              <p className="mt-2 text-sm text-ink-500">{t("dashboard:site.noOptionalModules")}</p>
-            ) : (
-              <ul className="mt-2 space-y-2">
-                {visibleModules.map((feature) => {
-                  const badge = badgeFor(feature);
-                  return (
-                    <li key={feature.feature}>
-                      <Link
-                        to={`${base}/${MODULE_ROUTES[feature.feature]}`}
-                        className="flex items-center justify-between gap-3 rounded-md border border-ink-200 px-3 py-2
-                          text-sm text-ink-800 hover:bg-ink-50"
-                      >
-                        <span>{t(`dashboard:site.nav.${feature.feature}`)}</span>
-                        {badge && (
-                          <span className={`rounded-full px-2 py-0.5 text-xs ring-1 ring-inset ${badge.tone}`}>
-                            {t(`dashboard:site.badge.${badge.key}` as "dashboard:site.badge.draft")}
-                          </span>
-                        )}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
 
-            {/*
-              A way in to the modules this site is not using yet.
-              An optional module stays out of the permanent navigation on purpose — that is what
-              keeps a site with no blog from carrying a Blog entry for its whole life — but "not in
-              the navigation" had come to mean "unreachable": the blog could only be turned on from
-              its own page, and nothing anywhere linked to that page.
-            */}
-            {startable.length > 0 && (
-              <p className="mt-3 text-xs text-ink-500">
-                {t("dashboard:site.startModule")}{" "}
-                {startable.map((feature, index) => (
-                  <span key={feature.feature}>
-                    {index > 0 && " · "}
-                    <Link to={`${base}/${MODULE_ROUTES[feature.feature]}`} className="underline underline-offset-2">
-                      {t(`dashboard:site.nav.${feature.feature}`)}
-                    </Link>
-                  </span>
-                ))}
-              </p>
-            )}
+            <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {destinations.map((destination) => (
+                <li key={destination.key}>
+                  <Link
+                    to={destination.to}
+                    className="flex h-full flex-col gap-1 rounded-lg border border-ink-200 bg-white p-4
+                      hover:border-ink-300 hover:bg-ink-50"
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-ink-900">
+                        {t(`dashboard:site.destination.${destination.key}` as "dashboard:site.destination.pages")}
+                      </span>
+                      {destination.badge !== null && (
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-xs ring-1 ring-inset ${destination.badge.tone}`}
+                        >
+                          {t(`dashboard:site.badge.${destination.badge.key}` as "dashboard:site.badge.draft")}
+                        </span>
+                      )}
+                      {destination.badge === null && destination.startable && (
+                        <span className="shrink-0 rounded-full bg-ink-50 px-2 py-0.5 text-xs text-ink-600 ring-1 ring-inset ring-ink-200">
+                          {t("dashboard:site.startModuleCard")}
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-xs text-ink-600">
+                      {t(`dashboard:site.destination.${destination.key}Hint` as "dashboard:site.destination.pagesHint")}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </nav>
 
           <SiteSettings
@@ -346,7 +365,9 @@ function SiteSettings({
   };
 
   return (
-    <section className="mt-10">
+    /* Below everything somebody came here to do, behind its own rule, and the only red control on
+       the page. Renaming and deleting are not destinations, and they must not sit among them. */
+    <section className="mt-12 border-t border-ink-200 pt-6">
       <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-500">
         {t("dashboard:site.settings")}
       </h2>
