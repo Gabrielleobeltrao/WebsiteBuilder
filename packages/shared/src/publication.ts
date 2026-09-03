@@ -5,6 +5,7 @@ import { auditPageBlocks, type BlockFinding } from "./block-readiness";
 import { diagnoseResponsive, type ResponsiveFinding } from "./diagnostics";
 import { walkElements } from "./elements";
 import { pagePath, type BuilderPage, type BuilderProject } from "./project";
+import { walkDocumentElements } from "./document-traversal";
 import {
   contentHash,
   preflight,
@@ -244,14 +245,19 @@ function auditFormReferences(input: CompileInput): BlockFinding[] {
 }
 
 /** Form ids referenced by any block on any page. */
+/**
+ * Every form the site actually shows.
+ *
+ * This walked pages only. A form placed in a shared header or footer — which is where a contact form
+ * most often goes, because it belongs on every page — passed the audit and its definition was left
+ * out of the snapshot, so the published page rendered a form that "no longer exists".
+ *
+ * A set, so a header shown on ten pages contributes one id rather than ten.
+ */
 function referencedFormIds(project: CompileInput["project"]): Set<string> {
   const ids = new Set<string>();
-  for (const page of project.pages) {
-    for (const section of page.sections) {
-      for (const element of walkElements(section.elements)) {
-        if (element.type === "form" && element.formId !== "") ids.add(element.formId);
-      }
-    }
+  for (const { element } of walkDocumentElements(project)) {
+    if (element.type === "form" && element.formId !== "") ids.add(element.formId);
   }
   return ids;
 }
