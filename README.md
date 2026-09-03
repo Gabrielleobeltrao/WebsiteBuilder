@@ -113,6 +113,15 @@ npm run dev
 | Public renderer | `curl -sf http://localhost:7412/healthz` |
 | Frontend | `curl -sf http://localhost:7410/` |
 
+The ports are deliberately unusual. 3000, 3001 and 5173 are what most projects take, so on a machine
+running more than one of them `npm run dev` collided with whatever was already there. Every one is
+overridable through `API_PORT`, `PUBLIC_RENDERER_PORT` and `WEB_PORT`.
+
+The renderer is only needed to open a *published* site on localhost. On a machine short on memory,
+`npm run dev:light` starts the frontend and the API alone — the builder, the dashboards and the draft
+preview all work without it. Two dev stacks and an editor on 8 GB is enough to leave the Vite server
+paged out, where it listens but answers nothing and the browser shows a white screen.
+
 Install once at the root. A nested `npm install` creates a second lockfile and is always wrong.
 
 ---
@@ -121,6 +130,7 @@ Install once at the root. A nested `npm install` creates a second lockfile and i
 
 ```bash
 npm run dev            # frontend + API + renderer
+npm run dev:light      # frontend + API only, for a machine short on memory
 npm run typecheck      # tsc --noEmit across every workspace
 npm run test           # Vitest across every workspace
 npm run build          # production build of every workspace

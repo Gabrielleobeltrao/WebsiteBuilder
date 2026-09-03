@@ -6,6 +6,7 @@ nested lockfiles and are wrong.
 ```bash
 npm install              # one root install for every workspace
 npm run dev              # frontend + API + public renderer, all terminate together
+npm run dev:light        # frontend + API only; the renderer is needed only to open a published site
 npm run dev:frontend     # Vite only
 npm run dev:backend      # API only
 npm run dev:renderer     # public renderer only
