@@ -125,8 +125,13 @@ export type EditorState = {
    * from a refused one. Template publication calls save first and then promotes the draft: with no
    * result to check, a failed or conflicted save let it promote the version that *had* saved —
    * content the person never saw going live.
+   *
+   * `stale` means the person opened something else while this save was in flight. The write itself
+   * may well have succeeded on the server, but it belongs to a session that is over: nothing about
+   * it is applied to the store, and a caller that was going to act on it — publishing a template,
+   * say — must do nothing rather than act on the target now open.
    */
-  save: () => Promise<{ ok: true } | { ok: false; reason: "conflict" | "error" }>;
+  save: () => Promise<{ ok: true } | { ok: false; reason: "conflict" | "error" | "stale" }>;
   markDirty: () => void;
 
   update: (recipe: (document: BuilderDocumentInput) => BuilderDocumentInput) => void;
@@ -220,6 +225,26 @@ const EMPTY_DOCUMENT: BuilderDocumentInput = {
 
 let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
 
+/**
+ * Which editing session the store is in.
+ *
+ * The builder is one store shared by the site and both blog templates, and every load and save is a
+ * round trip. A save started on one target could finish after another had been opened and then
+ * write that session's `target`, `revision` or `persistence` — so a template's version number could
+ * land on a site, or a slow load could restore the target the person had just left.
+ *
+ * Opening anything takes the next number. A response carrying an older one is the answer to a
+ * question nobody is asking any more, and is dropped rather than applied.
+ */
+let generation = 0;
+
+/** Starts a new editing session: any in-flight response and any pending autosave belong to the old one. */
+function beginSession(): number {
+  cancelPendingAutosave();
+  generation += 1;
+  return generation;
+}
+
 export const useEditorStore = create<EditorState>((set, get) => {
   /** Schedules the debounced autosave, restarting the window on every further change. */
   function scheduleAutosave() {
@@ -279,12 +304,16 @@ export const useEditorStore = create<EditorState>((set, get) => {
     clipboard: null,
 
     async load(workspaceId, projectId, signal) {
+      // Before the request, not after it: a pending autosave belongs to the document being left.
+      const session = beginSession();
       set({ loadStatus: "loading", loadErrorCode: null });
       try {
         const project = await projectsApi.load(workspaceId, projectId, signal ? { signal } : {});
+        if (session !== generation) return;
         get().loadFromProject(project);
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
+        if (session !== generation) return;
         set({
           loadStatus: "error",
           loadErrorCode: error instanceof ApiError ? error.code : "INTERNAL_ERROR",
@@ -301,9 +330,13 @@ export const useEditorStore = create<EditorState>((set, get) => {
      * way every other save in this product does.
      */
     async loadBlogTemplate(workspaceId, projectId, templateKind, signal) {
+      const session = beginSession();
       set({ loadStatus: "loading", loadErrorCode: null });
       try {
         const template = await blogTemplateApi.load(workspaceId, projectId, templateKind, signal ? { signal } : {});
+        // Another template, or the site, was opened while this one was loading. Applying it now
+        // would replace what the person is looking at with what they navigated away from.
+        if (session !== generation) return;
         const document: BuilderDocumentInput = {
           ...EMPTY_DOCUMENT,
           name: template.draftDocument.name,
@@ -330,6 +363,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
         }));
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
+        if (session !== generation) return;
         set({
           loadStatus: "error",
           loadErrorCode: error instanceof ApiError ? error.code : "INTERNAL_ERROR",
@@ -347,8 +381,9 @@ export const useEditorStore = create<EditorState>((set, get) => {
       const { document: elementsMigrated } = migrateDocumentElements(toDocumentInput(project));
       const { document } = migrateDocumentResponsive(elementsMigrated);
       const home = project.pages.find((page) => page.isHome) ?? project.pages[0];
-      // A stale autosave belongs to the document that scheduled it, not to the one now open.
-      cancelPendingAutosave();
+      // A stale autosave belongs to the document that scheduled it, not to the one now open — and
+      // so does any save or load still in flight, which this session number retires.
+      beginSession();
 
       set((state) => ({
         projectId: project.id,
@@ -380,6 +415,10 @@ export const useEditorStore = create<EditorState>((set, get) => {
       const document = state.history.present;
       const revision = state.revision;
       const target = state.target;
+      // The session this write belongs to. If the person opens something else before the server
+      // answers, none of what comes back may be applied: a template's version number written onto a
+      // site, or a "saved" badge for a document nobody is looking at, are both lies about state.
+      const session = generation;
       set({ persistence: { status: "saving" } });
 
       try {
@@ -395,6 +434,8 @@ export const useEditorStore = create<EditorState>((set, get) => {
             expectedVersion: target.version,
           });
 
+          if (session !== generation) return { ok: false, reason: "stale" };
+
           set((current) => ({
             target: { ...target, version: saved.draftVersion, fieldDefinitions: saved.fieldDefinitions },
             persistence:
@@ -407,6 +448,8 @@ export const useEditorStore = create<EditorState>((set, get) => {
         }
 
         const saved = await projectsApi.saveDocument(workspaceId, projectId, revision, document);
+        if (session !== generation) return { ok: false, reason: "stale" };
+
         set((current) => ({
           revision: saved.revision,
           // A save must not create an undo step, and it must not discard edits made while it was
@@ -419,6 +462,10 @@ export const useEditorStore = create<EditorState>((set, get) => {
         if (get().persistence.status === "dirty") scheduleAutosave();
         return { ok: true };
       } catch (error) {
+        // A failure that belongs to a document nobody is editing any more is not this session's
+        // failure, and must not put this session into an error state it cannot act on.
+        if (session !== generation) return { ok: false, reason: "stale" };
+
         if (error instanceof ApiError && error.code === "REVISION_CONFLICT") {
           const current = Number(error.details?.[0]?.message.replace(/\D+/g, "") ?? 0);
           set({ persistence: { status: "conflict", currentRevision: current } });

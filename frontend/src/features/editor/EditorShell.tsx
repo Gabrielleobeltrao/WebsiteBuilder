@@ -133,7 +133,21 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
        */
       const saved = await store.save();
       if (!saved.ok) {
+        // Stale means the editor moved to another target while the save was in flight. Publishing
+        // the template this closure captured would promote a layout the person is no longer on,
+        // and reporting a failure would be describing a session that no longer exists.
+        if (saved.reason === "stale") {
+          setTemplateState("idle");
+          return;
+        }
         setTemplateState(saved.reason === "conflict" ? "conflict" : "error");
+        return;
+      }
+
+      // The same check after the save: publication is a second round trip, and the target may have
+      // changed while it was being awaited.
+      if (store.target.kind !== "blogTemplate" || store.target.templateKind !== target.templateKind) {
+        setTemplateState("idle");
         return;
       }
 
