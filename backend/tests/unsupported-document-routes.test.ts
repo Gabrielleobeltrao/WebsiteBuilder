@@ -109,8 +109,10 @@ describe("a project that is not there", () => {
       .put(`${projectsBase}/${new ObjectId().toHexString()}/document`)
       .send({ revision: 1, document: createProjectDocument({ name: "X", slug: "x-site" }) });
 
-    expect([404, 409]).toContain(response.status);
-    if (response.status === 409) expect(response.body.error.code).toBe("REVISION_CONFLICT");
+    // Exactly 404. Accepting a conflict here would accept the answer that says "this project exists
+    // and somebody else changed it" for a project that does not exist at all — which is both untrue
+    // and the wrong thing to tell a caller to do about it.
+    expect(response.status).toBe(404);
   });
 });
 

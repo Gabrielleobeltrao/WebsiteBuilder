@@ -195,7 +195,7 @@ Append one row per completed task. Never rewrite previous rows.
 
 ```text
 YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
-2026-09-03 13:06 | P2-T3 | done | site-readiness (6), dashboard (14), 42+51+65 files, typecheck, build | pending
+2026-09-03 13:06 | P2-T3 | done | site-readiness (6), dashboard (14), 42+51+65 files, typecheck, build | f3f688d
   `auditProjectReadiness` runs the four audits that already existed and were wired to nothing —
   layout, accessibility, links, content — over resolved pages, each result carrying the revision it
   was computed from so a rerun cannot mix generations. Performance stays `not-checked`: it is measured
@@ -205,7 +205,7 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   `activeSourceRevision` and `pendingPublication` expose the comparison the UI needs. The panel also
   tolerates a response without readiness, because reading it unguarded made a version skew take the
   whole dashboard down.
-2026-09-03 12:56 | P2-T2 | done | publication-boundary (4), blog dashboard (18), 42+50+65 files, typecheck, build | pending
+2026-09-03 12:56 | P2-T2 | done | publication-boundary (4), blog dashboard (18), 42+50+65 files, typecheck, build | edca1b3
   Four tests fix the boundary: a post marked ready does not change public HTML, it appears only after
   the site is published, saving and promoting a template changes nothing on its own, and a refused
   publish leaves the previous version serving. Copy follows: "Publish"/"Published" became "Mark as
@@ -216,7 +216,7 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   as null, and the integrity check hashes before writing and after reading back — so the two never
   matched. Normalised at the same boundary as the other optional fields. It surfaced only here
   because this is the first test that publishes a post read from a real database rather than a fixture.
-2026-09-03 12:49 | P1-T3 | done | editor-target regressions (4, failing first), frontend 65 files, typecheck, test, build | pending
+2026-09-03 12:49 | P1-T3 | done | editor-target regressions (4, failing first), frontend 65 files, typecheck, test, build | 12b0c3e
   Five defects on the store's most dangerous field. `loadFromProject` now resets the target, so a
   site save after a template can no longer address the template endpoint. Field definitions travel
   inside the target and are returned unchanged instead of an empty list that erased them. `save`
@@ -226,7 +226,7 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   site's document. A pending autosave is cancelled when the open document changes.
   Note on verification: the full suite failed once on `renderer.test.ts` with `socket hang up` at
   ~65 MB free memory, and passed on a cleared machine. Environment, not code; no timeout was raised.
-2026-09-03 12:43 | P2-T1 | done | blog-api (29) + blog-repair (10), typecheck, test, build | pending
+2026-09-03 12:43 | P2-T1 | done | blog-api (29) + blog-repair (10), typecheck, test, build | 4f4dcd2
   `repairBlogTemplates` is one tenant-safe operation used by activation and by the settings read,
   where most legacy blogs will be met. Idempotent: an id already set is never replaced, an existing
   template is loaded rather than recreated, and the settings write happens only when something is
@@ -387,6 +387,30 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   the blogs nobody has opened yet. README's status no longer cites a stale 85/112 — it reports both plans,
   their counts and the two genuinely owner-only tasks. Remaining `[!]`: P0-T3 here and 8.4 in
   `IMPLEMENTATION_PLAN.md`, both needing the owner's production access rather than code.
+2026-09-03 | review | Four gaps closed after the plan was complete | (1) `pendingPublication` and
+  `summary.hasPendingChanges` compared only `project.revision`, so a post, a settings change or a published
+  layout — all in their own collections — left both surfaces saying the site was up to date. A publication
+  now stores `sourceFingerprint`: the project revision, the blog's settings, the count and newest change
+  time of the posts it would include, and each layout's published version. Both surfaces apply one rule
+  (`pendingPublicationFor`) over one mapping (`sourceFingerprintFrom`), a republish with identical output
+  records the match rather than reporting work forever, and a version published before fingerprints falls
+  back to the revision comparison instead of guessing. `pending-publication.test.ts` (15) covers page,
+  post, post status, deletion, template publication and settings changes, draft posts and layout drafts
+  counting for nothing, republishing clearing it, a blocked publish keeping the live version and the state,
+  and equal read counts for one site and ten. (2) The editor store retired stale responses: `beginSession`
+  runs at the *start* of `load`/`loadBlogTemplate`/`loadFromProject`, and a save or load carrying an older
+  session number is dropped — a stale save answers `stale`, and `publishTemplate` does nothing rather than
+  promoting a layout the person left. `editor-races.test.ts` (9) uses held promises; 7 fail with the guard
+  removed. (3) `repairBlogTemplates` published both layouts whenever either reference was missing, which
+  promoted a customer's unpublished article draft onto their live site when they opened the blog screen. It
+  now repairs only the missing kinds and publishes only a starter it created, reported by an upsert
+  (`createStarterIfMissing`) that refuses rather than return another workspace's row. `blog-repair.test.ts`
+  grew to 21; 4 fail if the old behaviour is restored. (4) The four `pending` Progress Log SHAs are the real
+  commits, and the missing-project save test requires exactly 404. Gates on this branch: `git diff --check`
+  clean, `check:plan-skill` 0, `check:runbook` 0, `npm run typecheck` 0, `npm test` 0 — shared 43 files /
+  716 tests, backend 55 / 846, frontend 66 / 842 — `npm run build` 0, `npm run test:e2e` 103 passed with the
+  preview server started outside Playwright. Docker is still not installed here, so no container smoke is
+  claimed. P0-T3 remains `[!]`: it needs the owner's account.
 ```
 
 ## 8. Decision Log
@@ -395,6 +419,9 @@ Record only material deviations or newly discovered architectural choices.
 
 ```text
 YYYY-MM-DD | decision | alternatives | reason | compatibility/rollback impact
+2026-09-03 | Unpublished work is decided by a fingerprint of the sources, stored with the version | recompile and compare the content hash | the content hash is the authority on whether output changed, but obtaining it means compiling the whole site, and a page of two hundred cards cannot compile two hundred sites to draw a badge; every fingerprint input comes from a grouped query | degrades honestly: a version published before this carries no fingerprint and falls back to the revision comparison
+2026-09-03 | A stale save reports `stale` rather than success or failure | apply it, or report an error | the write may have succeeded on the server, but nothing about it belongs to the session now open — applying it writes one target's state onto another, and reporting failure describes a session that no longer exists | additive: a third reason on a union callers already switch on
+2026-09-03 | Automatic publication is limited to a starter the repair itself created | publish whatever is missing a published document | "it exists now" and "I made it" are different facts, and only the second makes an unattended publish safe; the first promoted an author's unfinished draft to every article on their live site | corrective: a pre-existing layout keeps whatever its author has done to it
 2026-09-03 | The blog router resolves the project inside the caller's workspace before touching any blog collection | rely on the per-query workspace scope alone | the scope stops another tenant reading, but the collections beneath are keyed by project alone, so a foreign project id could still take slugs and crashed on templates; every other module already resolves the project first | additive: the check is injected, so a router constructed without it behaves as before and the server always passes it
 2026-09-03 | The overflow menu is a disclosure button, not an ARIA menu | implement `role="menu"` with full keyboard support | an ARIA menu owes its users arrow keys, typeahead and focus containment, and a partial one is worse than the plain disclosure it replaces; the site cards already use this exact pattern | additive: one shared component, and the actions behind it are the same controls with the same confirmations
 2026-09-03 | The site card reports known blockers, not a verdict | run the full readiness audit per row | the audit walks the builder document, and running it for a page of 200 sites would move megabytes to render a list; two grouped queries answer the blockers customers actually hit (no address, blog on with unpublished layouts) | truthful-by-construction: the card says which check it ran and points at the site's dashboard for the rest
