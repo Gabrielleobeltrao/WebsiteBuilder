@@ -1,5 +1,6 @@
 export default {
   topBar: {
+    "templateConflict": "Salvamento recusado: alguém guardou este layout depois que você o abriu. Recarregue antes de publicar.",
     "publishTemplate": "Publicar layout",
     "publishing": "Publicando…",
     "templatePublished": "Layout no ar. Todos os posts já usam ele.",

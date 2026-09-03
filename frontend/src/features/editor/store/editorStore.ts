@@ -14,6 +14,7 @@ import {
 } from "@websitebuilder/shared";
 import { clampZoom } from "@/features/editor/canvas/coordinates";
 import type {
+  BlogFieldDefinition,
   BuilderDocumentInput,
   BuilderPage,
   BuilderProject,
@@ -99,7 +100,15 @@ export type EditorState = {
    * that differ are where it is read from and where a save goes. Carrying that as one field beats a
    * second store that would have to re-implement history, autosave and every block behaviour.
    */
-  target: { kind: "project" } | { kind: "blogTemplate"; templateKind: "index" | "article"; version: number };
+  target:
+    | { kind: "project" }
+    | {
+        kind: "blogTemplate";
+        templateKind: "index" | "article";
+        version: number;
+        /** Carried so a save returns them unchanged; sending an empty list erased them. */
+        fieldDefinitions: BlogFieldDefinition[];
+      };
   load: (workspaceId: string, projectId: string, signal?: AbortSignal) => Promise<void>;
   loadBlogTemplate: (
     workspaceId: string,
@@ -109,7 +118,15 @@ export type EditorState = {
   ) => Promise<void>;
   loadFromProject: (project: BuilderProject) => void;
 
-  save: () => Promise<void>;
+  /**
+   * Saves, and says whether it worked.
+   *
+   * This returned nothing and caught its own failures, so a caller could not tell a completed save
+   * from a refused one. Template publication calls save first and then promotes the draft: with no
+   * result to check, a failed or conflicted save let it promote the version that *had* saved —
+   * content the person never saw going live.
+   */
+  save: () => Promise<{ ok: true } | { ok: false; reason: "conflict" | "error" }>;
   markDirty: () => void;
 
   update: (recipe: (document: BuilderDocumentInput) => BuilderDocumentInput) => void;
@@ -299,7 +316,12 @@ export const useEditorStore = create<EditorState>((set, get) => {
           workspaceId,
           projectId,
           revision: 0,
-          target: { kind: "blogTemplate", templateKind, version: template.draftVersion },
+          target: {
+            kind: "blogTemplate",
+            templateKind,
+            version: template.draftVersion,
+            fieldDefinitions: template.fieldDefinitions,
+          },
           loadStatus: "ready",
           loadErrorCode: null,
           history: history.reset(migrated),
@@ -325,9 +347,15 @@ export const useEditorStore = create<EditorState>((set, get) => {
       const { document: elementsMigrated } = migrateDocumentElements(toDocumentInput(project));
       const { document } = migrateDocumentResponsive(elementsMigrated);
       const home = project.pages.find((page) => page.isHome) ?? project.pages[0];
+      // A stale autosave belongs to the document that scheduled it, not to the one now open.
+      cancelPendingAutosave();
+
       set((state) => ({
         projectId: project.id,
         workspaceId: project.workspaceId,
+        // Without this a template left the target behind, and the next site save was addressed to
+        // the blog-template endpoint.
+        target: { kind: "project" },
         revision: project.revision,
         loadStatus: "ready",
         loadErrorCode: null,
@@ -341,8 +369,8 @@ export const useEditorStore = create<EditorState>((set, get) => {
     async save() {
       const state = get();
       const { workspaceId, projectId } = state;
-      if (workspaceId === null || projectId === null) return;
-      if (state.persistence.status === "saving") return;
+      if (workspaceId === null || projectId === null) return { ok: false, reason: "error" };
+      if (state.persistence.status === "saving") return { ok: false, reason: "error" };
 
       if (autosaveTimer !== null) {
         clearTimeout(autosaveTimer);
@@ -357,23 +385,25 @@ export const useEditorStore = create<EditorState>((set, get) => {
       try {
         if (target.kind === "blogTemplate") {
           const page = document.pages[0];
-          if (page === undefined) return;
+          if (page === undefined) return { ok: false, reason: "error" };
 
           const saved = await blogTemplateApi.save(workspaceId, projectId, target.templateKind, {
             draftDocument: page,
-            fieldDefinitions: [],
+            // The template's own, not an empty list: opening a template and saving it used to erase
+            // definitions the author never touched.
+            fieldDefinitions: target.fieldDefinitions,
             expectedVersion: target.version,
           });
 
           set((current) => ({
-            target: { kind: "blogTemplate", templateKind: target.templateKind, version: saved.draftVersion },
+            target: { ...target, version: saved.draftVersion, fieldDefinitions: saved.fieldDefinitions },
             persistence:
               current.history.present === document
                 ? { status: "saved", at: saved.updatedAt }
                 : { status: "dirty" },
           }));
           if (get().persistence.status === "dirty") scheduleAutosave();
-          return;
+          return { ok: true };
         }
 
         const saved = await projectsApi.saveDocument(workspaceId, projectId, revision, document);
@@ -387,14 +417,16 @@ export const useEditorStore = create<EditorState>((set, get) => {
               : { status: "dirty" },
         }));
         if (get().persistence.status === "dirty") scheduleAutosave();
+        return { ok: true };
       } catch (error) {
         if (error instanceof ApiError && error.code === "REVISION_CONFLICT") {
           const current = Number(error.details?.[0]?.message.replace(/\D+/g, "") ?? 0);
           set({ persistence: { status: "conflict", currentRevision: current } });
-          return;
+          return { ok: false, reason: "conflict" };
         }
         // Failure keeps the document dirty so nothing is lost and the user can retry.
         set({ persistence: { status: "error", code: error instanceof ApiError ? error.code : "INTERNAL_ERROR" } });
+        return { ok: false, reason: "error" };
       }
     },
 

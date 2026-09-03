@@ -114,7 +114,9 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
    * have fired yet — publishing the last autosaved state instead would put a version live that the
    * person never saw.
    */
-  const [templateState, setTemplateState] = useState<"idle" | "publishing" | "done" | "blocked" | "error">("idle");
+  const [templateState, setTemplateState] = useState<
+    "idle" | "publishing" | "done" | "blocked" | "conflict" | "error"
+  >("idle");
 
   const publishTemplate = async () => {
     const target = store.target;
@@ -122,12 +124,38 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
 
     setTemplateState("publishing");
     try {
-      await store.save();
+      /*
+       * A refused save stops the publication.
+       *
+       * Publishing promotes the stored draft, so continuing past a failed or conflicted save would
+       * promote whatever last reached the server — a version the person is not looking at and did
+       * not approve. Save used to swallow its own failures, which is what made that possible.
+       */
+      const saved = await store.save();
+      if (!saved.ok) {
+        setTemplateState(saved.reason === "conflict" ? "conflict" : "error");
+        return;
+      }
+
       const result = await blogTemplateApi.publish(workspaceId, projectId, target.templateKind);
       setTemplateState(result.published ? "done" : "blocked");
     } catch {
       setTemplateState("error");
     }
+  };
+
+  /**
+   * Reloads what is actually open.
+   *
+   * Both recovery paths called the project loader. On a template that replaced the layout being
+   * edited with the site's own document — losing the work and leaving the target pointing at a
+   * template whose draft nobody had read.
+   */
+  const reloadCurrentTarget = () => {
+    const target = store.target;
+    return target.kind === "blogTemplate"
+      ? store.loadBlogTemplate(workspaceId, projectId, target.templateKind)
+      : store.load(workspaceId, projectId);
   };
 
   useUnsavedChangesWarning(hasUnsaved);
@@ -295,7 +323,7 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
           <SaveStateIndicator
             persistence={store.persistence}
             onRetry={() => void store.save()}
-            onResolveConflict={() => void store.load(workspaceId, projectId)}
+            onResolveConflict={() => void reloadCurrentTarget()}
           />
           <button
             type="button"
@@ -392,7 +420,9 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
               ? "builder:topBar.templatePublished"
               : templateState === "blocked"
                 ? "builder:topBar.templateBlocked"
-                : "builder:topBar.templateFailed",
+                : templateState === "conflict"
+                  ? "builder:topBar.templateConflict"
+                  : "builder:topBar.templateFailed",
           )}
         </p>
       )}
@@ -464,7 +494,7 @@ export function EditorShell({ workspaceId, projectId }: { workspaceId: string; p
         description={t("builder:saveState.conflictDescription")}
         confirmLabel={t("builder:saveState.reload")}
         onCancel={() => store.markDirty()}
-        onConfirm={() => void store.load(workspaceId, projectId)}
+        onConfirm={() => void reloadCurrentTarget()}
       />
     </div>
     </BuilderFormsContext.Provider>

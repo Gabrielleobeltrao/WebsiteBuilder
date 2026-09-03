@@ -115,7 +115,7 @@ These are credible paths for the reported old-site failure, but the exact cause 
   - Acceptance: nested text remains visible after save/reload and at Desktop/Tablet/Mobile widths; free, flex, and grid parents behave according to the documented contract; compiled CSS is deterministic.
   - Verify: responsive CSS tests, renderer parity tests, and browser viewport coverage for nested content.
 
-- [ ] **P1-T3 Make editor targets and save results explicit.** Reset the target on normal project load; retain template field definitions without wiping them; return a typed success/failure result from save; block template publication after save error/conflict; and reload the correct project or template during conflict recovery. Cancel stale autosaves when route/target changes.
+- [x] **P1-T3 Make editor targets and save results explicit.** Reset the target on normal project load; retain template field definitions without wiping them; return a typed success/failure result from save; block template publication after save error/conflict; and reload the correct project or template during conflict recovery. Cancel stale autosaves when route/target changes.
   - Acceptance: navigating project -> template -> project cannot write to the wrong endpoint; conflicts never publish stale content; loaded template metadata round-trips unchanged.
   - Verify: editor-store and EditorShell tests for navigation, in-flight edits, failed save, conflict reload, and template metadata preservation.
 
@@ -195,6 +195,16 @@ Append one row per completed task. Never rewrite previous rows.
 
 ```text
 YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
+2026-09-03 12:49 | P1-T3 | done | editor-target regressions (4, failing first), frontend 65 files, typecheck, test, build | pending
+  Five defects on the store's most dangerous field. `loadFromProject` now resets the target, so a
+  site save after a template can no longer address the template endpoint. Field definitions travel
+  inside the target and are returned unchanged instead of an empty list that erased them. `save`
+  returns `{ ok }` with a typed reason, and template publication stops on a refusal rather than
+  promoting the last version that happened to save. Conflict recovery reloads whatever is open —
+  both paths called the project loader, which on a template replaced the layout being edited with the
+  site's document. A pending autosave is cancelled when the open document changes.
+  Note on verification: the full suite failed once on `renderer.test.ts` with `socket hang up` at
+  ~65 MB free memory, and passed on a cleared machine. Environment, not code; no timeout was raised.
 2026-09-03 12:43 | P2-T1 | done | blog-api (29) + blog-repair (10), typecheck, test, build | pending
   `repairBlogTemplates` is one tenant-safe operation used by activation and by the settings read,
   where most legacy blogs will be met. Idempotent: an id already set is never replaced, an existing
