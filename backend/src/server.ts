@@ -204,6 +204,14 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
         resolveWorkspace: createWorkspaceResolver({ auth, workspaces, permission: "project:read" }),
         // Facts come from each module's own records, never from the request.
         collectModuleFacts,
+        // Readiness needs both to be truthful: what media this tenant owns, and which revision the
+        // public snapshot was compiled from.
+        loadOwnedMediaIds: async ({ workspaceId }) =>
+          new Set((await media.list({ workspaceId, userId: "" }, undefined, 1000)).map((asset) => asset.id)),
+        loadActiveSourceRevision: async ({ workspaceId, projectId }) => {
+          const active = await publishing.findActiveForProject(projectId);
+          return active === null || active.workspaceId !== workspaceId ? null : active.sourceRevision;
+        },
         // Scoped twice: the caller's workspace is verified by the resolver, and the snapshot is
         // used only when it belongs to that same workspace.
         loadPublishedDocument: async ({ workspaceId, projectId }) => {

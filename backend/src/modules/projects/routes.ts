@@ -12,6 +12,7 @@ import { ApiProblem, zodProblem } from "../../middleware/errors";
 import type { Permission } from "../workspaces/permissions";
 import type { WorkspaceContext } from "./repository";
 import { ProjectRepository, RevisionConflictError, SlugTakenError, UnsupportedDocumentError } from "./repository";
+import { auditProjectReadiness } from "@websitebuilder/shared";
 import { reconcileSiteStatus, type ModuleFacts } from "./status";
 import type { BuilderProject, SiteFeatureKey } from "@websitebuilder/shared";
 
@@ -44,6 +45,10 @@ export function createProjectsRouter(options: {
    * Reads each optional module's own records. Injected so the projection is assembled from real
    * sources rather than from anything the caller sends.
    */
+  /** The workspace's own media ids, so a missing image is told apart from an unchecked one. */
+  loadOwnedMediaIds?: (input: { workspaceId: string }) => Promise<Set<string>>;
+  /** The revision the active published snapshot was compiled from, or null when nothing is live. */
+  loadActiveSourceRevision?: (input: { workspaceId: string; projectId: string }) => Promise<number | null>;
   collectModuleFacts?: (input: {
     workspaceId: string;
     projectId: string;
@@ -51,7 +56,7 @@ export function createProjectsRouter(options: {
   /** The document currently serving visitors, so the projection can say what is actually live. */
   loadPublishedDocument?: (input: { workspaceId: string; projectId: string }) => Promise<BuilderProject | null>;
 }): Router {
-  const { repository, resolveWorkspace, collectModuleFacts, loadPublishedDocument } = options;
+  const { repository, resolveWorkspace, collectModuleFacts, loadPublishedDocument, loadOwnedMediaIds, loadActiveSourceRevision } = options;
   // mergeParams: the router is mounted under /workspaces/:workspaceId.
   const router = Router({ mergeParams: true });
 
@@ -104,11 +109,37 @@ export function createProjectsRouter(options: {
       const project = await repository.findById(context, projectId);
       if (project === null) throw new ApiProblem("NOT_FOUND", "Project not found");
 
-      const [facts, published] = await Promise.all([
+      const [facts, published, ownedMedia, activeRevision] = await Promise.all([
         collectModuleFacts?.({ workspaceId: context.workspaceId, projectId }) ?? Promise.resolve({}),
         loadPublishedDocument?.({ workspaceId: context.workspaceId, projectId }) ?? Promise.resolve(null),
+        loadOwnedMediaIds?.({ workspaceId: context.workspaceId }) ?? Promise.resolve(null),
+        loadActiveSourceRevision?.({ workspaceId: context.workspaceId, projectId }) ?? Promise.resolve(null),
       ]);
-      res.json({ data: reconcileSiteStatus({ project, facts, published }) });
+
+      /*
+       * Readiness is computed here, bound to the revision it was computed from.
+       *
+       * The dashboard was handed an empty object, so every category reported "not checked" and the
+       * panel could say nothing else. Four audits exist and none of them was being run.
+       *
+       * The media check is a dependency of the truth, not a detail: without the workspace's own
+       * media ids, a missing image cannot be told from one this build simply could not look up, and
+       * the links category would report clean for a reason that has nothing to do with the links.
+       */
+      const readiness =
+        ownedMedia === null
+          ? {}
+          : auditProjectReadiness({ project, mediaExists: (mediaId) => ownedMedia.has(mediaId) });
+
+      res.json({
+        data: {
+          ...reconcileSiteStatus({ project, facts, published }),
+          readiness,
+          // What a visitor is receiving, against what the person has saved since.
+          activeSourceRevision: activeRevision,
+          pendingPublication: activeRevision === null ? project.revision > 0 : project.revision > activeRevision,
+        },
+      });
     } catch (error) {
       next(error);
     }

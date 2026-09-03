@@ -30,6 +30,7 @@ export * from "./project";
 export * from "./publication";
 export * from "./publishing";
 export * from "./resolve";
+export * from "./project-readiness";
 export * from "./readiness";
 export * from "./redirects";
 export * from "./responsive";

@@ -131,7 +131,7 @@ These are credible paths for the reported old-site failure, but the exact cause 
   - Acceptance: saving or marking a post/template ready does not change public HTML; successful site publish changes it; failed site publish leaves the previous version live; dashboard copy never claims otherwise.
   - Verify: backend publication tests and frontend lifecycle tests for post edit, template edit, failed publish, successful republish, and rollback.
 
-- [ ] **P2-T3 Make readiness real on the site dashboard.** Add or extend one server endpoint that returns revision-bound readiness categories plus module blockers, pending publication state, and actionable destinations. Remove the hard-coded empty category object and support rerun without mixing results from another revision.
+- [x] **P2-T3 Make readiness real on the site dashboard.** Add or extend one server endpoint that returns revision-bound readiness categories plus module blockers, pending publication state, and actionable destinations. Remove the hard-coded empty category object and support rerun without mixing results from another revision.
   - Acceptance: unchecked, stale, clean, warning, and blocked states are truthful; each fixable issue links to its page/block/module; a clean label never comes from absent data.
   - Verify: site-status API, dashboard, readiness, revision-race, and tenant-isolation tests.
 
@@ -195,6 +195,16 @@ Append one row per completed task. Never rewrite previous rows.
 
 ```text
 YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
+2026-09-03 13:06 | P2-T3 | done | site-readiness (6), dashboard (14), 42+51+65 files, typecheck, build | pending
+  `auditProjectReadiness` runs the four audits that already existed and were wired to nothing —
+  layout, accessibility, links, content — over resolved pages, each result carrying the revision it
+  was computed from so a rerun cannot mix generations. Performance stays `not-checked`: it is measured
+  against built route assets, which do not exist inside a request. The media check is a dependency of
+  the truth, not a detail — without the workspace's own ids a missing image cannot be told from an
+  unchecked one, so the endpoint returns no categories at all rather than a clean links result.
+  `activeSourceRevision` and `pendingPublication` expose the comparison the UI needs. The panel also
+  tolerates a response without readiness, because reading it unguarded made a version skew take the
+  whole dashboard down.
 2026-09-03 12:56 | P2-T2 | done | publication-boundary (4), blog dashboard (18), 42+50+65 files, typecheck, build | pending
   Four tests fix the boundary: a post marked ready does not change public HTML, it appears only after
   the site is published, saving and promoting a template changes nothing on its own, and a refused

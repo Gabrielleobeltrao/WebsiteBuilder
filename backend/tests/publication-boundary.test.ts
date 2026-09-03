@@ -51,7 +51,7 @@ beforeAll(async () => {
     publishing,
     blog,
     media: new MediaRepository(database.db, createGridFsStorage(database.db)),
-    loadBlogTemplates: async (context, projectId) => ({
+    loadBlogTemplates: async (_context, projectId) => ({
       index: (await templates.findPublished(projectId, "index")) ?? undefined,
       article: (await templates.findPublished(projectId, "article")) ?? undefined,
     }),

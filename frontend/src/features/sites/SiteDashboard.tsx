@@ -166,7 +166,10 @@ export function SiteDashboard({
           {/* Readiness sits above the counts: what still needs attention matters more than how many
               pages there are. It reports and never claims the site may be published. */}
           <div className="mt-6">
-            <ReadinessPanel categories={{}} currentRevision={state.site.revision} />
+            {/* Absent rather than empty when a server has not sent it: every category then reads
+                  "not checked", which is what the panel is built to say. Reading it unguarded made a
+                  version skew take the whole dashboard down. */}
+              <ReadinessPanel categories={state.site.readiness ?? {}} currentRevision={state.site.revision} />
           </div>
 
           <dl className="mt-6 grid gap-4 sm:grid-cols-3">

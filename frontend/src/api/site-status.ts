@@ -1,4 +1,4 @@
-import type { SiteFeatureState } from "@websitebuilder/shared";
+import type { AuditCategory, CategoryResult, SiteFeatureState } from "@websitebuilder/shared";
 
 import { apiRequest } from "./client";
 
@@ -9,6 +9,18 @@ export type SiteStatus = {
   blocked: boolean;
   blockingIssueCount: number;
   warningCount: number;
+  /**
+   * What the audits found, bound to the revision they ran against.
+   *
+   * A category the server could not run is absent, and the panel says "not checked" for it — which
+   * is the whole reason the shape is partial. A clean tick that came from nobody looking is worse
+   * than no tick at all.
+   */
+  readiness: Partial<Record<AuditCategory, CategoryResult>>;
+  /** The revision the live snapshot was compiled from, or null when nothing is published. */
+  activeSourceRevision: number | null;
+  /** Whether the person has saved work a visitor is not receiving yet. */
+  pendingPublication: boolean;
 };
 
 export const siteStatusApi = {
