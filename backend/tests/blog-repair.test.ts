@@ -157,3 +157,155 @@ describe("the operator's audit output", () => {
     expect(text).toContain("w1\tp2\tmissing: index, article");
   });
 });
+
+/**
+ * What the repair is allowed to publish.
+ *
+ * It used to load-or-create both layouts and publish both, whatever was actually wrong. So a
+ * customer with a designed article layout and only the index reference missing had their unfinished
+ * article draft promoted onto every post of their live site — by the act of opening the blog screen,
+ * which is where the repair runs.
+ */
+describe("what the repair promotes", () => {
+  const enabled = { enabled: true, basePath: "/blog", postsPerPage: 10 } as const;
+
+  /** A layout the customer has designed and deliberately not published. */
+  async function designedButUnpublished(kind: "index" | "article") {
+    const template = await templates.loadOrCreate(A, PROJECT, kind);
+    await templates.saveDraft(
+      A,
+      PROJECT,
+      kind,
+      { draftDocument: { ...template.draftDocument, name: "Half finished" }, fieldDefinitions: [] },
+      template.draftVersion,
+    );
+    return templates.loadOrCreate(A, PROJECT, kind);
+  }
+
+  it("creates and publishes only the layout whose reference is missing", async () => {
+    const article = await designedButUnpublished("article");
+    await repository.saveSettings(A, PROJECT, { ...enabled, articleTemplateId: article.id });
+
+    const result = await repairBlogTemplates({ repository, templates }, A, PROJECT);
+
+    expect(result.missing).toEqual(["index"]);
+    expect(result.published).toEqual(["index"]);
+    // The draft the customer is still working on is untouched and still unpublished.
+    expect((await templates.loadOrCreate(A, PROJECT, "article")).publishedDocument).toBeUndefined();
+  });
+
+  it("does the same when it is the article reference that is missing", async () => {
+    const index = await designedButUnpublished("index");
+    await repository.saveSettings(A, PROJECT, { ...enabled, indexTemplateId: index.id });
+
+    const result = await repairBlogTemplates({ repository, templates }, A, PROJECT);
+
+    expect(result.missing).toEqual(["article"]);
+    expect(result.published).toEqual(["article"]);
+    expect((await templates.loadOrCreate(A, PROJECT, "index")).publishedDocument).toBeUndefined();
+  });
+
+  it("never promotes a draft over a layout that is already live", async () => {
+    const article = await templates.loadOrCreate(A, PROJECT, "article");
+    await templates.publish(A, PROJECT, "article", []);
+    const live = await templates.loadOrCreate(A, PROJECT, "article");
+
+    // Edited since, and not published: the live article must keep serving the older version.
+    await templates.saveDraft(
+      A,
+      PROJECT,
+      "article",
+      { draftDocument: { ...article.draftDocument, name: "Not approved" }, fieldDefinitions: [] },
+      live.draftVersion,
+    );
+    await repository.saveSettings(A, PROJECT, { ...enabled, articleTemplateId: article.id });
+
+    await repairBlogTemplates({ repository, templates }, A, PROJECT);
+
+    const after = await templates.loadOrCreate(A, PROJECT, "article");
+    expect(after.publishedVersion).toBe(live.publishedVersion);
+    expect(JSON.stringify(after.publishedDocument)).not.toContain("Not approved");
+  });
+
+  it("publishes both starters when it is turning a blog on from nothing", async () => {
+    const result = await repairBlogTemplates({ repository, templates }, A, PROJECT, { format: "grid" });
+
+    // Nothing existed, so both were created here and both are safe to publish.
+    expect(result.published.sort()).toEqual(["article", "index"]);
+    expect(result.settings.format).toBe("grid");
+  });
+
+  it("publishes nothing at all when no reference is missing", async () => {
+    const [index, article] = await Promise.all([
+      templates.loadOrCreate(A, PROJECT, "index"),
+      templates.loadOrCreate(A, PROJECT, "article"),
+    ]);
+    await repository.saveSettings(A, PROJECT, {
+      ...enabled,
+      indexTemplateId: index.id,
+      articleTemplateId: article.id,
+    });
+
+    const result = await repairBlogTemplates({ repository, templates }, A, PROJECT);
+
+    expect(result).toMatchObject({ missing: [], published: [], repaired: false });
+    expect((await templates.loadOrCreate(A, PROJECT, "index")).publishedDocument).toBeUndefined();
+  });
+
+  it("promotes nothing on a second activation", async () => {
+    await repairBlogTemplates({ repository, templates }, A, PROJECT, { format: "list" });
+    const before = await templates.loadOrCreate(A, PROJECT, "article");
+
+    // Somebody redesigns the article and leaves it unpublished, then activation is pressed again.
+    await templates.saveDraft(
+      A,
+      PROJECT,
+      "article",
+      { draftDocument: { ...before.draftDocument, name: "Redesigned" }, fieldDefinitions: [] },
+      before.draftVersion,
+    );
+    const result = await repairBlogTemplates({ repository, templates }, A, PROJECT, { format: "magazine" });
+
+    expect(result.published).toEqual([]);
+    expect(JSON.stringify((await templates.loadOrCreate(A, PROJECT, "article")).publishedDocument)).not.toContain(
+      "Redesigned",
+    );
+  });
+
+  it("creates one starter when two repairs run at once", async () => {
+    await repository.saveSettings(A, PROJECT, enabled);
+
+    const [first, second] = await Promise.all([
+      repairBlogTemplates({ repository, templates }, A, PROJECT),
+      repairBlogTemplates({ repository, templates }, A, PROJECT),
+    ]);
+
+    // Exactly one of them created each layout, so exactly one publish happened for each.
+    const published = [...first.published, ...second.published].sort();
+    expect(published).toEqual(["article", "index"]);
+    expect(await database.db.collection("blogTemplates").countDocuments({ projectId: PROJECT })).toBe(2);
+  });
+
+  it("leaves another workspace's layouts alone", async () => {
+    const theirProject = "bbbbbbbbbbbbbbbbbbbbbbbb";
+    await repository.saveSettings(B, theirProject, enabled);
+    const theirs = await templates.loadOrCreate(B, theirProject, "article");
+    await repository.saveSettings(A, PROJECT, enabled);
+
+    await repairBlogTemplates({ repository, templates }, A, PROJECT);
+
+    // A repair is scoped to one project of one workspace, and publishes only what it created there.
+    const after = await templates.loadOrCreate(B, theirProject, "article");
+    expect(after.id).toBe(theirs.id);
+    expect(after.publishedDocument).toBeUndefined();
+    expect((await repository.loadSettings(B, theirProject)).articleTemplateId).toBeUndefined();
+  });
+
+  it("refuses rather than hand back a layout belonging to another workspace", async () => {
+    // The uniqueness that would refuse the insert is `{projectId, kind}` and carries no workspace,
+    // so recovering by re-reading without one would return the other tenant's row.
+    await templates.loadOrCreate(B, PROJECT, "article");
+
+    await expect(templates.createStarterIfMissing(A, PROJECT, "article")).rejects.toThrow();
+  });
+});

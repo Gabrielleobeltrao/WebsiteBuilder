@@ -105,6 +105,62 @@ export class TemplateRepository {
    * `expectedVersion` is optional so a caller with no version in hand can still save, which is what
    * the seeding path and the tests that predate this do.
    */
+  /**
+   * The template for a kind, and whether this call is what brought it into existence.
+   *
+   * `loadOrCreate` cannot answer the second half, and the repair needs it: it publishes a starter so
+   * a blog it just fixed can serve something, and publishing anything it did *not* create would
+   * promote a draft its author never approved onto every article of a live site. "It exists now" and
+   * "I made it" are different facts, and only one of them makes an automatic publish safe.
+   *
+   * One upsert rather than a read followed by a write, so two callers arriving together cannot both
+   * believe they created it.
+   */
+  async createStarterIfMissing(
+    context: WorkspaceContext,
+    projectId: string,
+    kind: TemplateKind,
+  ): Promise<{ template: BlogTemplate; created: boolean }> {
+    const now = new Date().toISOString();
+    const starter: Omit<TemplateDocument, "_id"> = {
+      workspaceId: context.workspaceId,
+      projectId,
+      kind,
+      draftDocument: createPage({ name: kind === "index" ? "Blog index" : "Article" }),
+      draftVersion: 1,
+      fieldDefinitions: [],
+      publishedFieldDefinitions: [],
+      updatedAt: now,
+    };
+
+    try {
+      const result = await this.templates.findOneAndUpdate(
+        { workspaceId: context.workspaceId, projectId, kind },
+        { $setOnInsert: starter as TemplateDocument },
+        { upsert: true, returnDocument: "after", includeResultMetadata: true },
+      );
+
+      const stored = result.value;
+      if (stored === null) throw new Error("The template could not be created");
+
+      return { template: toTemplate(stored), created: result.lastErrorObject?.upserted !== undefined };
+    } catch (error) {
+      /*
+       * The uniqueness that refused the insert is `{projectId, kind}`, which carries no workspace.
+       *
+       * Two callers in this workspace racing is the ordinary case, and re-reading returns the row
+       * that won. A row belonging to a *different* workspace is not something to recover from:
+       * returning it would hand one tenant another tenant's layout, so this fails instead. A project
+       * id belongs to one workspace, and the routes resolve it before reaching here.
+       */
+      if (!isDuplicateKey(error)) throw error;
+
+      const existing = await this.templates.findOne({ workspaceId: context.workspaceId, projectId, kind });
+      if (existing === null) throw error;
+      return { template: toTemplate(existing), created: false };
+    }
+  }
+
   async saveDraft(
     context: WorkspaceContext,
     projectId: string,

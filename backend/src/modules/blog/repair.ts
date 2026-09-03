@@ -19,11 +19,17 @@ import type { TemplateRepository } from "./templates";
  * Idempotent by construction: an id that is already set is never replaced, a template that already
  * exists is loaded rather than recreated, and a settings write happens only when something is
  * actually missing. Running it twice is one write and then none.
+ *
+ * And it repairs only what is broken. A reference that is missing gets a starter, and only a starter
+ * this call created is published — a template that was already there keeps whatever its author has
+ * done to it, published or not.
  */
 
 export type BlogRepairResult = {
   /** What was missing before this ran. Empty means there was nothing to do. */
   missing: Array<"index" | "article">;
+  /** The kinds this call created and published. Never one that already existed. */
+  published: Array<"index" | "article">;
   /** False for a dry run, and for a blog that needed nothing. */
   repaired: boolean;
   settings: BlogSettings;
@@ -40,49 +46,65 @@ export async function repairBlogTemplates(
   // A blog nobody turned on needs nothing. Creating templates for it would invent state the customer
   // never asked for and make an unused module look started.
   const enabling = options.format !== undefined;
-  if (!settings.enabled && !enabling) return { missing: [], repaired: false, settings };
+  if (!settings.enabled && !enabling) return { missing: [], published: [], repaired: false, settings };
 
   const missing: Array<"index" | "article"> = [];
   if (settings.indexTemplateId === undefined) missing.push("index");
   if (settings.articleTemplateId === undefined) missing.push("article");
 
-  if (missing.length === 0 && !enabling) return { missing, repaired: false, settings };
-  if (options.dryRun === true) return { missing, repaired: false, settings };
+  if (missing.length === 0 && !enabling) return { missing, published: [], repaired: false, settings };
+  if (options.dryRun === true) return { missing, published: [], repaired: false, settings };
 
   /*
-   * Both ids are written together.
+   * Only the kinds whose reference is actually missing.
    *
-   * A blog with one template and not the other is still blocked, so persisting them one at a time
-   * would leave a window where a repair had happened and the site was still refused — and a caller
-   * that failed halfway would leave that state permanently.
+   * This used to load-or-create both and then publish both, whatever was wrong. A customer with a
+   * designed article layout and only the index reference missing had their unfinished article draft
+   * promoted onto every post of their live site, by the act of opening the blog screen.
    */
-  const [index, article] = await Promise.all([
-    deps.templates.loadOrCreate(context, projectId, "index"),
-    deps.templates.loadOrCreate(context, projectId, "article"),
-  ]);
+  const kinds = enabling ? (["index", "article"] as const) : missing;
+  const created = await Promise.all(
+    kinds.map(async (kind) => ({
+      kind,
+      ...(await deps.templates.createStarterIfMissing(context, projectId, kind)),
+    })),
+  );
 
   /*
-   * The starters are published as well as created.
+   * A starter this repair made is published; nothing else ever is.
    *
-   * A template that exists only as a draft renders nothing publicly, so a repaired blog would stop
-   * being blocked and still serve an empty page. Publishing a starter nobody has edited carries no
-   * risk: there is no earlier version of it to overwrite.
+   * A template that exists only as a draft renders the built-in layout, so publishing the starter is
+   * what makes a repaired blog serve something of its own. There is no earlier version of a starter
+   * to overwrite and nobody has edited it, which is exactly what makes that safe — and exactly what
+   * is not true of a template that was already there.
    */
-  await Promise.all([
-    deps.templates.publish(context, projectId, "index", []),
-    deps.templates.publish(context, projectId, "article", []),
-  ]);
+  await Promise.all(
+    created
+      .filter((result) => result.created)
+      .map((result) => deps.templates.publish(context, projectId, result.kind, [])),
+  );
+
+  const templateIdFor = (kind: "index" | "article") => created.find((result) => result.kind === kind)?.template.id;
 
   const saved = await deps.repository.saveSettings(context, projectId, {
     ...settings,
     enabled: true,
     ...(options.format === undefined ? {} : { format: options.format }),
     // Never replaced: an id already there points at a template somebody may have designed.
-    indexTemplateId: settings.indexTemplateId ?? index.id,
-    articleTemplateId: settings.articleTemplateId ?? article.id,
+    ...(settings.indexTemplateId === undefined && templateIdFor("index") !== undefined
+      ? { indexTemplateId: templateIdFor("index") }
+      : {}),
+    ...(settings.articleTemplateId === undefined && templateIdFor("article") !== undefined
+      ? { articleTemplateId: templateIdFor("article") }
+      : {}),
   });
 
-  return { missing, repaired: true, settings: saved };
+  return {
+    missing,
+    published: created.filter((result) => result.created).map((result) => result.kind),
+    repaired: true,
+    settings: saved,
+  };
 }
 
 /** One project the audit found, and what it is missing. */
