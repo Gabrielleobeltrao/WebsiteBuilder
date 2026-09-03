@@ -60,7 +60,16 @@ export function createProjectsRouter(options: {
   loadActivePublication?: (input: {
     workspaceId: string;
     projectId: string;
-  }) => Promise<{ sourceRevision: number; publishedAt: string } | null>;
+  }) => Promise<{ sourceRevision: number; publishedAt: string; sourceFingerprint?: string } | null>;
+  /**
+   * What this site's publishable sources amount to right now.
+   *
+   * Compared with the fingerprint the live version was published with. Without it, "unpublished
+   * changes" could only mean the builder document: posts, blog settings and the two layouts live in
+   * their own collections and never touch the project's revision, so a customer could publish a post
+   * and be told their site was up to date.
+   */
+  loadCurrentFingerprint?: (input: { workspaceId: string; projectId: string }) => Promise<string | null>;
   collectModuleFacts?: (input: {
     workspaceId: string;
     projectId: string;
@@ -68,7 +77,15 @@ export function createProjectsRouter(options: {
   /** The document currently serving visitors, so the projection can say what is actually live. */
   loadPublishedDocument?: (input: { workspaceId: string; projectId: string }) => Promise<BuilderProject | null>;
 }): Router {
-  const { repository, resolveWorkspace, collectModuleFacts, loadPublishedDocument, loadOwnedMediaIds, loadActivePublication } = options;
+  const {
+    repository,
+    resolveWorkspace,
+    collectModuleFacts,
+    loadPublishedDocument,
+    loadOwnedMediaIds,
+    loadActivePublication,
+    loadCurrentFingerprint,
+  } = options;
   // mergeParams: the router is mounted under /workspaces/:workspaceId.
   const router = Router({ mergeParams: true });
 
@@ -124,11 +141,12 @@ export function createProjectsRouter(options: {
       const project = await repository.findById(context, projectId);
       if (project === null) throw new ApiProblem("NOT_FOUND", "Project not found");
 
-      const [facts, published, ownedMedia, activePublication] = await Promise.all([
+      const [facts, published, ownedMedia, activePublication, currentFingerprint] = await Promise.all([
         collectModuleFacts?.({ workspaceId: context.workspaceId, projectId }) ?? Promise.resolve({}),
         loadPublishedDocument?.({ workspaceId: context.workspaceId, projectId }) ?? Promise.resolve(null),
         loadOwnedMediaIds?.({ workspaceId: context.workspaceId }) ?? Promise.resolve(null),
         loadActivePublication?.({ workspaceId: context.workspaceId, projectId }) ?? Promise.resolve(null),
+        loadCurrentFingerprint?.({ workspaceId: context.workspaceId, projectId }) ?? Promise.resolve(null),
       ]);
 
       /*
@@ -155,8 +173,21 @@ export function createProjectsRouter(options: {
           // When they received it. A post saved after this moment is not on the site, whatever the
           // post's own status says.
           activePublishedAt: activePublication?.publishedAt ?? null,
-          pendingPublication:
-            activePublication === null ? project.revision > 0 : project.revision > activePublication.sourceRevision,
+          /*
+           * Whether a visitor is behind, across every publishable source.
+           *
+           * The fingerprint covers the document, the blog's settings, the posts a publication would
+           * include and each layout's published version — so a post written after the last
+           * publication counts, and it did not when this compared revisions alone. A version
+           * published before fingerprints existed carries none, and that falls back to the revision
+           * comparison rather than guessing: an old snapshot cannot answer a question it never
+           * recorded.
+           */
+          pendingPublication: pendingPublicationFor({
+            projectRevision: project.revision,
+            active: activePublication,
+            currentFingerprint,
+          }),
         },
       });
     } catch (error) {
@@ -227,6 +258,27 @@ export function createProjectsRouter(options: {
   });
 
   return router;
+}
+
+/**
+ * One rule for "has this site got work a visitor has not received", used by the status endpoint and
+ * by the batched card summaries so the two can never disagree.
+ */
+export function pendingPublicationFor(input: {
+  projectRevision: number;
+  active: { sourceRevision: number; sourceFingerprint?: string } | null;
+  currentFingerprint: string | null;
+}): boolean {
+  // Nothing is live, so everything saved is waiting.
+  if (input.active === null) return input.projectRevision > 0;
+
+  if (input.active.sourceFingerprint !== undefined && input.currentFingerprint !== null) {
+    return input.active.sourceFingerprint !== input.currentFingerprint;
+  }
+
+  // Published before fingerprints, or sources that could not be read: the document is the only
+  // thing this can still compare, and claiming more would be inventing an answer.
+  return input.projectRevision > input.active.sourceRevision;
 }
 
 function mapDomainError(error: unknown): unknown {

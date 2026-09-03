@@ -3,9 +3,13 @@ import { ObjectId, type Db } from "mongodb";
 
 import { COLLECTIONS } from "../../db/indexes";
 
+import { DEFAULT_BLOG_SETTINGS, type BlogSettings } from "@websitebuilder/shared";
+
 import { ANALYTICS_COLLECTIONS, utcDay } from "../analytics/repository";
 import { BLOG_COLLECTIONS } from "../blog/repository";
+import { sourceFingerprintFrom } from "../publishing/fingerprint";
 import { PUBLISHING_COLLECTIONS } from "../publishing/repository";
+import { pendingPublicationFor } from "./routes";
 import type { WorkspaceContext } from "./repository";
 
 /**
@@ -57,7 +61,8 @@ export async function attachCardSummaries(
     .map((row) => (row as { activePublishedVersionId?: string }).activePublishedVersionId)
     .filter((id): id is string => id !== undefined);
 
-  const [activeVersions, blogSettings, publishedTemplates, views, sessions, analyticsOn] = await Promise.all([
+  const [activeVersions, blogSettings, publishedTemplates, publishablePosts, views, sessions, analyticsOn] =
+    await Promise.all([
     activeVersionIds.length === 0
       ? Promise.resolve([])
       : db
@@ -67,12 +72,15 @@ export async function attachCardSummaries(
               ...scope,
               _id: { $in: activeVersionIds.map(toObjectId).filter((id): id is ObjectId => id !== null) },
             },
-            { projection: { projectId: 1, sourceRevision: 1 } },
+            { projection: { projectId: 1, sourceRevision: 1, sourceFingerprint: 1 } },
           )
           .toArray(),
     db
       .collection(BLOG_COLLECTIONS.settings)
-      .find({ ...scope, projectId: { $in: ids } }, { projection: { projectId: 1, enabled: 1 } })
+      .find(
+        { ...scope, projectId: { $in: ids } },
+        { projection: { projectId: 1, enabled: 1, format: 1, basePath: 1 } },
+      )
       .toArray(),
     // A blog that is on but whose layouts were never published serves its routes with nothing in
     // them. It is the blocker customers actually hit, and it costs one grouped query to know.
@@ -80,8 +88,18 @@ export async function attachCardSummaries(
       .collection("blogTemplates")
       .find(
         { ...scope, projectId: { $in: ids }, publishedVersion: { $exists: true } },
-        { projection: { projectId: 1, kind: 1 } },
+        { projection: { projectId: 1, kind: 1, publishedVersion: 1 } },
       )
+      .toArray(),
+    // The posts a publication would include, as the pair that moves for every mutation: an edit or
+    // a publish stamps `updatedAt` and a deletion — the one act that stamps nothing — lowers the
+    // count. Grouped, so a page of two hundred cards is still one query.
+    db
+      .collection(BLOG_COLLECTIONS.posts)
+      .aggregate<{ _id: string; count: number; latest: string | null }>([
+        { $match: { ...scope, projectId: { $in: ids }, status: "published" } },
+        { $group: { _id: "$projectId", count: { $sum: 1 }, latest: { $max: "$updatedAt" } } },
+      ])
       .toArray(),
     db
       .collection(ANALYTICS_COLLECTIONS.siteViews)
@@ -103,21 +121,40 @@ export async function attachCardSummaries(
       .toArray(),
   ]);
 
-  const liveRevisionOf = new Map(activeVersions.map((row) => [String(row.projectId), Number(row.sourceRevision)]));
+  const activeOf = new Map(
+    activeVersions.map((row) => [
+      String(row.projectId),
+      {
+        sourceRevision: Number(row.sourceRevision),
+        ...(typeof row.sourceFingerprint === "string" ? { sourceFingerprint: row.sourceFingerprint } : {}),
+      },
+    ]),
+  );
+  const settingsOf = new Map(blogSettings.map((row) => [String(row.projectId), row as unknown as BlogSettings]));
   const blogOn = new Set(blogSettings.filter((row) => row.enabled === true).map((row) => String(row.projectId)));
   const publishedTemplateKinds = new Map<string, Set<string>>();
+  const templateVersionOf = new Map<string, { index: number | null; article: number | null }>();
   for (const row of publishedTemplates) {
     const key = String(row.projectId);
     const kinds = publishedTemplateKinds.get(key) ?? new Set<string>();
     kinds.add(String(row.kind));
     publishedTemplateKinds.set(key, kinds);
+
+    const versions = templateVersionOf.get(key) ?? { index: null, article: null };
+    if (row.kind === "index") versions.index = Number(row.publishedVersion);
+    if (row.kind === "article") versions.article = Number(row.publishedVersion);
+    templateVersionOf.set(key, versions);
   }
+  const postsOf = new Map(publishablePosts.map((row) => [row._id, row]));
   const viewsOf = new Map(views.map((row) => [row._id, row.views]));
   const sessionsOf = new Map(sessions.map((row) => [row._id, row.sessions]));
   const measuringVisitors = new Set(analyticsOn.map((row) => String(row.projectId)));
 
   return projects.map((project) => {
-    const liveRevision = liveRevisionOf.get(project.id);
+    const active = activeOf.get(project.id) ?? null;
+    const settings = settingsOf.get(project.id);
+    const posts = postsOf.get(project.id);
+    const versions = templateVersionOf.get(project.id) ?? { index: null, article: null };
 
     const blockers: ProjectCardBlocker[] = [];
     // Published and reachable from nowhere. Publishing again does not fix it, so a card that only
@@ -126,8 +163,29 @@ export async function attachCardSummaries(
     if (blogOn.has(project.id) && (publishedTemplateKinds.get(project.id)?.size ?? 0) < 2) blockers.push("blog-setup");
 
     const summary: ProjectCardSummary = {
-      // Only meaningful against something live: an unpublished site is not "pending", it is a draft.
-      hasPendingChanges: liveRevision !== undefined && project.revision > liveRevision,
+      /*
+       * The same rule the site's own status endpoint applies, over the same sources.
+       *
+       * It used to compare the project's revision alone, so a post written after the last
+       * publication left the card saying the site was up to date. Every input here comes from a
+       * query grouped over the whole page, so the answer costs no more for two hundred cards than
+       * for one.
+       */
+      hasPendingChanges: pendingPublicationFor({
+        projectRevision: project.revision,
+        active,
+        currentFingerprint: sourceFingerprintFrom({
+          projectRevision: project.revision,
+          // A site that never touched the blog has no settings row, and the publisher reads the
+          // same defaults for it. Substituting them here is what keeps the comparison meaningful
+          // for the majority of sites rather than falling back to the revision.
+          settings: settings ?? DEFAULT_BLOG_SETTINGS,
+          publishablePostCount: posts?.count ?? 0,
+          latestPostChangeAt: posts?.latest ?? null,
+          indexTemplateVersion: versions.index,
+          articleTemplateVersion: versions.article,
+        }),
+      }),
       knownBlockers: blockers.filter((code) => PROJECT_CARD_BLOCKERS.includes(code)),
       traffic: project.isPublished
         ? {

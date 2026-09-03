@@ -352,3 +352,44 @@ describe("the card's disclosure", () => {
     expect(card.querySelector("div")?.className).toContain("flex-wrap");
   });
 });
+
+/**
+ * What the disclosure says about unpublished work.
+ *
+ * The number behind it now covers posts, blog settings and layouts as well as the document, so the
+ * card and the site's own dashboard answer the same question the same way. The sentence has to stay
+ * true in the one case where "behind the live site" is meaningless.
+ */
+describe("unpublished work on a card", () => {
+  it("says everything is waiting when the site has never been published", async () => {
+    mockFetch(() =>
+      ok([summary({ summary: { hasPendingChanges: true, knownBlockers: [], traffic: { state: "unavailable" } } })]),
+    );
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Details for Acme Studio" }));
+
+    expect(screen.getByText("Everything is waiting for a first publication")).toBeInTheDocument();
+    expect(screen.queryByText(/behind the draft/)).toBeNull();
+  });
+
+  it("says the live site is behind once there is a live site", async () => {
+    mockFetch(() =>
+      ok([
+        summary({
+          isPublished: true,
+          summary: {
+            hasPendingChanges: true,
+            knownBlockers: [],
+            traffic: { state: "measured", days: 30, views: 1, visitors: null },
+          },
+        }),
+      ]),
+    );
+    renderWithProviders(<SitesPage workspaceId="w1" />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Details for Acme Studio" }));
+
+    expect(screen.getByText(/behind the draft/)).toBeInTheDocument();
+  });
+});

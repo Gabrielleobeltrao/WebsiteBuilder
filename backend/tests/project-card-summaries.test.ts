@@ -89,11 +89,12 @@ const summaryOf = async (projectId: string) => {
 };
 
 describe("pending changes", () => {
-  it("says nothing is pending on a site nobody has published", async () => {
+  it("says a site nobody has published has work waiting", async () => {
     const project = await createProject("Acme");
 
-    // A draft is not "pending publication"; it has never been anywhere to be behind.
-    expect(await summaryOf(project.id)).toMatchObject({ hasPendingChanges: false });
+    // The same answer the site's own status endpoint gives: nothing is live, so everything saved is
+    // waiting. The card's wording distinguishes that from "behind the live site"; the fact does not.
+    expect(await summaryOf(project.id)).toMatchObject({ hasPendingChanges: true });
   });
 
   it("reports edits made since the live version was compiled", async () => {

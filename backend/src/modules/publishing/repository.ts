@@ -85,6 +85,8 @@ export class PublishingRepository {
       referencedMediaIds: string[];
       /** Content identity from the compiler. Recomputing it here would use a different input. */
       contentHash: string;
+      /** What the publishable sources amounted to, so "changed since" is a comparison, not a compile. */
+      sourceFingerprint?: string;
     },
   ): Promise<PublishedSiteVersion> {
     if (!ObjectId.isValid(projectId) || projectId.length !== 24) throw new PublishError("not-found");
@@ -109,6 +111,7 @@ export class PublishingRepository {
       redirects: input.redirects,
       referencedMediaIds: input.referencedMediaIds,
       contentHash: input.contentHash,
+      ...(input.sourceFingerprint === undefined ? {} : { sourceFingerprint: input.sourceFingerprint }),
       createdByUserId: context.userId,
       createdAt: now,
     };
@@ -194,6 +197,23 @@ export class PublishingRepository {
       )
       .toArray();
     return documents.map(toVersion);
+  }
+
+  /**
+   * Records which sources compiled to a version that already exists.
+   *
+   * The only field of a published version that may be written after it is created, and it is not
+   * part of what a visitor receives: the document, routes, redirects, forms, blog and the content
+   * hash that identifies them are untouched, and the integrity check hashes exactly those. Without
+   * it, a republish that produced identical output would leave the site reporting unpublished work
+   * forever, because the sources moved and nothing recorded that they now match what is live.
+   */
+  async recordSourceFingerprint(context: WorkspaceContext, versionId: string, fingerprint: string): Promise<void> {
+    if (!ObjectId.isValid(versionId)) return;
+    await this.versions.updateOne(
+      { _id: new ObjectId(versionId), workspaceId: context.workspaceId },
+      { $set: { sourceFingerprint: fingerprint } },
+    );
   }
 
   /**

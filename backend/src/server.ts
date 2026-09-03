@@ -22,6 +22,7 @@ import { createMediaRouter } from "./modules/media/routes";
 import { createGridFsStorage } from "./modules/media/storage";
 import { ProjectRepository } from "./modules/projects/repository";
 import { attachCardSummaries } from "./modules/projects/summaries";
+import { sourceFingerprintFrom } from "./modules/publishing/fingerprint";
 import { createProjectsRouter } from "./modules/projects/routes";
 import { WorkspaceRepository } from "./modules/workspaces/repository";
 import { COLLECTIONS } from "./db/indexes";
@@ -216,7 +217,40 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
         loadActivePublication: async ({ workspaceId, projectId }) => {
           const active = await publishing.findActiveForProject(projectId);
           if (active === null || active.workspaceId !== workspaceId) return null;
-          return { sourceRevision: active.sourceRevision, publishedAt: active.createdAt };
+          return {
+            sourceRevision: active.sourceRevision,
+            publishedAt: active.createdAt,
+            ...(active.sourceFingerprint === undefined ? {} : { sourceFingerprint: active.sourceFingerprint }),
+          };
+        },
+        /*
+         * What the sources amount to right now.
+         *
+         * Compared with the fingerprint stored on the live version, this is how the dashboard knows
+         * a post or a layout is waiting — neither of which moves the project's revision. Absent when
+         * the site has never been published, which the caller reads as "nothing to compare".
+         */
+        loadCurrentFingerprint: async ({ workspaceId, projectId }) => {
+          const context = { workspaceId, userId: "" };
+          const [settings, published, index, article] = await Promise.all([
+            blog.loadSettings(context, projectId),
+            // Sorted by `updatedAt` descending already, so the first row carries the newest change.
+            blog.list(context, projectId, { status: "published", perPage: 1 }),
+            blogTemplates.loadOrCreate(context, projectId, "index"),
+            blogTemplates.loadOrCreate(context, projectId, "article"),
+          ]);
+
+          const project = await projects.findById(context, projectId);
+          if (project === null) return null;
+
+          return sourceFingerprintFrom({
+            projectRevision: project.revision,
+            settings,
+            publishablePostCount: published.total,
+            latestPostChangeAt: published.items[0]?.updatedAt ?? null,
+            indexTemplateVersion: index.publishedVersion ?? null,
+            articleTemplateVersion: article.publishedVersion ?? null,
+          });
         },
         // Scoped twice: the caller's workspace is verified by the resolver, and the snapshot is
         // used only when it belongs to that same workspace.
@@ -293,6 +327,12 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
               // As of the last publication, matching the documents above: a definition renamed
               // since then must not change what an already-published article resolves.
               fieldDefinitions: article.publishedFieldDefinitions,
+              // Which version of each layout is live, so publishing one counts as work the site has
+              // not received — it changes every article without touching the project's revision.
+              publishedVersions: {
+                ...(index.publishedVersion === undefined ? {} : { index: index.publishedVersion }),
+                ...(article.publishedVersion === undefined ? {} : { article: article.publishedVersion }),
+              },
             };
           },
           // The drafts, for previewing a layout that has not been published yet.

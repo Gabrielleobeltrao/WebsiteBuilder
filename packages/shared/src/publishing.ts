@@ -68,6 +68,14 @@ export type PublishedSiteVersion = {
   blog?: PublishableBlog;
   referencedMediaIds: string[];
   contentHash: string;
+  /**
+   * The publishable sources this version was compiled from, as one comparable value.
+   *
+   * Absent on versions published before it existed, which reads as "cannot tell from the snapshot"
+   * rather than as "nothing changed" — the caller falls back to the revision comparison it used to
+   * make, instead of inventing an answer.
+   */
+  sourceFingerprint?: string;
   createdByUserId: string;
   createdAt: string;
 };
@@ -323,14 +331,71 @@ export function contentHash(input: {
     blog: input.blog === undefined ? null : { ...input.blog, posts: [...input.blog.posts].sort((a, b) => a.id.localeCompare(b.id)) },
   });
 
-  // FNV-1a: short, dependency-free and stable across runtimes. This detects change, it is not a
-  // security primitive and nothing authenticates with it.
+  return fnv1a(canonical);
+}
+
+/**
+ * FNV-1a: short, dependency-free and stable across runtimes.
+ *
+ * This detects change. It is not a security primitive and nothing authenticates with it.
+ */
+function fnv1a(canonical: string): string {
   let hash = 2_166_136_261;
   for (let index = 0; index < canonical.length; index += 1) {
     hash ^= canonical.charCodeAt(index);
     hash = Math.imul(hash, 16_777_619);
   }
   return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+/**
+ * Everything publishable about a site, reduced to one comparable value.
+ *
+ * "Are there unpublished changes" was answered by comparing the project's revision with the one the
+ * live snapshot was compiled from. That is true only of the builder document. Posts, blog settings
+ * and the two layouts live in their own collections and do not touch the project's revision — so a
+ * customer could write a post, publish it, and be told by both the site card and the dashboard that
+ * their site was up to date, which is the same class of lie this whole plan set out to remove.
+ *
+ * Deliberately computed from source *identity* rather than from source content: the compiler's
+ * `contentHash` is the authority on whether output changed, but obtaining it means compiling the
+ * whole site, and a list of two hundred cards cannot compile two hundred sites to draw a badge.
+ * Everything here is available from a grouped query.
+ *
+ * The blog reduces to a count and a latest-change time because that pair moves for every single
+ * mutation: an edit or a publish stamps `updatedAt`, a creation stamps it too and becomes the
+ * newest, and a deletion — the one act that stamps nothing — lowers the count.
+ */
+export function publicationSourceFingerprint(input: {
+  projectRevision: number;
+  blog?: {
+    enabled: boolean;
+    format: string;
+    basePath: string;
+    /** Posts a publication would include: published ones only. */
+    publishablePostCount: number;
+    /** The newest `updatedAt` among them, or null when there are none. */
+    latestPostChangeAt: string | null;
+    /** Each layout's published version number, or null when it has never been published. */
+    indexTemplateVersion: number | null;
+    articleTemplateVersion: number | null;
+  };
+}): string {
+  return fnv1a(
+    JSON.stringify({
+      projectRevision: input.projectRevision,
+      blog:
+        input.blog === undefined
+          ? null
+          : {
+              enabled: input.blog.enabled,
+              format: input.blog.format,
+              basePath: input.blog.basePath,
+              posts: [input.blog.publishablePostCount, input.blog.latestPostChangeAt],
+              templates: [input.blog.indexTemplateVersion, input.blog.articleTemplateVersion],
+            },
+    }),
+  );
 }
 
 /** A domain serves traffic only when every stage is genuinely complete. */

@@ -23,6 +23,7 @@ import {
 } from "@websitebuilder/shared";
 
 import { renderRouteHtml } from "../../renderer/html";
+import { sourceFingerprintFrom } from "./fingerprint";
 import type { BlogRepository } from "../blog/repository";
 import type { MediaRepository } from "../media/repository";
 import { UnsupportedDocumentError, type ProjectRepository, type WorkspaceContext } from "../projects/repository";
@@ -94,7 +95,19 @@ export class PublishingService {
       loadBlogTemplates?: (
         context: WorkspaceContext,
         projectId: string,
-      ) => Promise<{ index?: BuilderPage; article?: BuilderPage; fieldDefinitions?: BlogFieldDefinition[] }>;
+      ) => Promise<{
+        index?: BuilderPage;
+        article?: BuilderPage;
+        fieldDefinitions?: BlogFieldDefinition[];
+        /**
+         * Each layout's published version number.
+         *
+         * Part of what decides whether a site has unpublished work: publishing a layout changes what
+         * every article looks like without touching the project's revision, so a fingerprint that
+         * left it out would call a redesigned blog up to date.
+         */
+        publishedVersions?: { index?: number; article?: number };
+      }>;
       /**
        * The layouts as they are being edited, for previewing them.
        *
@@ -121,11 +134,16 @@ export class PublishingService {
   }
 
   async publish(context: WorkspaceContext, projectId: string): Promise<PublishOutcome> {
-    const compiled = await this.compile(context, projectId);
-    if (compiled === null) return { status: "not-found" };
+    // Built here rather than through `compile` so the sources are still in hand: the fingerprint
+    // stored with the version has to come from the same read that produced the snapshot.
+    const sources = await this.buildSources(context, projectId);
+    if (sources === null) return { status: "not-found" };
+
+    const compiled = compileSite(sources.input);
     if (!compiled.ok) return { status: "blocked", report: compiled.report };
 
     const { snapshot } = compiled;
+    const sourceFingerprint = this.fingerprintOf(sources.input, sources.templateVersions);
     // Republishing identical content is not an error, but it also should not create a version
     // nobody can tell apart from the last one.
     const active = await this.deps.publishing.findActiveForProject(projectId);
@@ -133,7 +151,19 @@ export class PublishingService {
       // Republishing unchanged content is how someone whose site never got an address tries again,
       // so this path has to be able to give them one.
       await this.ensurePublicAddress(context, projectId);
-      return { status: "published", version: active, unchanged: true };
+
+      /*
+       * The sources are now recorded against what is already live.
+       *
+       * Not a change to the snapshot: what a visitor receives is untouched, and the content hash
+       * that identifies it is unchanged. This is bookkeeping about which sources compile to it, and
+       * without it a site whose sources moved without changing its output — an edit reverted, a
+       * layout republished identical — would report unpublished work forever.
+       */
+      if (active.sourceFingerprint !== sourceFingerprint) {
+        await this.deps.publishing.recordSourceFingerprint(context, active.id, sourceFingerprint);
+      }
+      return { status: "published", version: { ...active, sourceFingerprint }, unchanged: true };
     }
 
     try {
@@ -150,6 +180,7 @@ export class PublishingService {
         ...(snapshot.blog === undefined ? {} : { blog: snapshot.blog }),
         referencedMediaIds: snapshot.referencedMediaIds,
         contentHash: snapshot.contentHash,
+        sourceFingerprint,
       });
       // Retention runs after the pointer moved, so the version now live is known and excluded.
       // Deleting the snapshot a site is serving to save disk would take that site offline.
@@ -319,6 +350,35 @@ export class PublishingService {
     return input === null ? null : compileSite(input);
   }
 
+  /**
+   * What this site's publishable sources currently amount to.
+   *
+   * Stored with the version it publishes, so "has anything changed since" is one comparison rather
+   * than a recompile. Kept beside `buildCompileInput` because the two must read the same sources:
+   * a fingerprint computed from anything the compiler does not use would drift from what publishing
+   * actually freezes.
+   */
+  fingerprintOf(
+    input: CompileInput,
+    templateVersions: { index?: number; article?: number } = {},
+  ): string {
+    const publishable = input.blog.posts.filter((post) => post.status === "published");
+    const latest: string | null =
+      publishable
+        .map((post) => post.updatedAt)
+        .sort()
+        .at(-1) ?? null;
+
+    return sourceFingerprintFrom({
+      projectRevision: input.project.revision,
+      settings: input.blog.settings,
+      publishablePostCount: publishable.length,
+      latestPostChangeAt: latest,
+      indexTemplateVersion: templateVersions.index ?? null,
+      articleTemplateVersion: templateVersions.article ?? null,
+    });
+  }
+
   /** Everything the compiler needs, gathered once and scoped to the workspace throughout. */
   /**
    * Swaps the site's posts for representative ones and answers with the path to render.
@@ -354,6 +414,20 @@ export class PublishingService {
   }
 
   private async buildCompileInput(context: WorkspaceContext, projectId: string): Promise<CompileInput | null> {
+    return (await this.buildSources(context, projectId))?.input ?? null;
+  }
+
+  /**
+   * The compiler's input, and the layout versions that are not part of it.
+   *
+   * A published layout is a page as far as the compiler is concerned, but which *version* of it is
+   * live is what tells a dashboard whether the blog has unpublished work. Both come from one read
+   * so they cannot disagree.
+   */
+  private async buildSources(
+    context: WorkspaceContext,
+    projectId: string,
+  ): Promise<{ input: CompileInput; templateVersions: { index?: number; article?: number } } | null> {
     /*
      * A snapshot is immutable and public. It must never be compiled from a record this build cannot
      * vouch for: a newer deployment's document read through an older parser, or one that no longer
@@ -379,7 +453,14 @@ export class PublishingService {
       this.deps.loadRedirects?.(context, projectId) ?? Promise.resolve([]),
       this.deps.collectModuleFacts?.({ workspaceId: context.workspaceId, projectId }) ?? Promise.resolve({}),
       this.deps.loadBlogTemplates?.(context, projectId) ??
-        Promise.resolve({} as { index?: BuilderPage; article?: BuilderPage; fieldDefinitions?: BlogFieldDefinition[] }),
+        Promise.resolve(
+          {} as {
+            index?: BuilderPage;
+            article?: BuilderPage;
+            fieldDefinitions?: BlogFieldDefinition[];
+            publishedVersions?: { index?: number; article?: number };
+          },
+        ),
     ]);
 
     // Ownership comes from the workspace's own media list, so a snapshot can never reference an
@@ -401,7 +482,7 @@ export class PublishingService {
     const { document: versioned } = migrateDocumentElements(project);
     const { document: migrated } = migrateDocumentResponsive(versioned);
 
-    return {
+    const input: CompileInput = {
       project: migrated,
       blog: {
         settings,
@@ -437,5 +518,7 @@ export class PublishingService {
       moduleBlockers: status.blockingIssueCount,
       maxDocumentBytes: this.deps.maxDocumentBytes ?? MAX_PUBLISHED_DOCUMENT_BYTES,
     };
+
+    return { input, templateVersions: blogTemplates.publishedVersions ?? {} };
   }
 }

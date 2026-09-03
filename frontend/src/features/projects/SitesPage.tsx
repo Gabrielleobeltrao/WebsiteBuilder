@@ -251,10 +251,14 @@ function SiteCard({ workspaceId, project }: { workspaceId: string; project: Proj
           <div>
             <dt className="font-medium text-ink-700">{t("dashboard:sites.card.pendingChanges")}</dt>
             <dd>
+              {/* A site with nothing live is not "behind" anything: everything saved is waiting for
+                  a first publication, which is a different sentence. */}
               {t(
-                summary?.hasPendingChanges === true
-                  ? "dashboard:sites.card.pendingYes"
-                  : "dashboard:sites.card.pendingNo",
+                !project.isPublished
+                  ? "dashboard:sites.card.pendingNeverPublished"
+                  : summary?.hasPendingChanges === true
+                    ? "dashboard:sites.card.pendingYes"
+                    : "dashboard:sites.card.pendingNo",
               )}
             </dd>
           </div>

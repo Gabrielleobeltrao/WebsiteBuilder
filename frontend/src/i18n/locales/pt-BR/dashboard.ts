@@ -86,6 +86,7 @@ export default {
       pendingChanges: "Alterações não publicadas",
       pendingYes: "Sim — o site no ar está atrás do rascunho",
       pendingNo: "Não — o site no ar é igual ao rascunho",
+      pendingNeverPublished: "Tudo está esperando a primeira publicação",
       blockers: "Impedimentos conhecidos",
       blockersNone: "Nenhum encontrado nesta lista",
       blockersNote: "A página do site faz a verificação completa.",

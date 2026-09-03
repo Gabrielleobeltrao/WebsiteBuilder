@@ -86,6 +86,7 @@ export default {
       pendingChanges: "Unpublished changes",
       pendingYes: "Yes — the live site is behind the draft",
       pendingNo: "No — the live site matches the draft",
+      pendingNeverPublished: "Everything is waiting for a first publication",
       blockers: "Known blockers",
       blockersNone: "None found in this list",
       blockersNote: "The site's own dashboard runs the full check.",
