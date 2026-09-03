@@ -17,6 +17,13 @@ export const API_ERROR_CODES = [
   "UNSUPPORTED_MEDIA_TYPE",
   "UNKNOWN_HOST",
   "SERVICE_UNAVAILABLE",
+  /**
+   * The stored document is one this build must not act on.
+   *
+   * A newer deployment's record, or one that no longer parses. Distinct from a validation error,
+   * which is about what the caller sent: this is about what is already there.
+   */
+  "UNSUPPORTED_DOCUMENT",
   "INTERNAL_ERROR",
 ] as const;
 
@@ -52,6 +59,7 @@ export const HTTP_STATUS_BY_ERROR_CODE: Record<ApiErrorCode, number> = {
   RATE_LIMITED: 429,
   UNSUPPORTED_MEDIA_TYPE: 415,
   UNKNOWN_HOST: 404,
+  UNSUPPORTED_DOCUMENT: 409,
   SERVICE_UNAVAILABLE: 503,
   INTERNAL_ERROR: 500,
 };

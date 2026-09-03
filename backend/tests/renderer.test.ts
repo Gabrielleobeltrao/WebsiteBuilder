@@ -695,7 +695,9 @@ describe("analytics identity in published markup", () => {
         name: "Call to action",
         type: "button",
         text: "Read more",
-        link: { kind: "external", url: "https://example.test/" },
+        // `newTab` is required: the fixture reached storage through a direct repository call, so
+        // nothing validated it until reads were given a parse boundary.
+        link: { kind: "external", url: "https://example.test/", newTab: false },
         geometry: { x: 0, y: 0, width: 200, height: 48, rotation: 0 },
         responsiveLayout: {
           width: { value: 200, unit: "px" },

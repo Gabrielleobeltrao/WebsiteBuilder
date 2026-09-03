@@ -1,4 +1,5 @@
 import {
+  isSafeToOverwrite,
   normalizePublishablePost,
   buildRouteManifest,
   compileSite,
@@ -20,7 +21,7 @@ import {
 import { renderRouteHtml } from "../../renderer/html";
 import type { BlogRepository } from "../blog/repository";
 import type { MediaRepository } from "../media/repository";
-import type { ProjectRepository, WorkspaceContext } from "../projects/repository";
+import { UnsupportedDocumentError, type ProjectRepository, type WorkspaceContext } from "../projects/repository";
 import { reconcileSiteStatus, type ModuleFacts } from "../projects/status";
 import { PublishError, type PublishingRepository } from "./repository";
 
@@ -293,8 +294,18 @@ export class PublishingService {
 
   /** Everything the compiler needs, gathered once and scoped to the workspace throughout. */
   private async buildCompileInput(context: WorkspaceContext, projectId: string): Promise<CompileInput | null> {
-    const project = await this.deps.projects.findById(context, projectId);
-    if (project === null) return null;
+    /*
+     * A snapshot is immutable and public. It must never be compiled from a record this build cannot
+     * vouch for: a newer deployment's document read through an older parser, or one that no longer
+     * parses at all. Both used to reach the compiler as though they were current.
+     */
+    const diagnosis = await this.deps.projects.diagnose(context, projectId);
+    if (diagnosis === null) return null;
+    if (diagnosis.document === null || !isSafeToOverwrite(diagnosis)) {
+      throw new UnsupportedDocumentError(diagnosis);
+    }
+
+    const project = diagnosis.document;
 
     const [settings, posts, media, collections, items, redirects, facts, blogTemplates] = await Promise.all([
       this.deps.blog.loadSettings(context, projectId),

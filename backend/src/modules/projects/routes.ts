@@ -11,7 +11,7 @@ import { z } from "zod";
 import { ApiProblem, zodProblem } from "../../middleware/errors";
 import type { Permission } from "../workspaces/permissions";
 import type { WorkspaceContext } from "./repository";
-import { ProjectRepository, RevisionConflictError, SlugTakenError } from "./repository";
+import { ProjectRepository, RevisionConflictError, SlugTakenError, UnsupportedDocumentError } from "./repository";
 import { reconcileSiteStatus, type ModuleFacts } from "./status";
 import type { BuilderProject, SiteFeatureKey } from "@websitebuilder/shared";
 
@@ -166,6 +166,18 @@ function mapDomainError(error: unknown): unknown {
     return new ApiProblem("REVISION_CONFLICT", "Document was modified after it was loaded", [
       { path: "revision", message: `current revision is ${error.currentRevision}` },
     ]);
+  }
+  if (error instanceof UnsupportedDocumentError) {
+    // The paths are the point: an issue that named an array index would tell the person nothing,
+    // because array positions move and the ids they see in the editor do not.
+    return new ApiProblem(
+      "UNSUPPORTED_DOCUMENT",
+      error.message,
+      error.diagnosis.issues.map((issue) => ({
+        path: [issue.path.pageId, issue.path.sectionId, issue.path.elementId].filter(Boolean).join(" / ") || (issue.path.field ?? ""),
+        message: issue.message,
+      })),
+    );
   }
   if (error instanceof SlugTakenError) {
     return new ApiProblem("SLUG_TAKEN", "That address is already in use");

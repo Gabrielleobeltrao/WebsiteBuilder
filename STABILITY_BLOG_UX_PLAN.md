@@ -95,7 +95,7 @@ These are credible paths for the reported old-site failure, but the exact cause 
   - Acceptance: at least one test fails for the real defect before the fix; the fixture contains no tenant identity, credentials, domain, or private content; the affected project is not deleted or rewritten.
   - Verify: focused shared/backend/frontend tests for the fixture; record the exact failing boundary in the Progress Log.
 
-- [ ] **P0-T2 Add one parse, normalize, and diagnostic boundary for stored project documents.** Validate MongoDB project records against the supported shared schema, apply versioned pure migrations in memory, report migrated/future/invalid paths, and refuse unsafe writes or publication with a typed actionable error instead of crashing or silently dropping content. Keep migrations idempotent and preserve desktop authorship.
+- [x] **P0-T2 Add one parse, normalize, and diagnostic boundary for stored project documents.** Validate MongoDB project records against the supported shared schema, apply versioned pure migrations in memory, report migrated/future/invalid paths, and refuse unsafe writes or publication with a typed actionable error instead of crashing or silently dropping content. Keep migrations idempotent and preserve desktop authorship.
   - Acceptance: supported legacy documents open without recreation; unsupported future documents are not overwritten; diagnostics identify the page, section, and element when possible; reads remain workspace-scoped.
   - Verify: legacy/current/future/corrupt repository and API tests; shared migration idempotence tests; backend typecheck.
 
@@ -191,6 +191,15 @@ Append one row per completed task. Never rewrite previous rows.
 
 ```text
 YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
+2026-09-02 22:43 | P0-T2 | done | shared diagnosis tests, backend boundary tests, full test, typecheck, build | pending
+  `diagnoseStoredProject` is the single read boundary: current / migrated / future / invalid, with
+  issues located by page, section and element id rather than array index. `ProjectRepository.findById`
+  and the publishing compiler both route through it; `saveDocument` and `publish` refuse a future or
+  invalid record with `UnsupportedDocumentError` -> `UNSUPPORTED_DOCUMENT` (409). Two defects found by
+  the boundary itself: validating the whole stored record against the strict document schema called
+  every published site invalid (the schema describes the document, storage keeps `activePublishedVersionId`
+  beside it), and a renderer fixture had been storing a button whose link lacked `newTab` by calling
+  the repository directly — invalid content that was being published until reads were parsed.
 2026-09-02 22:33 | P0-T1 | done | shared+backend focused tests, typecheck, test, build | pending
   Failing boundary: publication, not saving or rendering. `service.publish` returns `blocked` for the
   legacy fixture with two `responsive-layout` blocking issues — `legacy-nested` (a container's child,

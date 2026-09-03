@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import {
   createProjectDocument,
+  diagnoseStoredProject,
+  isSafeToOverwrite,
   normalizeProjectSlug,
+  type DocumentDiagnosis,
   type BuilderDocumentInput,
   type BuilderProject,
   type ProjectSummary,
@@ -44,6 +47,26 @@ function toProject(document: ProjectDocument): BuilderProject {
 
 function toObjectId(id: string): ObjectId | null {
   return ObjectId.isValid(id) && id.length === 24 ? new ObjectId(id) : null;
+}
+
+/**
+ * A stored document this build must not act on.
+ *
+ * Raised instead of overwriting or publishing: a record written by a newer deployment is somebody
+ * else's work, and one that no longer parses is a document whose contents nobody can vouch for.
+ * Both used to pass straight through, because reads were trusted while writes were validated.
+ */
+export class UnsupportedDocumentError extends Error {
+  constructor(
+    public readonly diagnosis: DocumentDiagnosis,
+  ) {
+    super(
+      diagnosis.status === "future"
+        ? "This site was saved by a newer version of the builder and cannot be changed here."
+        : "This site's saved content could not be read.",
+    );
+    this.name = "UnsupportedDocumentError";
+  }
 }
 
 export class ProjectRepository {
@@ -129,10 +152,25 @@ export class ProjectRepository {
   }
 
   async findById(context: WorkspaceContext, projectId: string): Promise<BuilderProject | null> {
+    const diagnosed = await this.diagnose(context, projectId);
+    return diagnosed === null ? null : diagnosed.document;
+  }
+
+  /**
+   * The record, and what this build makes of it.
+   *
+   * One read, one parse, one answer — the boundary every other read goes through. Workspace-scoped
+   * first, as every business query is: a project id from a URL can only narrow a set already
+   * confined to the caller's tenant.
+   */
+  async diagnose(context: WorkspaceContext, projectId: string): Promise<DocumentDiagnosis | null> {
     const _id = toObjectId(projectId);
     if (_id === null) return null;
+
     const document = await this.collection.findOne({ _id, workspaceId: context.workspaceId });
-    return document === null ? null : toProject(document);
+    if (document === null) return null;
+
+    return diagnoseStoredProject(toProject(document));
   }
 
   /**
@@ -212,6 +250,16 @@ export class ProjectRepository {
   ): Promise<BuilderProject> {
     const _id = toObjectId(projectId);
     if (_id === null) throw new RevisionConflictError(expectedRevision);
+
+    /*
+     * What is already there decides whether this write may happen.
+     *
+     * A revision match proves the client read the same generation; it says nothing about whether
+     * this build understands what it is replacing. A newer deployment's document overwritten here is
+     * work destroyed, and the person who did it would see a successful save.
+     */
+    const existing = await this.diagnose(context, projectId);
+    if (existing !== null && !isSafeToOverwrite(existing)) throw new UnsupportedDocumentError(existing);
 
     const updated = await this.collection.findOneAndUpdate(
       { _id, workspaceId: context.workspaceId, revision: expectedRevision },
