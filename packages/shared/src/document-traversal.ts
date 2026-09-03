@@ -27,7 +27,15 @@ export type ElementLocation = {
   /** The page holding this element, or null when it lives in a shared section. */
   pageId: string | null;
   sectionId: string;
-  /** How the section places its children. Free sections position by coordinate; the others do not. */
+  /**
+   * How this element's *immediate parent* places it.
+   *
+   * The section's mode for a direct child of the section, and the container's own `layout` for
+   * anything inside one. Passing the section's mode all the way down told a transform that a child
+   * of a flex container was positioned by coordinate, which is how the responsive migration came to
+   * write phone overrides onto elements the browser already reflows — moving somebody's work for a
+   * problem they did not have.
+   */
   layoutMode: SectionLayoutMode;
   /** Depth 0 is a direct child of the section; deeper means inside a container. */
   depth: number;
@@ -38,13 +46,18 @@ export function* walkDocumentElements(
   document: DocumentLike,
 ): Generator<{ element: BuilderElement; location: ElementLocation }> {
   function* section(current: BuilderSection, pageId: string | null): Generator<{ element: BuilderElement; location: ElementLocation }> {
-    function* level(elements: readonly BuilderElement[], depth: number): Generator<{ element: BuilderElement; location: ElementLocation }> {
+    function* level(
+      elements: readonly BuilderElement[],
+      layoutMode: SectionLayoutMode,
+      depth: number,
+    ): Generator<{ element: BuilderElement; location: ElementLocation }> {
       for (const element of elements) {
-        yield { element, location: { pageId, sectionId: current.id, layoutMode: current.layoutMode, depth } };
-        if (element.type === "container") yield* level(element.children, depth + 1);
+        yield { element, location: { pageId, sectionId: current.id, layoutMode, depth } };
+        // Children are placed by the container, so the container's layout is what describes them.
+        if (element.type === "container") yield* level(element.children, element.layout, depth + 1);
       }
     }
-    yield* level(current.elements, 0);
+    yield* level(current.elements, current.layoutMode, 0);
   }
 
   for (const page of document.pages) {
@@ -71,30 +84,27 @@ export function mapDocumentElements<T extends DocumentLike>(
     elements: readonly BuilderElement[],
     section: BuilderSection,
     pageId: string | null,
+    layoutMode: SectionLayoutMode,
     depth: number,
   ): readonly BuilderElement[] => {
     const next = elements.map((element) => {
       const withChildren =
         element.type === "container"
           ? (() => {
-              const children = visitLevel(element.children, section, pageId, depth + 1);
+              // The container's own layout describes its children, not the section's.
+              const children = visitLevel(element.children, section, pageId, element.layout, depth + 1);
               return children === element.children ? element : ({ ...element, children } as BuilderElement);
             })()
           : element;
 
-      return visit(withChildren, {
-        pageId,
-        sectionId: section.id,
-        layoutMode: section.layoutMode,
-        depth,
-      });
+      return visit(withChildren, { pageId, sectionId: section.id, layoutMode, depth });
     });
 
     return next.every((element, index) => element === elements[index]) ? elements : next;
   };
 
   const visitSection = (section: BuilderSection, pageId: string | null): BuilderSection => {
-    const elements = visitLevel(section.elements, section, pageId, 0);
+    const elements = visitLevel(section.elements, section, pageId, section.layoutMode, 0);
     return elements === section.elements ? section : { ...section, elements: elements as BuilderElement[] };
   };
 

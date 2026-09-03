@@ -172,3 +172,104 @@ describe("fitting a page to one device on request", () => {
     expect(again.page.sections[0]!.elements).toEqual(page.sections[0]!.elements);
   });
 });
+
+/**
+ * Which elements the migration is allowed to touch.
+ *
+ * It writes a narrow-device override onto anything placed by coordinate that leaves the screen. A
+ * flex or grid parent places its children itself and the browser reflows them, so an override there
+ * moves work the author did for a problem they never had — and it is written into their document.
+ *
+ * The traversal used to report the *section's* layout for every descendant, so a child of a flex
+ * container inside a free section was migrated as though it were free.
+ */
+describe("what the responsive migration is allowed to move", () => {
+  const offCanvasText = (id: string) => ({
+    id,
+    name: "",
+    type: "text",
+    tag: "p",
+    content: id,
+    style: {
+      fontFamily: "Inter",
+      fontSize: { value: 16, unit: "px" },
+      fontWeight: 400,
+      fontStyle: "normal",
+      textAlign: "left",
+      color: "#111827",
+      lineHeight: 1.5,
+    },
+    // Far past the right edge of a phone, which is what makes it a migration candidate at all.
+    geometry: { x: 1100, y: 40, width: 280, height: 40, rotation: 0 },
+    responsiveLayout: {
+      width: { value: 280, unit: "px" },
+      height: { value: 40, unit: "px" },
+      horizontalConstraint: "left",
+      verticalConstraint: "top",
+      visible: true,
+    },
+    zIndex: 1,
+    locked: false,
+    hidden: false,
+  });
+
+  const box = (id: string, layout: "free" | "flex" | "grid", children: unknown[]) => ({
+    ...offCanvasText(id),
+    type: "container",
+    layout,
+    layoutByBreakpoint: {},
+    children,
+  });
+
+  const documentWith = (elements: unknown[], sectionMode: "free" | "flex" | "grid" = "free") => ({
+    ...legacyDesktopOnlyProject(),
+    pages: [
+      {
+        ...legacyDesktopOnlyProject().pages[0]!,
+        sections: [{ ...legacyDesktopOnlyProject().pages[0]!.sections[0]!, layoutMode: sectionMode, elements }],
+      },
+    ],
+    sharedSections: [],
+  });
+
+  const movedIds = (document: unknown) =>
+    migrateDocumentResponsive(document as never).report.changed.map((entry) => entry.elementId);
+
+  it("leaves a flex container's child alone, even inside a free section", () => {
+    const moved = movedIds(documentWith([box("outer", "flex", [offCanvasText("child")])]));
+
+    expect(moved).toContain("outer");
+    expect(moved).not.toContain("child");
+  });
+
+  it("leaves a grid container's child alone", () => {
+    expect(movedIds(documentWith([box("outer", "grid", [offCanvasText("child")])]))).not.toContain("child");
+  });
+
+  it("still moves a free container's child", () => {
+    expect(movedIds(documentWith([box("outer", "free", [offCanvasText("child")])]))).toContain("child");
+  });
+
+  it("moves a free container's child even when the section is in flow", () => {
+    const moved = movedIds(documentWith([box("outer", "free", [offCanvasText("child")])], "flex"));
+
+    // The section places the container; the container places the child by coordinate.
+    expect(moved).not.toContain("outer");
+    expect(moved).toContain("child");
+  });
+
+  it("stays correct through mixed depths", () => {
+    // free section > outer(free) > middle(grid) > inner(free) > leaf
+    //
+    // Each element is judged by the parent that places it, never by its own layout: `middle` is
+    // inside a free container so it is placed by coordinate, and `inner` is inside a grid one so it
+    // is not — even though `inner` itself is free, which is what places `leaf`.
+    const deep = box("outer", "free", [box("middle", "grid", [box("inner", "free", [offCanvasText("leaf")])])]);
+    const moved = movedIds(documentWith([deep]));
+
+    expect(moved).toContain("outer");
+    expect(moved).toContain("middle");
+    expect(moved).not.toContain("inner");
+    expect(moved).toContain("leaf");
+  });
+});
