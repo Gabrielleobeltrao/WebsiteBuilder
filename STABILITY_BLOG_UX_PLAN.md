@@ -448,7 +448,10 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   mismatch. Item 2: against a real `mongodb-memory-server`, three reads of a blogless site created zero
   rows, a draft reported `null` while a published layout reported version 1 with its document, and another
   workspace read absence and wrote nothing. This is execution of the behaviour, not the vitest gate, and
-  it is recorded as such: `npm test` still has not run. One frontend attempt failed differently — the
+  it is recorded as such: `npm test` still has not run. The copy was checked the same way: all twelve
+  locale namespaces hold identical key sets in both languages, and the four keys this review added —
+  the dashboard's `publicationUnknown`, the card's `pendingUnknown`, its `republish` action and the
+  `unverified` status — are present and non-empty in pt-BR and en-US. One frontend attempt failed differently — the
   operating system cancelled the read of `vite.config.ts` with `ECANCELED` — the same pressure from
   another angle. Root cause of the wider slowness, now fixed: vitest defaulted to one worker per core —
   eight Node processes, most of them starting their own `mongod` or jsdom — which starved each other;
