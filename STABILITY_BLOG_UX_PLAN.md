@@ -437,7 +437,18 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   modules and runs in 266 ms; `pending-publication.test.ts` imports nineteen and dies at 168 s with
   `[vitest-worker]: Timeout calling "fetch"` and `collect 0ms` — before a single `mongod` is started, at
   module loading. `tsc` fails the same way one stage earlier. The whole `packages/shared` suite runs
-  because each of its files pulls in a handful of pure modules. One frontend attempt failed differently — the
+  because each of its files pulls in a handful of pure modules.
+
+  What did run, once that was understood: `tsx` loads a module graph through esbuild rather than Vite's
+  worker pipeline, and it completes where vitest cannot. Both behaviours were executed through it against
+  the real code. Item 1: all twelve inputs move the fingerprint — the seven blog settings, the project
+  revision, the post count, the newest post change and each layout version — identical input is stable,
+  and `publicationStateFor` answers `unknown` for a snapshot with no fingerprint, `pending` when the
+  document moved past it, `pending` when nothing is live, `up-to-date` on a match and `pending` on a
+  mismatch. Item 2: against a real `mongodb-memory-server`, three reads of a blogless site created zero
+  rows, a draft reported `null` while a published layout reported version 1 with its document, and another
+  workspace read absence and wrote nothing. This is execution of the behaviour, not the vitest gate, and
+  it is recorded as such: `npm test` still has not run. One frontend attempt failed differently — the
   operating system cancelled the read of `vite.config.ts` with `ECANCELED` — the same pressure from
   another angle. Root cause of the wider slowness, now fixed: vitest defaulted to one worker per core —
   eight Node processes, most of them starting their own `mongod` or jsdom — which starved each other;
