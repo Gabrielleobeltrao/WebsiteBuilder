@@ -432,9 +432,12 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   `frontend`, the frontend feature tests, every MongoDB-backed backend test, `npm test`, `npm run build`
   and `npm run test:e2e`. The machine has ~200 MB of RAM free with swap near full; `tsc` on the backend
   stalls in state `Ss` at 0% CPU and ~650 KB RSS, before it finishes loading, and a 420 MB heap cap did
-  not change it. The boundary is exact and reproducible: a workspace whose tests need neither a `mongod`
-  nor a jsdom runs (shared, 716 tests in 169 s); anything needing either, and `tsc` on the two larger
-  projects, stalls at 0% CPU before doing any work. One frontend attempt failed differently — the
+  not change it. The boundary is exact and reproducible, and it is not MongoDB or jsdom as first
+  assumed: it is the size of the module graph a process has to load. `dev-ports.test.ts` imports three
+  modules and runs in 266 ms; `pending-publication.test.ts` imports nineteen and dies at 168 s with
+  `[vitest-worker]: Timeout calling "fetch"` and `collect 0ms` — before a single `mongod` is started, at
+  module loading. `tsc` fails the same way one stage earlier. The whole `packages/shared` suite runs
+  because each of its files pulls in a handful of pure modules. One frontend attempt failed differently — the
   operating system cancelled the read of `vite.config.ts` with `ECANCELED` — the same pressure from
   another angle. Root cause of the wider slowness, now fixed: vitest defaulted to one worker per core —
   eight Node processes, most of them starting their own `mongod` or jsdom — which starved each other;
