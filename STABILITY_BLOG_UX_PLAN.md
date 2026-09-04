@@ -427,11 +427,16 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   the service and the origins that follow it. Commits: 4192b8c, 47fea6f, 9e00fab on `development`.
   VALIDATION IS INCOMPLETE AND NOTHING HERE CLAIMS OTHERWISE. What ran: `git diff --check` clean,
   `check:plan-skill` 0, `check:runbook` 0, `packages/shared` typecheck exit 0, `dev-ports.test.ts` 10/10,
-  `publication.test.ts` + `publishing.test.ts` 58/58. What could not run: typecheck of `backend` and
+  `publication.test.ts` + `publishing.test.ts` 58/58, and then the whole `packages/shared` suite — 43
+  files, 716 tests, all passing, which covers `publicationSourceFingerprint` itself. What could not run: typecheck of `backend` and
   `frontend`, the frontend feature tests, every MongoDB-backed backend test, `npm test`, `npm run build`
   and `npm run test:e2e`. The machine has ~200 MB of RAM free with swap near full; `tsc` on the backend
   stalls in state `Ss` at 0% CPU and ~650 KB RSS, before it finishes loading, and a 420 MB heap cap did
-  not change it. Root cause of the wider slowness, now fixed: vitest defaulted to one worker per core —
+  not change it. The boundary is exact and reproducible: a workspace whose tests need neither a `mongod`
+  nor a jsdom runs (shared, 716 tests in 169 s); anything needing either, and `tsc` on the two larger
+  projects, stalls at 0% CPU before doing any work. One frontend attempt failed differently — the
+  operating system cancelled the read of `vite.config.ts` with `ECANCELED` — the same pressure from
+  another angle. Root cause of the wider slowness, now fixed: vitest defaulted to one worker per core —
   eight Node processes, most of them starting their own `mongod` or jsdom — which starved each other;
   both workspaces are capped at four. The same test file went from no output in ten minutes to 266 ms.
 ```
