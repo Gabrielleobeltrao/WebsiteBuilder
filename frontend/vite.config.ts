@@ -48,6 +48,15 @@ export default defineConfig(({ mode }) => {
     proxy: { "/api": { target: apiTarget, changeOrigin: true } },
   },
   test: {
+    /*
+     * Bounded rather than one worker per core.
+     *
+     * Each worker is a Node process with its own jsdom, and eight of them on a machine already
+     * running something else stall together: every one sits at 0% CPU waiting for memory another is
+     * holding. `--no-file-parallelism` is the escape hatch when even this is too much.
+     */
+    maxWorkers: 4,
+    minWorkers: 1,
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],

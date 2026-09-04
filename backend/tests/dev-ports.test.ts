@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { loadEnv } from "../src/config/env";
-import { testEnv } from "./helpers";
 
 /**
  * One port contract, stated in six places that have to agree.
@@ -22,9 +21,25 @@ const CONTAINER = { api: 3000, renderer: 3001 } as const;
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 
+/**
+ * The environment as a process actually presents it: strings, or nothing at all.
+ *
+ * `testEnv()` returns the *parsed* environment, where a port is a number — spreading that back into
+ * `loadEnv` would be handing the parser its own output and testing nothing about how a real
+ * `process.env` is read. An absent variable is `undefined` here for the same reason: that is what a
+ * missing one looks like, and it is the case these tests are about.
+ */
+function rawEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+  return {
+    NODE_ENV: "test",
+    PLATFORM_ROOT_DOMAIN: "localhost",
+    ...overrides,
+  };
+}
+
 describe("the development contract", () => {
   it("is what the application listens on when nothing is configured", () => {
-    const env = loadEnv({ ...testEnv(), API_PORT: undefined, PUBLIC_RENDERER_PORT: undefined, WEB_PORT: undefined });
+    const env = loadEnv(rawEnv());
 
     expect(env.API_PORT).toBe(DEV.api);
     expect(env.PUBLIC_RENDERER_PORT).toBe(DEV.renderer);
@@ -104,14 +119,14 @@ describe("the container contract", () => {
 
 describe("moving a port", () => {
   it("moves the origins that follow it, so a cookie is issued for the page being served", () => {
-    const env = loadEnv({ ...testEnv(), WEB_PORT: "9999", FRONTEND_ORIGIN: undefined, BETTER_AUTH_URL: undefined });
+    const env = loadEnv(rawEnv({ WEB_PORT: "9999" }));
 
     expect(env.WEB_PORT).toBe(9999);
     expect(env.FRONTEND_ORIGIN).toBe("http://localhost:9999");
   });
 
   it("is honoured over the default on every service", () => {
-    const env = loadEnv({ ...testEnv(), API_PORT: "9101", PUBLIC_RENDERER_PORT: "9102", WEB_PORT: "9103" });
+    const env = loadEnv(rawEnv({ API_PORT: "9101", PUBLIC_RENDERER_PORT: "9102", WEB_PORT: "9103" }));
 
     expect([env.API_PORT, env.PUBLIC_RENDERER_PORT, env.WEB_PORT]).toEqual([9101, 9102, 9103]);
   });
