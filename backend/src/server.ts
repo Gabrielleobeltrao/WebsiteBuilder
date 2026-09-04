@@ -232,12 +232,13 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
          */
         loadCurrentFingerprint: async ({ workspaceId, projectId }) => {
           const context = { workspaceId, userId: "" };
-          const [settings, published, index, article] = await Promise.all([
+          const [settings, published, layouts] = await Promise.all([
             blog.loadSettings(context, projectId),
             // Sorted by `updatedAt` descending already, so the first row carries the newest change.
             blog.list(context, projectId, { status: "published", perPage: 1 }),
-            blogTemplates.loadOrCreate(context, projectId, "index"),
-            blogTemplates.loadOrCreate(context, projectId, "article"),
+            // Read-only: asking whether a publication is pending must not create the layouts it is
+            // asking about, which is what opening the dashboard of a blogless site used to do.
+            blogTemplates.findPublishedMetadata(context, projectId),
           ]);
 
           const project = await projects.findById(context, projectId);
@@ -248,8 +249,8 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
             settings,
             publishablePostCount: published.total,
             latestPostChangeAt: published.items[0]?.updatedAt ?? null,
-            indexTemplateVersion: index.publishedVersion ?? null,
-            articleTemplateVersion: article.publishedVersion ?? null,
+            indexTemplateVersion: layouts.index.version,
+            articleTemplateVersion: layouts.article.version,
           });
         },
         // Scoped twice: the caller's workspace is verified by the resolver, and the snapshot is
@@ -315,23 +316,22 @@ async function buildDependencies(env: Env, logger: ReturnType<typeof createLogge
             const settings = await blog.loadSettings(context, projectId);
             if (!settings.enabled) return {};
 
-            const [index, article] = await Promise.all([
-              blogTemplates.loadOrCreate(context, projectId, "index"),
-              blogTemplates.loadOrCreate(context, projectId, "article"),
-            ]);
+            // Read-only, because publication is not the moment to invent a layout: preflight runs
+            // this too, and a GET that creates records is a GET that lies about being one.
+            const layouts = await blogTemplates.findPublishedMetadata(context, projectId);
             // The published document, never the draft: editing a template changes the live site at
             // the next publish and not before.
             return {
-              ...(index.publishedDocument === undefined ? {} : { index: index.publishedDocument }),
-              ...(article.publishedDocument === undefined ? {} : { article: article.publishedDocument }),
+              ...(layouts.index.document === undefined ? {} : { index: layouts.index.document }),
+              ...(layouts.article.document === undefined ? {} : { article: layouts.article.document }),
               // As of the last publication, matching the documents above: a definition renamed
               // since then must not change what an already-published article resolves.
-              fieldDefinitions: article.publishedFieldDefinitions,
+              fieldDefinitions: layouts.article.fieldDefinitions,
               // Which version of each layout is live, so publishing one counts as work the site has
               // not received — it changes every article without touching the project's revision.
               publishedVersions: {
-                ...(index.publishedVersion === undefined ? {} : { index: index.publishedVersion }),
-                ...(article.publishedVersion === undefined ? {} : { article: article.publishedVersion }),
+                ...(layouts.index.version === null ? {} : { index: layouts.index.version }),
+                ...(layouts.article.version === null ? {} : { article: layouts.article.version }),
               },
             };
           },

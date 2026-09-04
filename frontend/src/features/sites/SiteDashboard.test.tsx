@@ -157,26 +157,26 @@ describe("the top actions", () => {
   });
 
   it("emphasises publishing while a visitor is behind, and editing when they are not", async () => {
-    mockStatus([], { pendingPublication: true, activeSourceRevision: 3 });
+    mockStatus([], { publicationState: "pending", activeSourceRevision: 3 });
     const { unmount } = render();
     expect((await screen.findByRole("link", { name: "Publish changes" })).className).toContain("bg-accent-600");
     expect(screen.getByRole("link", { name: "Edit site" }).className).not.toContain("bg-accent-600");
     unmount();
 
-    mockStatus([], { pendingPublication: false, activeSourceRevision: 4 });
+    mockStatus([], { publicationState: "up-to-date", activeSourceRevision: 4 });
     render();
     expect((await screen.findByRole("link", { name: "Edit site" })).className).toContain("bg-accent-600");
     expect(screen.getByRole("link", { name: "Publish changes" }).className).not.toContain("bg-accent-600");
   });
 
   it("says whether visitors have this work, from the revision the live snapshot was built from", async () => {
-    mockStatus([], { pendingPublication: true, activeSourceRevision: 3 });
+    mockStatus([], { publicationState: "pending", activeSourceRevision: 3 });
     render();
     expect(await screen.findByText(/visitors have not received yet/)).toBeInTheDocument();
   });
 
   it("says a site has never been published rather than calling it out of date", async () => {
-    mockStatus([], { pendingPublication: false, activeSourceRevision: null });
+    mockStatus([], { publicationState: "up-to-date", activeSourceRevision: null });
     render();
     expect(await screen.findByText(/never been published/)).toBeInTheDocument();
   });

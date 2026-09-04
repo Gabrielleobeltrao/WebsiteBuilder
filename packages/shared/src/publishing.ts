@@ -1,3 +1,4 @@
+import type { BlogSettings } from "./blog";
 import type { PublishedForm } from "./forms";
 import type { PublishableBlog } from "./publication";
 import { z } from "zod";
@@ -40,6 +41,18 @@ export const publishedRedirectSchema = z
   .strict();
 
 export type PublishedRedirect = z.infer<typeof publishedRedirectSchema>;
+
+/**
+ * Whether a visitor has the work that is saved.
+ *
+ * `unknown` is a first-class answer, not a failure. A version published before source fingerprints
+ * existed recorded nothing to compare against, and its revision only describes the builder document
+ * — so a post, a layout or a blog setting could all have moved since with no way to prove it either
+ * way. Saying "up to date" there would be the product asserting something it cannot know, which is
+ * the class of claim this whole plan exists to remove.
+ */
+export const PUBLICATION_STATES = ["up-to-date", "pending", "unknown"] as const;
+export type PublicationState = (typeof PUBLICATION_STATES)[number];
 
 export type PublishedSiteVersion = {
   id: string;
@@ -369,9 +382,8 @@ function fnv1a(canonical: string): string {
 export function publicationSourceFingerprint(input: {
   projectRevision: number;
   blog?: {
-    enabled: boolean;
-    format: string;
-    basePath: string;
+    /** Every setting a snapshot freezes, so changing any of them counts as unpublished work. */
+    settings: BlogSettings;
     /** Posts a publication would include: published ones only. */
     publishablePostCount: number;
     /** The newest `updatedAt` among them, or null when there are none. */
@@ -388,9 +400,23 @@ export function publicationSourceFingerprint(input: {
         input.blog === undefined
           ? null
           : {
-              enabled: input.blog.enabled,
-              format: input.blog.format,
-              basePath: input.blog.basePath,
+              /*
+               * The settings the compiler freezes, all of them, in a fixed order.
+               *
+               * Three of the seven used to be read — so changing how many posts a page shows, or the
+               * name a post is bylined with, changed what visitors receive and was reported as
+               * nothing to publish. Listing the keys rather than hashing the object also keeps a
+               * stored `_id` or a workspace field out of the value.
+               */
+              settings: [
+                input.blog.settings.enabled,
+                input.blog.settings.basePath,
+                input.blog.settings.format ?? null,
+                input.blog.settings.postsPerPage,
+                input.blog.settings.defaultAuthorName ?? null,
+                input.blog.settings.indexTemplateId ?? null,
+                input.blog.settings.articleTemplateId ?? null,
+              ],
               posts: [input.blog.publishablePostCount, input.blog.latestPostChangeAt],
               templates: [input.blog.indexTemplateVersion, input.blog.articleTemplateVersion],
             },

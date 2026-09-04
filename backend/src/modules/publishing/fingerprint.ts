@@ -1,4 +1,4 @@
-import { blogFormatOf, publicationSourceFingerprint, type BlogSettings } from "@websitebuilder/shared";
+import { publicationSourceFingerprint, type BlogSettings } from "@websitebuilder/shared";
 
 /**
  * The one place that turns a site's sources into the value publication stores.
@@ -10,7 +10,7 @@ import { blogFormatOf, publicationSourceFingerprint, type BlogSettings } from "@
  */
 export function sourceFingerprintFrom(input: {
   projectRevision: number;
-  settings: Pick<BlogSettings, "enabled" | "format" | "basePath">;
+  settings: BlogSettings;
   /** Posts a publication would include: published ones only. */
   publishablePostCount: number;
   /** The newest `updatedAt` among them, or null when there are none. */
@@ -21,10 +21,7 @@ export function sourceFingerprintFrom(input: {
   return publicationSourceFingerprint({
     projectRevision: input.projectRevision,
     blog: {
-      enabled: input.settings.enabled,
-      // Through the shared rule: an unset format still publishes as the default one.
-      format: blogFormatOf(input.settings),
-      basePath: input.settings.basePath,
+      settings: input.settings,
       publishablePostCount: input.publishablePostCount,
       latestPostChangeAt: input.latestPostChangeAt,
       indexTemplateVersion: input.indexTemplateVersion,

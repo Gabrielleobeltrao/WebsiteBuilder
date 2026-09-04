@@ -99,7 +99,9 @@ export function SiteDashboard({
 
   const base = `/app/${workspaceId}/sites/${projectId}`;
   // Saved work a visitor is not receiving yet. It decides which of the two top actions is the loud one.
-  const pendingPublication = state.status === "ready" && state.site.pendingPublication;
+  // Anything but a proven "up to date" puts the weight on publishing: work waiting, and work that
+  // cannot be shown to have gone out, both end at the same button.
+  const pendingPublication = state.status === "ready" && state.site.publicationState !== "up-to-date";
   /**
    * Every place this site contains, in the order somebody looks for them.
    *
@@ -230,15 +232,22 @@ export function SiteDashboard({
               </p>
             )}
 
-            {/* Whether a visitor is seeing this work. Read from the revision the live snapshot was
-                compiled from, not from a local guess about whether anything was typed. */}
-            <p className="mt-2 text-xs text-ink-600">
+            {/*
+              Whether a visitor is seeing this work.
+
+              Three answers, not two. A site whose live version predates source fingerprints recorded
+              nothing to compare against, so the honest answer is that this cannot be shown either
+              way — and the way out of it is one publication, which is what the sentence says.
+            */}
+            <p className={`mt-2 text-xs ${state.site.publicationState === "unknown" ? "text-amber-700" : "text-ink-600"}`}>
               {t(
                 state.site.activeSourceRevision === null
                   ? "dashboard:site.neverPublished"
-                  : state.site.pendingPublication
-                    ? "dashboard:site.pendingPublication"
-                    : "dashboard:site.upToDate",
+                  : state.site.publicationState === "unknown"
+                    ? "dashboard:site.publicationUnknown"
+                    : state.site.publicationState === "pending"
+                      ? "dashboard:site.pendingPublication"
+                      : "dashboard:site.upToDate",
               )}
             </p>
           </section>

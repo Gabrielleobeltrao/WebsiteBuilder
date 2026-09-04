@@ -51,6 +51,14 @@ export async function ensureTemplateIndexes(db: Db): Promise<void> {
     .createIndexes([{ key: { projectId: 1, kind: 1 }, name: "project_kind_unique", unique: true }]);
 }
 
+/** What one layout has published, with absence preserved as absence. */
+export type PublishedTemplateMetadata = {
+  /** Null when the layout has never been published, which is not the same as version zero. */
+  version: number | null;
+  fieldDefinitions: BlogFieldDefinition[];
+  document?: BuilderPage;
+};
+
 export class TemplateRepository {
   private readonly templates: Collection<TemplateDocument>;
 
@@ -105,6 +113,46 @@ export class TemplateRepository {
    * `expectedVersion` is optional so a caller with no version in hand can still save, which is what
    * the seeding path and the tests that predate this do.
    */
+  /**
+   * What is published for each kind, reading only.
+   *
+   * `loadOrCreate` is the editor's entry point and creates a starter, which is right when somebody
+   * opens a layout to design it — and wrong everywhere else. Opening a site's dashboard, listing
+   * sites, or asking whether a publication is pending all went through it, so simply looking at a
+   * site with no blog wrote two template rows into the database and made an unused module look
+   * started. A read answers with what exists, and absence stays absence.
+   */
+  async findPublishedMetadata(
+    context: WorkspaceContext,
+    projectId: string,
+  ): Promise<Record<TemplateKind, PublishedTemplateMetadata>> {
+    const rows = await this.templates
+      .find({ workspaceId: context.workspaceId, projectId })
+      .project<{
+        kind: TemplateKind;
+        publishedVersion?: number;
+        publishedDocument?: BuilderPage;
+        publishedFieldDefinitions?: BlogFieldDefinition[];
+      }>({ kind: 1, publishedVersion: 1, publishedDocument: 1, publishedFieldDefinitions: 1 })
+      .toArray();
+
+    const found: Record<TemplateKind, PublishedTemplateMetadata> = {
+      index: { version: null, fieldDefinitions: [] },
+      article: { version: null, fieldDefinitions: [] },
+    };
+
+    for (const row of rows) {
+      if (row.kind !== "index" && row.kind !== "article") continue;
+      found[row.kind] = {
+        version: row.publishedVersion ?? null,
+        fieldDefinitions: row.publishedFieldDefinitions ?? [],
+        ...(row.publishedDocument === undefined ? {} : { document: row.publishedDocument }),
+      };
+    }
+
+    return found;
+  }
+
   /**
    * The template for a kind, and whether this call is what brought it into existence.
    *

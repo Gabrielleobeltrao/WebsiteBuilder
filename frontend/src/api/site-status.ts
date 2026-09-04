@@ -1,4 +1,4 @@
-import type { AuditCategory, CategoryResult, SiteFeatureState } from "@websitebuilder/shared";
+import type { AuditCategory, CategoryResult, PublicationState, SiteFeatureState } from "@websitebuilder/shared";
 
 import { apiRequest } from "./client";
 
@@ -26,8 +26,14 @@ export type SiteStatus = {
    * site — the blog dashboard needs all three states to say anything true about a post.
    */
   activePublishedAt: string | null;
-  /** Whether the person has saved work a visitor is not receiving yet. */
-  pendingPublication: boolean;
+  /**
+   * Whether a visitor has the work that is saved.
+   *
+   * `unknown` belongs to a site whose live version predates source fingerprints: its revision
+   * describes the builder document alone, so a post, a layout or a blog setting could have moved
+   * since with nothing to compare against. Publishing once replaces the guess with a fact.
+   */
+  publicationState: PublicationState;
 };
 
 export const siteStatusApi = {

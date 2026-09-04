@@ -5,6 +5,7 @@ import {
   resourceIdSchema,
   projectSlugSchema,
   type ProjectSummary,
+  type PublicationState,
 } from "@websitebuilder/shared";
 import { Router, type RequestHandler } from "express";
 import { z } from "zod";
@@ -183,7 +184,7 @@ export function createProjectsRouter(options: {
            * comparison rather than guessing: an old snapshot cannot answer a question it never
            * recorded.
            */
-          pendingPublication: pendingPublicationFor({
+          publicationState: publicationStateFor({
             projectRevision: project.revision,
             active: activePublication,
             currentFingerprint,
@@ -264,21 +265,28 @@ export function createProjectsRouter(options: {
  * One rule for "has this site got work a visitor has not received", used by the status endpoint and
  * by the batched card summaries so the two can never disagree.
  */
-export function pendingPublicationFor(input: {
+export function publicationStateFor(input: {
   projectRevision: number;
   active: { sourceRevision: number; sourceFingerprint?: string } | null;
   currentFingerprint: string | null;
-}): boolean {
+}): PublicationState {
   // Nothing is live, so everything saved is waiting.
-  if (input.active === null) return input.projectRevision > 0;
+  if (input.active === null) return input.projectRevision > 0 ? "pending" : "up-to-date";
 
   if (input.active.sourceFingerprint !== undefined && input.currentFingerprint !== null) {
-    return input.active.sourceFingerprint !== input.currentFingerprint;
+    return input.active.sourceFingerprint === input.currentFingerprint ? "up-to-date" : "pending";
   }
 
-  // Published before fingerprints, or sources that could not be read: the document is the only
-  // thing this can still compare, and claiming more would be inventing an answer.
-  return input.projectRevision > input.active.sourceRevision;
+  /*
+   * A version published before source fingerprints existed, or sources that could not be read.
+   *
+   * Its revision describes the builder document and nothing else, so a document that has moved is
+   * still proof of unpublished work — but a document that has not moved proves nothing at all: a
+   * post, a layout or a blog setting could have changed since with no record to compare against.
+   * Answering "up to date" there would be the product asserting what it cannot know, so it says so
+   * instead, and one publication replaces the guess with a fact.
+   */
+  return input.projectRevision > input.active.sourceRevision ? "pending" : "unknown";
 }
 
 function mapDomainError(error: unknown): unknown {

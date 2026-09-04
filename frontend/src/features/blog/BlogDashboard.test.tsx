@@ -71,7 +71,7 @@ function mockApi(options: {
         readiness: {},
         activeSourceRevision: activePublishedAt === null ? null : 1,
         activePublishedAt,
-        pendingPublication: false,
+        publicationState: "up-to-date",
       });
     }
     if (init?.method && init.method !== "GET") return ok(post());

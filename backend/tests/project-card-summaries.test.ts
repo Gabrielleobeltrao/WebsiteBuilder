@@ -81,7 +81,7 @@ const summaryOf = async (projectId: string) => {
   const list = (await request(app).get(base)).body.data as Array<{ id: string; summary?: unknown }>;
   return list.find((row) => row.id === projectId)?.summary as
     | {
-        hasPendingChanges: boolean;
+        publicationState: string;
         knownBlockers: string[];
         traffic: { state: string; views?: number; visitors?: number | null; days?: number };
       }
@@ -94,21 +94,23 @@ describe("pending changes", () => {
 
     // The same answer the site's own status endpoint gives: nothing is live, so everything saved is
     // waiting. The card's wording distinguishes that from "behind the live site"; the fact does not.
-    expect(await summaryOf(project.id)).toMatchObject({ hasPendingChanges: true });
+    expect(await summaryOf(project.id)).toMatchObject({ publicationState: "pending" });
   });
 
   it("reports edits made since the live version was compiled", async () => {
     const project = await createProject("Acme");
     await publish(project.id, project.revision - 1);
 
-    expect(await summaryOf(project.id)).toMatchObject({ hasPendingChanges: true });
+    expect(await summaryOf(project.id)).toMatchObject({ publicationState: "pending" });
   });
 
-  it("reports nothing pending when the live version is the current draft", async () => {
+  it("cannot claim a snapshot published before change tracking is up to date", async () => {
     const project = await createProject("Acme");
     await publish(project.id, project.revision);
 
-    expect(await summaryOf(project.id)).toMatchObject({ hasPendingChanges: false });
+    // `publish` here writes a version with no source fingerprint, exactly like every version stored
+    // before they existed. The revision matches, and that proves nothing about the blog.
+    expect(await summaryOf(project.id)).toMatchObject({ publicationState: "unknown" });
   });
 });
 

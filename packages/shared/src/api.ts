@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { PublicationState } from "./publishing";
+
 /**
  * Error codes are stable, language-neutral and part of the API contract. The frontend maps them to
  * locale resources; backend messages exist for logs and developers, never for end users.
@@ -109,8 +111,14 @@ export const PROJECT_CARD_BLOCKERS = ["no-address", "blog-setup"] as const;
 export type ProjectCardBlocker = (typeof PROJECT_CARD_BLOCKERS)[number];
 
 export type ProjectCardSummary = {
-  /** Edits saved since the live version was compiled. False for a site that was never published. */
-  hasPendingChanges: boolean;
+  /**
+   * Whether a visitor has the work that is saved.
+   *
+   * `unknown` belongs to a site whose live version predates source fingerprints: its revision
+   * describes the builder document alone, so a post or a layout could have moved since with nothing
+   * to compare against. The card says so rather than claiming the site is up to date.
+   */
+  publicationState: PublicationState;
   /**
    * Known blockers only, and named so.
    *

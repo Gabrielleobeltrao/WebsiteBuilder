@@ -199,7 +199,7 @@ describe("finding a site from the list", () => {
       ok([
         summary({
           isPublished: true,
-          summary: { hasPendingChanges: false, knownBlockers: ["no-address"], traffic: { state: "measured", days: 30, views: 0, visitors: null } },
+          summary: { publicationState: "up-to-date", knownBlockers: ["no-address"], traffic: { state: "measured", days: 30, views: 0, visitors: null } },
         }),
       ]),
     );
@@ -264,7 +264,7 @@ describe("the card's disclosure", () => {
       isPublished: true,
       liveUrl: "https://acme-studio.example.com",
       summary: {
-        hasPendingChanges: true,
+        publicationState: "pending",
         knownBlockers: [],
         traffic: { state: "measured", days: 30, views: 120, visitors: 45 },
         ...overrides,
@@ -318,7 +318,7 @@ describe("the card's disclosure", () => {
 
   it("says nothing was measured at all on a site that was never published", async () => {
     mockFetch(() =>
-      ok([summary({ summary: { hasPendingChanges: false, knownBlockers: [], traffic: { state: "unavailable" } } })]),
+      ok([summary({ summary: { publicationState: "up-to-date", knownBlockers: [], traffic: { state: "unavailable" } } })]),
     );
     renderWithProviders(<SitesPage workspaceId="w1" />);
     const user = userEvent.setup();
@@ -363,7 +363,7 @@ describe("the card's disclosure", () => {
 describe("unpublished work on a card", () => {
   it("says everything is waiting when the site has never been published", async () => {
     mockFetch(() =>
-      ok([summary({ summary: { hasPendingChanges: true, knownBlockers: [], traffic: { state: "unavailable" } } })]),
+      ok([summary({ summary: { publicationState: "pending", knownBlockers: [], traffic: { state: "unavailable" } } })]),
     );
     renderWithProviders(<SitesPage workspaceId="w1" />);
     const user = userEvent.setup();
@@ -379,7 +379,7 @@ describe("unpublished work on a card", () => {
         summary({
           isPublished: true,
           summary: {
-            hasPendingChanges: true,
+            publicationState: "pending",
             knownBlockers: [],
             traffic: { state: "measured", days: 30, views: 1, visitors: null },
           },

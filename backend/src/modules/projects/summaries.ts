@@ -9,7 +9,7 @@ import { ANALYTICS_COLLECTIONS, utcDay } from "../analytics/repository";
 import { BLOG_COLLECTIONS } from "../blog/repository";
 import { sourceFingerprintFrom } from "../publishing/fingerprint";
 import { PUBLISHING_COLLECTIONS } from "../publishing/repository";
-import { pendingPublicationFor } from "./routes";
+import { publicationStateFor } from "./routes";
 import type { WorkspaceContext } from "./repository";
 
 /**
@@ -77,10 +77,9 @@ export async function attachCardSummaries(
           .toArray(),
     db
       .collection(BLOG_COLLECTIONS.settings)
-      .find(
-        { ...scope, projectId: { $in: ids } },
-        { projection: { projectId: 1, enabled: 1, format: 1, basePath: 1 } },
-      )
+      // Every setting, because every one of them is frozen into a snapshot and changing any is
+      // work a visitor has not received.
+      .find({ ...scope, projectId: { $in: ids } })
       .toArray(),
     // A blog that is on but whose layouts were never published serves its routes with nothing in
     // them. It is the blocker customers actually hit, and it costs one grouped query to know.
@@ -171,7 +170,7 @@ export async function attachCardSummaries(
        * query grouped over the whole page, so the answer costs no more for two hundred cards than
        * for one.
        */
-      hasPendingChanges: pendingPublicationFor({
+      publicationState: publicationStateFor({
         projectRevision: project.revision,
         active,
         currentFingerprint: sourceFingerprintFrom({

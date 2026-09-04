@@ -33,6 +33,7 @@ import { startTestDatabase, type TestDatabase } from "./mongo";
 
 const WORKSPACE = "workspace-a";
 const A: WorkspaceContext = { workspaceId: WORKSPACE, userId: "user-a" };
+const B: WorkspaceContext = { workspaceId: "workspace-b", userId: "user-b" };
 
 let database: TestDatabase;
 let projects: ProjectRepository;
@@ -158,19 +159,19 @@ beforeEach(async () => {
 });
 
 /** Both surfaces, asked at the same moment. They must never disagree. */
-async function pendingEverywhere(projectId: string): Promise<{ status: boolean; card: boolean }> {
+async function pendingEverywhere(projectId: string): Promise<{ status: string; card: string }> {
   const status = await request(app).get(`/api/v1/workspaces/${WORKSPACE}/projects/${projectId}/status`);
   expect(status.status).toBe(200);
 
   const list = await request(app).get(`/api/v1/workspaces/${WORKSPACE}/projects`);
-  const card = (list.body.data as Array<{ id: string; summary: { hasPendingChanges: boolean } }>).find(
+  const card = (list.body.data as Array<{ id: string; summary: { publicationState: string } }>).find(
     (row) => row.id === projectId,
   );
 
-  return { status: status.body.data.pendingPublication as boolean, card: card!.summary.hasPendingChanges };
+  return { status: status.body.data.publicationState as string, card: card!.summary.publicationState };
 }
 
-const bothSay = async (projectId: string, expected: boolean) => {
+const bothSay = async (projectId: string, expected: "up-to-date" | "pending" | "unknown") => {
   const answers = await pendingEverywhere(projectId);
   expect(answers, JSON.stringify(answers)).toEqual({ status: expected, card: expected });
 };
@@ -205,12 +206,12 @@ describe("a site just published", () => {
     const project = await publishableSite();
     await publishSite(project.id);
 
-    await bothSay(project.id, false);
+    await bothSay(project.id, "up-to-date");
   });
 
   it("has everything pending before its first publication", async () => {
     const project = await publishableSite();
-    await bothSay(project.id, true);
+    await bothSay(project.id, "pending");
   });
 });
 
@@ -224,7 +225,7 @@ describe("a change in one source", () => {
     document.seo.siteName = "Renamed";
     await projects.saveDocument(A, project.id, revision, document as never);
 
-    await bothSay(project.id, true);
+    await bothSay(project.id, "pending");
   });
 
   it("counts a post written after the site was published", async () => {
@@ -234,7 +235,7 @@ describe("a change in one source", () => {
     // The reported failure: the project's revision has not moved, and it never will for a post.
     await blog.create(A, project.id, post() as never);
 
-    await bothSay(project.id, true);
+    await bothSay(project.id, "pending");
   });
 
   it("counts an edit to an already published post", async () => {
@@ -244,7 +245,7 @@ describe("a change in one source", () => {
 
     await blog.update(A, project.id, written.id, post({ title: "Rewritten" }) as never);
 
-    await bothSay(project.id, true);
+    await bothSay(project.id, "pending");
   });
 
   it("counts a post being taken off the site", async () => {
@@ -254,7 +255,7 @@ describe("a change in one source", () => {
 
     await blog.setStatus(A, project.id, written.id, "draft");
 
-    await bothSay(project.id, true);
+    await bothSay(project.id, "pending");
   });
 
   it("counts a post being deleted, which stamps nothing anywhere", async () => {
@@ -264,7 +265,7 @@ describe("a change in one source", () => {
 
     await blog.delete(A, project.id, written.id);
 
-    await bothSay(project.id, true);
+    await bothSay(project.id, "pending");
   });
 
   it("counts a layout being published, which changes every article at once", async () => {
@@ -281,7 +282,7 @@ describe("a change in one source", () => {
     );
     await templates.publish(A, project.id, "article", []);
 
-    await bothSay(project.id, true);
+    await bothSay(project.id, "pending");
   });
 
   it("counts the blog's own settings changing", async () => {
@@ -290,7 +291,7 @@ describe("a change in one source", () => {
 
     await blog.saveSettings(A, project.id, { ...DEFAULT_BLOG_SETTINGS, enabled: true, format: "magazine" });
 
-    await bothSay(project.id, true);
+    await bothSay(project.id, "pending");
   });
 
   it("does not count a draft post, which no publication would include", async () => {
@@ -299,7 +300,7 @@ describe("a change in one source", () => {
 
     await blog.create(A, project.id, post({ status: "draft", slug: "not-finished" }) as never);
 
-    await bothSay(project.id, false);
+    await bothSay(project.id, "up-to-date");
   });
 
   it("does not count a layout draft nobody published", async () => {
@@ -315,7 +316,99 @@ describe("a change in one source", () => {
       article.draftVersion,
     );
 
-    await bothSay(project.id, false);
+    await bothSay(project.id, "up-to-date");
+  });
+});
+
+describe("every setting a snapshot freezes", () => {
+  /*
+   * All seven of them, one at a time.
+   *
+   * Three used to be read, so changing how many posts a page shows, or the byline a post carries,
+   * changed what visitors receive and was reported as nothing to publish.
+   */
+  const cases: Array<[string, Partial<Parameters<typeof blog.saveSettings>[2]>]> = [
+    ["how many posts a page shows", { postsPerPage: 5 }],
+    ["where the blog lives", { basePath: "/journal" }],
+    ["how the list reads", { format: "magazine" }],
+    ["the name a post is bylined with", { defaultAuthorName: "The team" }],
+  ];
+
+  for (const [what, change] of cases) {
+    it(`counts a change to ${what}`, async () => {
+      const project = await publishableSite();
+      await publishSite(project.id);
+      await bothSay(project.id, "up-to-date");
+
+      const settings = await blog.loadSettings(A, project.id);
+      await blog.saveSettings(A, project.id, { ...settings, ...change } as never);
+
+      await bothSay(project.id, "pending");
+    });
+  }
+
+  it("counts the layout a setting points at changing", async () => {
+    const project = await publishableSite();
+    await publishSite(project.id);
+
+    const settings = await blog.loadSettings(A, project.id);
+    await blog.saveSettings(A, project.id, { ...settings, articleTemplateId: "another-template-id" } as never);
+
+    await bothSay(project.id, "pending");
+  });
+});
+
+describe("a snapshot published before change tracking", () => {
+  /** Writes a version the way every publication before source fingerprints wrote one. */
+  async function publishWithoutFingerprint(projectId: string, sourceRevision: number) {
+    await publishing.publish(A, projectId, {
+      sourceRevision,
+      schemaVersion: 1,
+      document: (await projects.findById(A, projectId))!,
+      routes: [],
+      redirects: [],
+      referencedMediaIds: [],
+      contentHash: "legacy",
+    } as never);
+  }
+
+  it("is never reported as up to date, because nothing proves it", async () => {
+    const project = await publishableSite();
+    await publishWithoutFingerprint(project.id, project.revision);
+
+    await bothSay(project.id, "unknown");
+  });
+
+  it("is reported as pending when a post changed, which its revision cannot show", async () => {
+    const project = await publishableSite();
+    await publishWithoutFingerprint(project.id, project.revision);
+    await blog.create(A, project.id, post() as never);
+
+    // Still unknown rather than up-to-date: the honest answer is that this snapshot recorded nothing
+    // to compare a post against, and one publication is what replaces the guess with a fact.
+    await bothSay(project.id, "unknown");
+  });
+
+  it("is reported as pending once the document itself moves", async () => {
+    const project = await publishableSite();
+    await publishWithoutFingerprint(project.id, project.revision);
+
+    const loaded = await projects.findById(A, project.id);
+    const { id, workspaceId, createdByUserId, revision, createdAt, updatedAt, ...document } = loaded!;
+    document.seo.siteName = "Renamed";
+    await projects.saveDocument(A, project.id, revision, document as never);
+
+    await bothSay(project.id, "pending");
+  });
+
+  it("is normalised by the first real publication", async () => {
+    const project = await publishableSite();
+    await publishWithoutFingerprint(project.id, project.revision);
+    await bothSay(project.id, "unknown");
+
+    await publishSite(project.id);
+
+    await bothSay(project.id, "up-to-date");
   });
 });
 
@@ -324,11 +417,11 @@ describe("publishing again", () => {
     const project = await publishableSite();
     await publishSite(project.id);
     await blog.create(A, project.id, post() as never);
-    await bothSay(project.id, true);
+    await bothSay(project.id, "pending");
 
     await publishSite(project.id);
 
-    await bothSay(project.id, false);
+    await bothSay(project.id, "up-to-date");
   });
 
   it("clears it even when the output turns out to be identical", async () => {
@@ -339,12 +432,12 @@ describe("publishing again", () => {
     // An edit and its exact reversal: the sources moved, the page a visitor receives did not.
     await blog.update(A, project.id, written.id, post({ title: "Rewritten" }) as never);
     await blog.update(A, project.id, written.id, post() as never);
-    await bothSay(project.id, true);
+    await bothSay(project.id, "pending");
 
     await publishSite(project.id);
 
     // The republish is a no-op for content, so it must still record that the sources now match.
-    await bothSay(project.id, false);
+    await bothSay(project.id, "up-to-date");
   });
 });
 
@@ -365,7 +458,65 @@ describe("a publication that fails", () => {
     expect((await service.publish(A, project.id)).status).toBe("blocked");
 
     expect((await publishing.findActiveForProject(project.id))?.id).toBe(live?.id);
-    await bothSay(project.id, true);
+    await bothSay(project.id, "pending");
+  });
+});
+
+/**
+ * Looking at a site must not change it.
+ *
+ * The fingerprint used `loadOrCreate`, which is the template editor's entry point and creates a
+ * starter when none exists — right when somebody opens a layout to design it, and wrong when the
+ * caller is a dashboard. Opening the status of a site with no blog wrote two template rows and made
+ * an unused module look started.
+ */
+describe("reading a site's status", () => {
+  const templateCount = () => database.db.collection("blogTemplates").countDocuments({});
+
+  it("creates no templates for a site with no blog", async () => {
+    const project = await projects.create(A, { name: "No blog here" });
+
+    expect(await templateCount()).toBe(0);
+    await request(app).get(`/api/v1/workspaces/${WORKSPACE}/projects/${project.id}/status`);
+    expect(await templateCount()).toBe(0);
+  });
+
+  it("is idempotent: asking twice writes nothing either time", async () => {
+    const project = await projects.create(A, { name: "No blog here" });
+    const before = await database.db.collection("blogTemplates").find({}).toArray();
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await request(app).get(`/api/v1/workspaces/${WORKSPACE}/projects/${project.id}/status`);
+      await request(app).get(`/api/v1/workspaces/${WORKSPACE}/projects`);
+    }
+
+    expect(await database.db.collection("blogTemplates").find({}).toArray()).toEqual(before);
+  });
+
+  it("still reads the versions of a blog that does have layouts", async () => {
+    const project = await publishableSite();
+    await publishSite(project.id);
+    const stored = await templates.findPublishedMetadata(A, project.id);
+
+    expect(stored.index.version).toBe(1);
+    expect(stored.article.version).toBe(1);
+    expect(stored.article.document).toBeDefined();
+
+    // And the state it feeds stays correct.
+    await bothSay(project.id, "up-to-date");
+  });
+
+  it("answers another workspace with absence rather than this one's layouts", async () => {
+    const project = await publishableSite();
+    await publishSite(project.id);
+
+    const theirs = await templates.findPublishedMetadata(B, project.id);
+
+    expect(theirs.index.version).toBeNull();
+    expect(theirs.article.version).toBeNull();
+    expect(theirs.article.document).toBeUndefined();
+    // Reading across a tenant boundary must not have created anything either.
+    expect(await database.db.collection("blogTemplates").countDocuments({ workspaceId: B.workspaceId })).toBe(0);
   });
 });
 

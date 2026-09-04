@@ -183,9 +183,13 @@ function SiteCard({ workspaceId, project }: { workspaceId: string; project: Proj
       ? "attention"
       : !project.isPublished
         ? "draft"
-        : summary?.hasPendingChanges === true
+        : summary?.publicationState === "pending"
           ? "pending"
-          : "live";
+          : summary?.publicationState === "unknown"
+            ? // Not "live": that word would claim the live site matches the draft, which is the one
+              // thing a version published before change tracking cannot show.
+              "unverified"
+            : "live";
 
   return (
     <li className="rounded-lg border border-ink-200 bg-white px-5 py-4">
@@ -256,9 +260,11 @@ function SiteCard({ workspaceId, project }: { workspaceId: string; project: Proj
               {t(
                 !project.isPublished
                   ? "dashboard:sites.card.pendingNeverPublished"
-                  : summary?.hasPendingChanges === true
+                  : summary?.publicationState === "pending"
                     ? "dashboard:sites.card.pendingYes"
-                    : "dashboard:sites.card.pendingNo",
+                    : summary?.publicationState === "unknown"
+                      ? "dashboard:sites.card.pendingUnknown"
+                      : "dashboard:sites.card.pendingNo",
               )}
             </dd>
           </div>
@@ -328,9 +334,15 @@ function SiteCard({ workspaceId, project }: { workspaceId: string; project: Proj
           )}
           <Link
             to={`/app/${workspaceId}/sites/${project.id}/publish`}
-            className="rounded-md border border-ink-200 px-3 py-1.5 text-ink-700 hover:bg-ink-50"
+            className={
+              summary?.publicationState === "unknown"
+                ? "rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 font-medium text-amber-900 hover:bg-amber-100"
+                : "rounded-md border border-ink-200 px-3 py-1.5 text-ink-700 hover:bg-ink-50"
+            }
           >
-            {t("publishing:publish.title")}
+            {/* One publication is what turns "cannot be shown" into an answer, so it is named for
+                that when that is the state the card is in. */}
+            {t(summary?.publicationState === "unknown" ? "dashboard:sites.card.republish" : "publishing:publish.title")}
           </Link>
         </div>
       </div>

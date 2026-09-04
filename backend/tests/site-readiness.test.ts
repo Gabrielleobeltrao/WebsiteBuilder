@@ -154,10 +154,10 @@ describe("what is waiting to be published", () => {
     const response = await statusOf(project.id);
 
     expect(response.body.data.activeSourceRevision).toBeNull();
-    expect(response.body.data.pendingPublication).toBe(true);
+    expect(response.body.data.publicationState).toBe("pending");
   });
 
-  it("says nothing is waiting right after a publish, and something is after an edit", async () => {
+  it("cannot say a snapshot published before change tracking is up to date, and says so", async () => {
     const { projectId, revision } = await projectWithBrokenBlock();
     await publishing.publish(A, projectId, {
       sourceRevision: revision,
@@ -169,12 +169,18 @@ describe("what is waiting to be published", () => {
       contentHash: "abc",
     } as never);
 
-    expect((await statusOf(projectId)).body.data.pendingPublication).toBe(false);
+    /*
+     * Published straight through the repository, the way every version written before source
+     * fingerprints existed was: there is nothing recorded to compare the blog against, so "up to
+     * date" would be a claim about posts and layouts this snapshot never described.
+     */
+    expect((await statusOf(projectId)).body.data.publicationState).toBe("unknown");
 
     const loaded = await projects.findById(A, projectId);
     const { id, workspaceId, createdByUserId, revision: current, createdAt, updatedAt, ...document } = loaded!;
     await projects.saveDocument(A, projectId, current, document as never);
 
-    expect((await statusOf(projectId)).body.data.pendingPublication).toBe(true);
+    // The revision moved, which is the one thing an old snapshot can still prove.
+    expect((await statusOf(projectId)).body.data.publicationState).toBe("pending");
   });
 });
