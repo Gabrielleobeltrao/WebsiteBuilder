@@ -62,13 +62,15 @@ beforeAll(async () => {
   blog = new BlogRepository(database.db);
   templates = new TemplateRepository(database.db);
 
-  const loadTemplates = async (context: WorkspaceContext, projectId: string) => {
-    const [index, article] = await Promise.all([
-      templates.loadOrCreate(context, projectId, "index"),
-      templates.loadOrCreate(context, projectId, "article"),
-    ]);
-    return { index, article };
-  };
+  /*
+   * Read-only, exactly as the server wires it.
+   *
+   * The harness used `loadOrCreate` here, which is the template editor's entry point: it creates a
+   * starter when none exists. Mirroring production matters more than convenience — a harness that
+   * writes where the server reads cannot detect the very thing these tests are about.
+   */
+  const loadTemplates = (context: WorkspaceContext, projectId: string) =>
+    templates.findPublishedMetadata(context, projectId);
 
   service = new PublishingService({
     projects,
@@ -76,21 +78,21 @@ beforeAll(async () => {
     blog,
     media: new MediaRepository(database.db, createGridFsStorage(database.db)),
     loadBlogTemplates: async (context, projectId) => {
-      const { index, article } = await loadTemplates(context, projectId);
+      const layouts = await loadTemplates(context, projectId);
       return {
-        ...(index.publishedDocument === undefined ? {} : { index: index.publishedDocument }),
-        ...(article.publishedDocument === undefined ? {} : { article: article.publishedDocument }),
+        ...(layouts.index.document === undefined ? {} : { index: layouts.index.document }),
+        ...(layouts.article.document === undefined ? {} : { article: layouts.article.document }),
         publishedVersions: {
-          ...(index.publishedVersion === undefined ? {} : { index: index.publishedVersion }),
-          ...(article.publishedVersion === undefined ? {} : { article: article.publishedVersion }),
+          ...(layouts.index.version === null ? {} : { index: layouts.index.version }),
+          ...(layouts.article.version === null ? {} : { article: layouts.article.version }),
         },
       };
     },
     collectModuleFacts: async ({ workspaceId, projectId }) => {
       const context = { workspaceId, userId: "" };
       const settings = await blog.loadSettings(context, projectId);
-      const { index, article } = await loadTemplates(context, projectId);
-      const missing = [index, article].filter((template) => template.publishedDocument === undefined).length;
+      const layouts = await loadTemplates(context, projectId);
+      const missing = [layouts.index, layouts.article].filter((layout) => layout.document === undefined).length;
       return {
         blog: {
           hasRecords: (await blog.list(context, projectId, { perPage: 1 })).total > 0,
@@ -126,7 +128,7 @@ beforeAll(async () => {
             const project = await projects.findById(context, projectId);
             if (project === null) return null;
 
-            const [settings, published, { index, article }] = await Promise.all([
+            const [settings, published, layouts] = await Promise.all([
               blog.loadSettings(context, projectId),
               blog.list(context, projectId, { status: "published", perPage: 1 }),
               loadTemplates(context, projectId),
@@ -137,8 +139,8 @@ beforeAll(async () => {
               settings,
               publishablePostCount: published.total,
               latestPostChangeAt: published.items[0]?.updatedAt ?? null,
-              indexTemplateVersion: index.publishedVersion ?? null,
-              articleTemplateVersion: article.publishedVersion ?? null,
+              indexTemplateVersion: layouts.index.version,
+              articleTemplateVersion: layouts.article.version,
             });
           },
         }),
@@ -498,8 +500,16 @@ describe("reading a site's status", () => {
     await publishSite(project.id);
     const stored = await templates.findPublishedMetadata(A, project.id);
 
-    expect(stored.index.version).toBe(1);
-    expect(stored.article.version).toBe(1);
+    // Publishing stamps the draft's own version, and `publishableSite` saves a draft before
+    // publishing it — so the number to expect is the one the layout was published at, read from the
+    // layout itself rather than assumed.
+    const [index, article] = await Promise.all([
+      templates.loadOrCreate(A, project.id, "index"),
+      templates.loadOrCreate(A, project.id, "article"),
+    ]);
+    expect(stored.index.version).toBe(index.publishedVersion);
+    expect(stored.article.version).toBe(article.publishedVersion);
+    expect(stored.index.version).not.toBeNull();
     expect(stored.article.document).toBeDefined();
 
     // And the state it feeds stays correct.

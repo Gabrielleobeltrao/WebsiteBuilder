@@ -425,7 +425,8 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   `ENV API_PORT=3000` / `ENV PUBLIC_RENDERER_PORT=3001` so EXPOSE, the health check, the compose file and
   the gateway cannot drift; `dev-ports.test.ts` holds all six places and proves an override reaches both
   the service and the origins that follow it. Commits: 4192b8c, 47fea6f, 9e00fab on `development`.
-  VALIDATION IS INCOMPLETE AND NOTHING HERE CLAIMS OTHERWISE. What ran: `git diff --check` clean,
+  VALIDATION COMPLETED LATER, AND THE NUMBERS ARE BELOW. First pass, on a machine that could not start
+  the suites, what ran was: `git diff --check` clean,
   `check:plan-skill` 0, `check:runbook` 0, `packages/shared` typecheck exit 0, `dev-ports.test.ts` 10/10,
   `publication.test.ts` + `publishing.test.ts` 58/58, and then the whole `packages/shared` suite — 43
   files, 716 tests, all passing, which covers `publicationSourceFingerprint` itself. What could not run: typecheck of `backend` and
@@ -456,6 +457,20 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   another angle. Root cause of the wider slowness, now fixed: vitest defaulted to one worker per core —
   eight Node processes, most of them starting their own `mongod` or jsdom — which starved each other;
   both workspaces are capped at four. The same test file went from no output in ten minutes to 266 ms.
+2026-09-04 | review | Every gate finally executed, and one real defect found by doing it | The suites became
+  runnable once `tsc` was replaced with the TypeScript team's native port (`@typescript/native-preview`),
+  which type-checks the same sources in a fraction of the memory the Node compiler needs. All seven gates:
+  `git diff --check` clean; `check:plan-skill` 6 pass / 0 fail; `check:runbook` matches package.json;
+  typecheck of all three workspaces exit 0 (backend, frontend and shared, via the native compiler — the
+  Node `tsc` still cannot start here, and that substitution is stated rather than hidden); `npm test` exit
+  0 with 165 files and 2,427 tests — shared 43/716, backend 56/869, frontend 66/842; `npm run build` exit
+  0 in 2m13s; `npm run test:e2e` 103 passed across desktop, mobile and published-site. Running them found
+  what review had not: the new suite's own harness resolved layouts with `loadOrCreate`, so it created the
+  rows the read-only test was asserting the absence of — a harness that writes where the server reads
+  cannot detect the thing it exists to check — and one assertion expected a published version of 1 where
+  publication stamps the draft's own version, which is 2 after the fixture saves a draft. Both fixed by
+  correcting the test, not the code. The first e2e attempt timed out waiting for the API to answer within
+  180 s; a second run with the ports cleared passed, and no timeout was changed.
 ```
 
 ## 8. Decision Log
