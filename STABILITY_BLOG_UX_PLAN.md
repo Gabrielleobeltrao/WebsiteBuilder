@@ -411,6 +411,29 @@ YYYY-MM-DD HH:mm | Task | result | verification | commit SHA
   716 tests, backend 55 / 846, frontend 66 / 842 — `npm run build` 0, `npm run test:e2e` 103 passed with the
   preview server started outside Playwright. Docker is still not installed here, so no container smoke is
   claimed. P0-T3 remains `[!]`: it needs the owner's account.
+2026-09-04 | review | Three review gaps closed; validation blocked by the machine | (1) A version published
+  before `sourceFingerprint` existed recorded nothing to compare against, so the comparison fell back to
+  the project's revision — which describes the builder document alone — and a post, a layout or a blog
+  setting changed since read as "up to date". `publicationStateFor` now answers `up-to-date`, `pending`
+  or `unknown`, and the dashboard and the card both say why and offer the one action that resolves it
+  ("Publish to check"), in pt-BR and en-US. The fingerprint also read three of the blog's seven settings;
+  it reads all seven now, listed by key so a stored `_id` cannot leak into the value. (2) The fingerprint
+  reached the layouts through `loadOrCreate`, so opening the status of a site with no blog wrote two
+  template rows: `TemplateRepository.findPublishedMetadata` reads version, document and field definitions
+  in one query and leaves absence as absence, and the compile input uses it too, since preflight is a GET.
+  (3) One port contract — both workspace examples aligned on 7410/7411/7412, and the image now states
+  `ENV API_PORT=3000` / `ENV PUBLIC_RENDERER_PORT=3001` so EXPOSE, the health check, the compose file and
+  the gateway cannot drift; `dev-ports.test.ts` holds all six places and proves an override reaches both
+  the service and the origins that follow it. Commits: 4192b8c, 47fea6f, 9e00fab on `development`.
+  VALIDATION IS INCOMPLETE AND NOTHING HERE CLAIMS OTHERWISE. What ran: `git diff --check` clean,
+  `check:plan-skill` 0, `check:runbook` 0, `packages/shared` typecheck exit 0, `dev-ports.test.ts` 10/10,
+  `publication.test.ts` + `publishing.test.ts` 58/58. What could not run: typecheck of `backend` and
+  `frontend`, the frontend feature tests, every MongoDB-backed backend test, `npm test`, `npm run build`
+  and `npm run test:e2e`. The machine has ~200 MB of RAM free with swap near full; `tsc` on the backend
+  stalls in state `Ss` at 0% CPU and ~650 KB RSS, before it finishes loading, and a 420 MB heap cap did
+  not change it. Root cause of the wider slowness, now fixed: vitest defaulted to one worker per core —
+  eight Node processes, most of them starting their own `mongod` or jsdom — which starved each other;
+  both workspaces are capped at four. The same test file went from no output in ten minutes to 266 ms.
 ```
 
 ## 8. Decision Log
